@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom'
-import type { ChatMessage, NavFn, Panel, ProjectData, Screen } from './types'
-import { PANELS } from './types'
-import { DEMO_MODE, getProject, getToken } from './api'
+import type { ChatMessage, NavFn, Panel, Preferences, ProjectData, Screen } from './types'
+import { DEFAULT_PREFERENCES, PANELS } from './types'
+import { DEMO_MODE, getMe, getProject, getToken } from './api'
 import { StudioContext, type StudioContextValue } from './studio'
 import Landing from './screens/Landing'
 import Login from './screens/Login'
@@ -11,7 +11,10 @@ import Director from './screens/Director'
 import Generation from './screens/Generation'
 import Teaser from './screens/Teaser'
 import ExportScreen from './screens/Export'
-import { WORKFLOW, isStageUnlocked } from './components/Sidebar'
+import WorkspaceShell from './components/WorkspaceShell'
+import ProjectsPage from './screens/Projects'
+import AssetsPage from './screens/Assets'
+import SettingsPage from './screens/Settings'
 import { initialMessages } from './panels/Chat'
 
 export const SCREEN_PATHS: Record<Screen, string> = {
@@ -51,8 +54,6 @@ function DirectorRoute({ studio, replyDelay }: { studio: StudioState; replyDelay
   const panel = (param ?? 'chat') as Panel
 
   if (!PANELS.includes(panel)) return <Navigate to="/director" replace />
-  const stage = WORKFLOW.find(w => w.id === panel)?.stage ?? -1
-  if (!isStageUnlocked(stage, studio.progress)) return <Navigate to="/director" replace />
 
   const setPanel = (p: Panel) => nav(p === 'chat' ? '/director' : `/director/${p}`)
 
@@ -100,24 +101,45 @@ function Screens({ replyDelay, generationStepMs }: AppProps) {
   const [genres, setGenres] = useState<string[]>([])
   const [project, setProjectState] = useState<ProjectData | null>(null)
   const [restoring, setRestoring] = useState(() => !DEMO_MODE && !!getToken() && !!readProjectId())
+  const [preferences, setPreferences] = useState<Preferences>(DEFAULT_PREFERENCES)
+  const signedIn = !!getToken()
+
+  // Load the creator's saved defaults (Settings) once signed in.
+  useEffect(() => {
+    if (!signedIn) return
+    getMe().then(me => setPreferences(me.preferences)).catch(() => undefined)
+  }, [signedIn])
 
   const setProject = useCallback((p: ProjectData | null) => {
     setProjectState(p)
     writeProjectId(p?.id ?? null)
   }, [])
 
+  const openProject = useCallback((p: ProjectData) => {
+    setProject(p)
+    setProgress(p.memory ? PLANNED_PROGRESS : 0)
+    setMessages(() => [
+      ...initialMessages(),
+      ...(p.memory
+        ? [{ id: `opened-${p.id}`, role: 'ai' as const, content: `"${p.title}" is open — pick any stage on the left, or generate the teaser.`, card: 'generate' as const }]
+        : []),
+    ])
+  }, [setProject])
+
+  const newFilm = useCallback(() => {
+    setProgress(0)
+    setMessages(initialMessages())
+    setProject(null)
+  }, [setProject])
+
   // Live mode: reopen the last project after a reload (state otherwise lives in memory).
   useEffect(() => {
     if (!restoring) return
     getProject(readProjectId()!)
-      .then(p => {
-        setProject(p)
-        if (p.memory) setProgress(PLANNED_PROGRESS)
-        if (p.memory) setMessages(m => (m.length > 1 ? m : [...m, { id: 'restored', role: 'ai', content: `Welcome back. "${p.title}" is open — pick any stage on the left, or generate the teaser.`, card: 'generate' }]))
-      })
+      .then(openProject)
       .catch(() => writeProjectId(null))
       .finally(() => setRestoring(false))
-  }, [restoring, setProject])
+  }, [restoring, openProject])
 
   const studioCtx = useMemo<StudioContextValue>(() => ({
     project,
@@ -128,7 +150,11 @@ function Screens({ replyDelay, generationStepMs }: AppProps) {
       setProject(fresh)
       return fresh
     },
-  }), [project, setProject])
+    openProject,
+    newFilm,
+    preferences,
+    setPreferences,
+  }), [project, setProject, openProject, newFilm, preferences])
 
   const studio: StudioState = {
     progress,
@@ -137,7 +163,7 @@ function Screens({ replyDelay, generationStepMs }: AppProps) {
     setMessages,
     genres,
     setGenres,
-    reset: () => { setProgress(0); setMessages(initialMessages()); setProject(null) },
+    reset: newFilm,
   }
 
   return (
@@ -152,6 +178,9 @@ function Screens({ replyDelay, generationStepMs }: AppProps) {
         <Route path="/onboarding" element={<RequireAuth><Onboarding navigate={navigate} selected={genres} setSelected={setGenres} /></RequireAuth>} />
         <Route path="/director" element={<RequireAuth><DirectorRoute studio={studio} replyDelay={replyDelay} /></RequireAuth>} />
         <Route path="/director/:panel" element={<RequireAuth><DirectorRoute studio={studio} replyDelay={replyDelay} /></RequireAuth>} />
+        <Route path="/projects" element={<RequireAuth><WorkspaceShell section="projects" title="Projects" progress={progress} navigate={navigate}><ProjectsPage /></WorkspaceShell></RequireAuth>} />
+        <Route path="/assets" element={<RequireAuth><WorkspaceShell section="assets" title="Assets" progress={progress} navigate={navigate}><AssetsPage /></WorkspaceShell></RequireAuth>} />
+        <Route path="/settings" element={<RequireAuth><WorkspaceShell section="settings" title="Settings" progress={progress} navigate={navigate}><SettingsPage /></WorkspaceShell></RequireAuth>} />
         <Route path="/generation" element={<RequireAuth><Generation navigate={navigate} stepDuration={generationStepMs} /></RequireAuth>} />
         <Route path="/teaser" element={<RequireAuth><Teaser navigate={navigate} /></RequireAuth>} />
         <Route path="/export" element={<RequireAuth><ExportScreen navigate={navigate} /></RequireAuth>} />

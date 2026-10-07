@@ -77,7 +77,7 @@ function useDemoGeneration(stepDuration: number, enabled: boolean): GenState {
 
 /** Live mode: estimate cost, start the generate job, and follow its progress. */
 function useLiveGeneration(enabled: boolean, pollMs: number): GenState {
-  const { project, refreshProject } = useStudio()
+  const { project, refreshProject, preferences } = useStudio()
   const [job, setJob] = useState<Job | null>(null)
   const [confirm, setConfirm] = useState<CostEstimate | undefined>()
   const [error, setError] = useState<string | undefined>()
@@ -89,7 +89,7 @@ function useLiveGeneration(enabled: boolean, pollMs: number): GenState {
     setConfirm(undefined)
     setError(undefined)
     try {
-      const first = await startGeneration(project.id, 'draft', confirmCost)
+      const first = await startGeneration(project.id, preferences.quality, confirmCost)
       const finished = await waitForJob(first, setJob, { intervalMs: pollMs })
       assertCompleted(finished)
       await refreshProject()
@@ -97,7 +97,7 @@ function useLiveGeneration(enabled: boolean, pollMs: number): GenState {
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Generation failed.')
     }
-  }, [project, refreshProject, pollMs])
+  }, [project, refreshProject, pollMs, preferences.quality])
 
   useEffect(() => {
     if (!enabled || started.current) return
@@ -106,10 +106,10 @@ function useLiveGeneration(enabled: boolean, pollMs: number): GenState {
       setError('Start a film in the AI Director first — there is nothing to generate yet.')
       return
     }
-    estimateCost(project.id, 'draft')
+    estimateCost(project.id, preferences.quality)
       .then(est => (est.requiresConfirmation ? setConfirm(est) : run(false)))
       .catch(e => setError(e instanceof Error ? e.message : 'Could not estimate the cost.'))
-  }, [enabled, project, run])
+  }, [enabled, project, run, preferences.quality])
 
   const progress = done ? 100 : job?.progress ?? 0
   const exact = (progress / 100) * STEPS.length
@@ -252,7 +252,7 @@ export default function Generation({ navigate, stepDuration = 900, pollMs = 1500
             <p className="text-sm text-zinc-300 mb-1">
               {confirm.currency === 'USD' ? '$' : ''}{confirm.estimatedCost.toFixed(2)} · {confirm.images} images · {confirm.videoSeconds}s of video · {confirm.voiceLines} voice lines
             </p>
-            <p className="text-xs text-zinc-600 mb-4">Draft quality. You can regenerate single shots later without paying for the whole teaser again.</p>
+            <p className="text-xs text-zinc-600 mb-4">{confirm.quality === 'final' ? 'Final' : 'Draft'} quality. You can regenerate single shots later without paying for the whole teaser again.</p>
             <button onClick={start} className="px-5 py-2 rounded-lg text-xs font-semibold" style={{ backgroundColor: '#d4a84b', color: '#09090b' }}>
               Generate for ${confirm.estimatedCost.toFixed(2)}
             </button>

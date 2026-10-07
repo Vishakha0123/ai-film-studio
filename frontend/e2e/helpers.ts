@@ -25,7 +25,7 @@ export async function signIn(page: Page) {
 
 export const STAGES = ['story', 'characters', 'screenplay', 'dialogue', 'lyrics', 'scenes', 'storyboard', 'audio'] as const
 
-/** Drives the AI Director chat until every workflow stage is unlocked. */
+/** Drives the AI Director chat through every workflow stage. */
 export async function runDirector(page: Page, opts: { openMenu?: () => Promise<void> } = {}) {
   for (const stage of STAGES) {
     if (!(await page.getByTestId('panel-chat').isVisible().catch(() => false))) {

@@ -7,9 +7,10 @@ from sqlalchemy.orm import Session
 from app.auth import CurrentUser, get_current_user
 from app.config import Settings, get_settings
 from app.db import get_db
-from app.models import AIJob, Asset, Project, WorkflowStep
-from app.schemas import (ApproveRequest, AssetOut, Brief, CostEstimate, EditRequest, FilmProject, GenerateRequest,
-                         JobOut, Me, PlanRequest, ProjectCreate, ProjectOut, ProjectSummary, RenderRequest)
+from app.models import AIJob, Asset, Project, User, WorkflowStep
+from app.schemas import (ApproveRequest, AssetListItem, AssetOut, Brief, CostEstimate, EditRequest, FilmProject,
+                         GenerateRequest, JobOut, Me, PlanRequest, Preferences, ProjectCreate, ProjectOut, ProjectSummary,
+                         ProjectUpdate, RenderRequest)
 from app.services.jobs import create_job
 from app.services.pipeline import estimate
 
@@ -60,9 +61,23 @@ def _project_out(project: Project) -> ProjectOut:
     )
 
 
+def _me(db: Session, user: CurrentUser) -> Me:
+    row = db.get(User, user.id)
+    prefs = Preferences.model_validate((row.profile or {}).get("preferences", {})) if row else Preferences()
+    return Me(id=user.id, email=user.email, preferences=prefs)
+
+
 @router.get("/me", response_model=Me)
-def me(user: CurrentUser = Depends(get_current_user)):
-    return Me(id=user.id, email=user.email)
+def me(db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
+    return _me(db, user)
+
+
+@router.patch("/me", response_model=Me)
+def update_me(body: Preferences, db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
+    row = db.get(User, user.id)
+    row.profile = {**(row.profile or {}), "preferences": body.model_dump(by_alias=True)}
+    db.commit()
+    return _me(db, user)
 
 
 @router.post("/projects", response_model=ProjectOut, status_code=201)
@@ -79,10 +94,53 @@ def create_project(body: ProjectCreate, db: Session = Depends(get_db), user: Cur
     return _project_out(project)
 
 
+def _summary(p: Project) -> ProjectSummary:
+    ready = [a for a in p.assets if a.status in ("ready", "outdated")]
+    frames = sorted((a for a in ready if a.type == "storyboard_image"), key=lambda a: (a.ref, -a.version))
+    return ProjectSummary(id=p.id, title=p.title, genre=p.genre, status=p.status,
+                          logline=(p.memory or {}).get("logline", ""), thumbnail_url=frames[0].url if frames else None,
+                          asset_count=len(ready), created_at=p.created_at, updated_at=p.updated_at)
+
+
 @router.get("/projects", response_model=list[ProjectSummary])
 def list_projects(db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
     rows = db.scalars(select(Project).where(Project.user_id == user.id).order_by(Project.updated_at.desc())).all()
-    return [ProjectSummary.model_validate(p) for p in rows]
+    return [_summary(p) for p in rows]
+
+
+@router.patch("/projects/{project_id}", response_model=ProjectOut)
+def rename_project(project_id: str, body: ProjectUpdate, db: Session = Depends(get_db),
+                   user: CurrentUser = Depends(get_current_user)):
+    project = _own_project(db, project_id, user)
+    project.title = body.title.strip()
+    if project.memory:
+        project.memory = {**project.memory, "title": project.title}
+    db.commit()
+    db.refresh(project)
+    return _project_out(project)
+
+
+@router.delete("/projects/{project_id}", status_code=204)
+def delete_project(project_id: str, db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
+    project = _own_project(db, project_id, user)
+    db.query(AIJob).filter(AIJob.project_id == project.id).delete()
+    db.query(WorkflowStep).filter(WorkflowStep.project_id == project.id).delete()
+    db.delete(project)  # assets cascade
+    db.commit()
+
+
+@router.get("/assets", response_model=list[AssetListItem])
+def list_assets(project_id: str | None = None, type: str | None = None, db: Session = Depends(get_db),
+                user: CurrentUser = Depends(get_current_user)):
+    q = (select(Asset, Project.title).join(Project, Asset.project_id == Project.id)
+         .where(Project.user_id == user.id, Asset.status.in_(("ready", "outdated"))))
+    if project_id:
+        q = q.where(Asset.project_id == project_id)
+    if type:
+        q = q.where(Asset.type == type)
+    rows = db.execute(q.order_by(Asset.created_at.desc())).all()
+    return [AssetListItem(**AssetOut.model_validate(a).model_dump(), project_id=a.project_id, project_title=title,
+                          created_at=a.created_at) for a, title in rows]
 
 
 @router.get("/projects/{project_id}", response_model=ProjectOut)

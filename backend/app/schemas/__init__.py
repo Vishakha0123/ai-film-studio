@@ -1,10 +1,14 @@
 """Typed request/response schemas. JSON uses camelCase to match the frontend types."""
 
-from datetime import datetime
-from typing import Literal
+from datetime import datetime, timezone
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
+
+
+# SQLite drops timezone info; every stored timestamp is UTC, so make that explicit in the API.
+UTCDateTime = Annotated[datetime, AfterValidator(lambda d: d if d.tzinfo else d.replace(tzinfo=timezone.utc))]
 
 
 class Schema(BaseModel):
@@ -143,8 +147,8 @@ class ProjectOut(Schema):
     brief: dict
     memory: FilmProject | None
     assets: list[AssetOut] = []
-    created_at: datetime
-    updated_at: datetime
+    created_at: UTCDateTime
+    updated_at: UTCDateTime
 
 
 class ProjectSummary(Schema):
@@ -152,7 +156,21 @@ class ProjectSummary(Schema):
     title: str
     genre: str
     status: str
-    updated_at: datetime
+    logline: str = ""
+    thumbnail_url: str | None = None
+    asset_count: int = 0
+    created_at: UTCDateTime
+    updated_at: UTCDateTime
+
+
+class ProjectUpdate(Schema):
+    title: str = Field(min_length=1, max_length=300)
+
+
+class AssetListItem(AssetOut):
+    project_id: str
+    project_title: str
+    created_at: UTCDateTime
 
 
 class JobOut(Schema):
@@ -165,8 +183,8 @@ class JobOut(Schema):
     result: dict
     cost: float
     error: str
-    created_at: datetime
-    updated_at: datetime
+    created_at: UTCDateTime
+    updated_at: UTCDateTime
 
 
 class CostEstimate(Schema):
@@ -179,6 +197,16 @@ class CostEstimate(Schema):
     requires_confirmation: bool
 
 
+class Preferences(Schema):
+    """Creator defaults used for new projects."""
+    display_name: str = Field(default="", max_length=120)
+    language: str = Field(default="en", max_length=10)
+    teaser_seconds: int = Field(default=30, ge=5, le=60)
+    aspect_ratio: Literal["16:9", "9:16", "1:1"] = "16:9"
+    quality: Literal["draft", "final"] = "draft"
+
+
 class Me(Schema):
     id: str
     email: str
+    preferences: Preferences = Preferences()

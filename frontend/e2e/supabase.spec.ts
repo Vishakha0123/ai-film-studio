@@ -44,7 +44,7 @@ test('Supabase email sign-in → backend verifies the access token → project i
     const token = JSON.parse(localStorage.getItem(key)!).access_token
     return (await fetch(`${api}/api/v1/me`, { headers: { Authorization: `Bearer ${token}` } })).json()
   }, 'http://localhost:8011')
-  expect(me).toEqual({ id: userId, email: 'sheerap@vrutsa.in' })
+  expect(me).toMatchObject({ id: userId, email: 'sheerap@vrutsa.in' })
 
   // A forged token is rejected
   const forged = await page.evaluate(async api => (await fetch(`${api}/api/v1/projects`, { headers: { Authorization: 'Bearer dev:attacker@x.io' } })).status, 'http://localhost:8011')

@@ -147,3 +147,83 @@ export async function approveStep(id: string, step: string, approved = true): Pr
   if (DEMO_MODE) return
   await request(`/projects/${encodeURIComponent(id)}/approve`, { method: 'POST', body: JSON.stringify({ step, approved }) })
 }
+
+/* ---------- Workspace: projects, assets, account ---------- */
+
+import { API_BASE } from './client'
+import { DEFAULT_PREFERENCES, photoUrl } from '../types'
+import type { AssetListItem, Health, Me, Preferences, ProjectSummary } from '../types'
+
+const DEMO_PREFS_KEY = 'cineai.demoPreferences'
+
+function demoSummary(): ProjectSummary {
+  const now = new Date().toISOString()
+  return { id: 'demo', title: FILM_PROJECT.title, genre: FILM_PROJECT.genre, status: 'planned', logline: FILM_PROJECT.logline,
+    thumbnailUrl: photoUrl(FILM_PROJECT.shots[0], 640, 360), assetCount: FILM_PROJECT.characters.length + FILM_PROJECT.shots.length, createdAt: now, updatedAt: now }
+}
+
+export async function listProjects(): Promise<ProjectSummary[]> {
+  if (DEMO_MODE) return [demoSummary()]
+  return request<ProjectSummary[]>('/projects')
+}
+
+export async function renameProject(id: string, title: string): Promise<ProjectData> {
+  if (DEMO_MODE) return { ...demoProject(), title }
+  return request<ProjectData>(`/projects/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify({ title }) })
+}
+
+export async function deleteProject(id: string): Promise<void> {
+  if (DEMO_MODE) throw new ApiError('The sample film can’t be deleted in demo mode.', 400)
+  await request<void>(`/projects/${encodeURIComponent(id)}`, { method: 'DELETE' })
+}
+
+export async function listAssets(filter: { projectId?: string; type?: string } = {}): Promise<AssetListItem[]> {
+  if (DEMO_MODE) {
+    const now = new Date().toISOString()
+    const base = { provider: 'sample', version: 1, status: 'ready', meta: {}, projectId: 'demo', projectTitle: FILM_PROJECT.title, createdAt: now }
+    const items: AssetListItem[] = [
+      ...FILM_PROJECT.characters.map(c => ({ ...base, id: `c${c.id}`, type: 'character_image', ref: c.id, url: photoUrl(c, 400, 400), meta: { name: c.name } })),
+      ...FILM_PROJECT.shots.map(s => ({ ...base, id: `s${s.number}`, type: 'storyboard_image', ref: String(s.number), url: photoUrl(s, 640, 360) })),
+    ]
+    return items.filter(a => !filter.type || a.type === filter.type)
+  }
+  const q = new URLSearchParams()
+  if (filter.projectId) q.set('project_id', filter.projectId)
+  if (filter.type) q.set('type', filter.type)
+  return request<AssetListItem[]>(`/assets${q.toString() ? `?${q}` : ''}`)
+}
+
+export async function getMe(): Promise<Me> {
+  if (DEMO_MODE) {
+    let prefs = DEFAULT_PREFERENCES
+    try {
+      prefs = { ...DEFAULT_PREFERENCES, ...JSON.parse(localStorage.getItem(DEMO_PREFS_KEY) || '{}') }
+    } catch {
+      /* ignore */
+    }
+    return { id: 'demo', email: 'director@cinema.ai', preferences: prefs }
+  }
+  return request<Me>('/me')
+}
+
+export async function savePreferences(prefs: Preferences): Promise<Me> {
+  if (DEMO_MODE) {
+    try {
+      localStorage.setItem(DEMO_PREFS_KEY, JSON.stringify(prefs))
+    } catch {
+      /* ignore */
+    }
+    return { id: 'demo', email: 'director@cinema.ai', preferences: prefs }
+  }
+  return request<Me>('/me', { method: 'PATCH', body: JSON.stringify(prefs) })
+}
+
+export async function getHealth(): Promise<Health | null> {
+  if (DEMO_MODE) return null
+  try {
+    const res = await fetch(`${API_BASE}/health`)
+    return res.ok ? ((await res.json()) as Health) : null
+  } catch {
+    return null
+  }
+}

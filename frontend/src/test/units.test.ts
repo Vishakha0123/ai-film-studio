@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { classifyLine } from '../panels/Screenplay'
 import { formatTime } from '../panels/Music'
-import { isStageUnlocked, WORKFLOW } from '../components/Sidebar'
+import { isStageComplete, WORKFLOW } from '../components/Sidebar'
 import { PANEL_ORDER, PANEL_TITLES } from '../screens/Director'
 import { PANELS, FILM_PROJECT } from '../types'
 
@@ -34,12 +34,12 @@ describe('music time format', () => {
 })
 
 describe('workflow', () => {
-  it('Director chat is always unlocked, stages unlock with progress', () => {
-    expect(isStageUnlocked(-1, 0)).toBe(true)
-    expect(isStageUnlocked(0, 0)).toBe(false)
-    expect(isStageUnlocked(0, 1)).toBe(true)
-    expect(isStageUnlocked(7, 7)).toBe(false)
-    expect(isStageUnlocked(7, 8)).toBe(true)
+  it('stages are marked complete as the Director progresses', () => {
+    expect(isStageComplete(-1, 8)).toBe(false) // the Director chat itself is never "complete"
+    expect(isStageComplete(0, 0)).toBe(false)
+    expect(isStageComplete(0, 1)).toBe(true)
+    expect(isStageComplete(7, 7)).toBe(false)
+    expect(isStageComplete(7, 8)).toBe(true)
   })
 
   it('every panel has a sidebar entry and a title', () => {

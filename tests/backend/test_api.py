@@ -287,3 +287,51 @@ def test_render_with_video_clips_uses_ffmpeg(client, monkeypatch, tmp_path):
     probe = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height",
                             "-of", "csv=p=0", str(teaser)], capture_output=True, text=True, check=True)
     assert probe.stdout.strip() == "720,1280"
+
+
+# ---------- workspace: projects, assets, settings ----------
+
+def test_rename_and_delete_project(client):
+    pid, _ = _plan(client)
+    r = client.patch(f"/api/v1/projects/{pid}", json={"title": "Neon Monsoon"}, headers=auth()).json()
+    assert r["title"] == "Neon Monsoon" and r["memory"]["title"] == "Neon Monsoon"
+    assert client.patch(f"/api/v1/projects/{pid}", json={"title": "x"}, headers=auth("other@x.io")).status_code == 404
+    assert client.delete(f"/api/v1/projects/{pid}", headers=auth("other@x.io")).status_code == 404
+    assert client.delete(f"/api/v1/projects/{pid}", headers=auth()).status_code == 204
+    assert client.get(f"/api/v1/projects/{pid}", headers=auth()).status_code == 404
+    assert client.get("/api/v1/projects", headers=auth()).json() == []
+
+
+def test_project_list_has_thumbnail_and_counts(client):
+    pid, _ = _plan(client)
+    client.post(f"/api/v1/projects/{pid}/generate", json={}, headers=auth())
+    [summary] = client.get("/api/v1/projects", headers=auth()).json()
+    assert summary["assetCount"] == 9
+    assert summary["thumbnailUrl"].endswith("storyboard_image/1-v1.svg")
+    assert summary["logline"].startswith("A grieving composer")
+
+
+def test_list_assets_filters_and_privacy(client):
+    pid, _ = _plan(client)
+    client.post(f"/api/v1/projects/{pid}/generate", json={}, headers=auth())
+    all_assets = client.get("/api/v1/assets", headers=auth()).json()
+    assert len(all_assets) == 9 and all_assets[0]["projectTitle"] == "Echoes of the Forgotten"
+    voices = client.get("/api/v1/assets", params={"type": "voice", "project_id": pid}, headers=auth()).json()
+    assert len(voices) == 2 and all(a["type"] == "voice" for a in voices)
+    assert client.get("/api/v1/assets", headers=auth("other@x.io")).json() == []
+
+
+def test_preferences_round_trip(client):
+    me = client.get("/api/v1/me", headers=auth()).json()
+    assert me["preferences"] == {"displayName": "", "language": "en", "teaserSeconds": 30, "aspectRatio": "16:9", "quality": "draft"}
+    prefs = {"displayName": "Sheerap", "language": "ta", "teaserSeconds": 45, "aspectRatio": "9:16", "quality": "final"}
+    assert client.patch("/api/v1/me", json=prefs, headers=auth()).json()["preferences"] == prefs
+    assert client.get("/api/v1/me", headers=auth()).json()["preferences"] == prefs
+    assert client.patch("/api/v1/me", json={**prefs, "teaserSeconds": 500}, headers=auth()).status_code == 422
+
+
+def test_timestamps_are_utc(client):
+    p = client.post("/api/v1/projects", json={}, headers=auth()).json()
+    assert p["createdAt"].endswith("Z") or p["createdAt"].endswith("+00:00")
+    [s] = client.get("/api/v1/projects", headers=auth()).json()
+    assert s["updatedAt"].endswith("Z") or s["updatedAt"].endswith("+00:00")

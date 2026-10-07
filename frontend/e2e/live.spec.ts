@@ -68,3 +68,79 @@ test('full stack: login → plan with AI → generate assets → teaser → rend
 
   expect(errors).toEqual([])
 })
+
+test('full stack workspace: settings defaults → projects (open, rename, delete) → assets (regenerate)', async ({ page, request }) => {
+  const errors: string[] = []
+  page.on('pageerror', e => errors.push(e.message))
+  await preparePage(page)
+  const email = 'workspace@cinema.ai'
+  const auth = { Authorization: `Bearer dev:${email}` }
+
+  await page.goto('/login')
+  await page.getByLabel('Email address').fill(email)
+  await page.getByLabel('Password').fill('x')
+  await page.getByRole('button', { name: 'Sign In' }).click()
+  await page.getByRole('button', { name: 'Skip', exact: true }).click()
+
+  // Every stage is open; with no film yet, panels explain how to start
+  await page.getByTestId('nav-storyboard').click()
+  await expect(page.getByTestId('panel-empty')).toContainText('No film open yet')
+
+  // Settings → saved to the backend user profile
+  await page.getByTestId('nav-settings').click()
+  await expect(page.getByTestId('account-email')).toHaveText(email)
+  await expect(page.getByTestId('provider-list')).toContainText('Mock')
+  await page.getByLabel('Story & voice language').selectOption('ta')
+  await page.getByRole('button', { name: /9:16/ }).click()
+  await page.getByRole('button', { name: 'Save settings' }).click()
+  await expect(page.getByText('Saved. New films use these defaults.')).toBeVisible()
+  const me = await (await request.get(`${API}/api/v1/me`, { headers: auth })).json()
+  expect(me.preferences).toMatchObject({ language: 'ta', aspectRatio: '9:16' })
+
+  // A new film uses those defaults in its brief
+  await page.getByTestId('nav-chat').click()
+  await page.getByLabel('Message the AI Director').fill('A temple dancer in Madurai')
+  await page.keyboard.press('Enter')
+  await expect(page.getByTestId('panel-story')).toBeVisible({ timeout: 20_000 })
+  const [summary] = await (await request.get(`${API}/api/v1/projects`, { headers: auth })).json()
+  const project = await (await request.get(`${API}/api/v1/projects/${summary.id}`, { headers: auth })).json()
+  expect(project.brief).toMatchObject({ language: 'ta', aspectRatio: '9:16', prompt: 'A temple dancer in Madurai' })
+
+  // Generate assets through the API so the library has content
+  const gen = await (await request.post(`${API}/api/v1/projects/${summary.id}/generate`, { headers: auth, data: {} })).json()
+  await expect.poll(async () => (await (await request.get(`${API}/api/v1/jobs/${gen.id}`, { headers: auth })).json()).status).toBe('completed')
+
+  // Projects: thumbnail, rename, open
+  await page.getByTestId('nav-projects').click()
+  const card = page.getByTestId('project-card')
+  await expect(card).toHaveCount(1)
+  await expect(card.locator('img')).toHaveAttribute('src', /storyboard_image\/1-v1\.svg$/)
+  await expect(card).toContainText('9 assets')
+  await card.getByRole('button', { name: 'Rename' }).click()
+  await page.getByLabel('Project title').fill('Madurai Nights')
+  await page.keyboard.press('Enter')
+  await expect(card.getByRole('heading', { name: 'Madurai Nights' })).toBeVisible()
+  await card.getByRole('button', { name: 'Open', exact: true }).click()
+  await expect(page.getByTestId('panel-story')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Madurai Nights' })).toBeVisible()
+
+  // Assets: filter, regenerate a portrait → dependent frames become outdated
+  await page.getByTestId('nav-assets').click()
+  await expect(page.getByTestId('asset-card')).toHaveCount(9)
+  await page.getByRole('tab', { name: 'Portraits' }).click()
+  await expect(page.getByTestId('asset-card')).toHaveCount(3)
+  const elena = page.getByTestId('asset-card').filter({ hasText: 'Elena Vasquez' })
+  await elena.getByRole('button', { name: 'Regenerate' }).click()
+  await expect(elena).toContainText('v2', { timeout: 15_000 })
+  await page.getByRole('tab', { name: 'Storyboard' }).click()
+  await expect(page.getByText('Outdated', { exact: true })).toHaveCount(2)
+  await expect(page.getByTestId('asset-count')).toHaveText('2 ready · 2 outdated')
+
+  // Delete the project
+  await page.getByTestId('nav-projects').click()
+  await page.getByRole('button', { name: 'Delete Madurai Nights' }).click()
+  await page.getByRole('button', { name: 'Confirm delete' }).click()
+  await expect(page.getByText('No films yet')).toBeVisible()
+  expect(await (await request.get(`${API}/api/v1/projects`, { headers: auth })).json()).toEqual([])
+  expect(errors).toEqual([])
+})

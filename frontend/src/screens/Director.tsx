@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import type { Panel, NavFn, ChatMessage } from '../types'
 import Sidebar from '../components/Sidebar'
 import Chat from '../panels/Chat'
@@ -11,7 +12,8 @@ import Scenes from '../panels/Scenes'
 import Storyboard from '../panels/Storyboard'
 import Audio from '../panels/Audio'
 import Music from '../panels/Music'
-import { useFilm } from '../studio'
+import { useFilm, useStudio } from '../studio'
+import { DEMO_MODE } from '../api'
 
 export const PANEL_TITLES: Record<Panel, string> = {
   chat: 'AI Director',
@@ -45,6 +47,10 @@ interface DirectorProps {
 export default function Director({ navigate, panel, setPanel, progress, setProgress, messages, setMessages, genres, onNewFilm, replyDelay }: DirectorProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const film = useFilm()
+  const { project } = useStudio()
+  const routerNavigate = useNavigate()
+  // Live mode with no planned film yet: panels explain how to start instead of showing the sample film.
+  const needsFilm = !DEMO_MODE && !project?.memory && panel !== 'chat' && panel !== 'music'
 
   const advance = () => {
     const next = PANEL_ORDER[progress]
@@ -128,15 +134,32 @@ export default function Director({ navigate, panel, setPanel, progress, setProgr
               replyDelay={replyDelay}
             />
           )}
-          {panel === 'story' && <Story />}
-          {panel === 'characters' && <Characters />}
-          {panel === 'screenplay' && <Screenplay />}
-          {panel === 'dialogue' && <Dialogue />}
-          {panel === 'lyrics' && <Lyrics />}
-          {panel === 'scenes' && <Scenes onGenerate={handleGenerate} />}
-          {panel === 'storyboard' && <Storyboard onGenerate={handleGenerate} />}
-          {panel === 'audio' && <Audio />}
+          {needsFilm && <EmptyPanel title={PANEL_TITLES[panel]} onStart={() => setPanel('chat')} onOpenProjects={() => routerNavigate('/projects')} />}
+          {!needsFilm && panel === 'story' && <Story />}
+          {!needsFilm && panel === 'characters' && <Characters />}
+          {!needsFilm && panel === 'screenplay' && <Screenplay />}
+          {!needsFilm && panel === 'dialogue' && <Dialogue />}
+          {!needsFilm && panel === 'lyrics' && <Lyrics />}
+          {!needsFilm && panel === 'scenes' && <Scenes onGenerate={handleGenerate} />}
+          {!needsFilm && panel === 'storyboard' && <Storyboard onGenerate={handleGenerate} />}
+          {!needsFilm && panel === 'audio' && <Audio />}
           <div className={panel === 'music' ? 'h-full' : 'hidden'}><Music active={panel === 'music'} /></div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function EmptyPanel({ title, onStart, onOpenProjects }: { title: string; onStart: () => void; onOpenProjects: () => void }) {
+  return (
+    <div className="h-full flex items-center justify-center px-6" data-testid="panel-empty">
+      <div className="max-w-sm text-center animate-fade-up">
+        <p className="text-xs font-semibold tracking-widest uppercase mb-3" style={{ color: '#d4a84b' }}>{title}</p>
+        <h2 className="text-2xl font-light mb-3" style={{ fontFamily: 'Fraunces, Georgia, serif', color: '#f4f0ea' }}>No film open yet</h2>
+        <p className="text-sm text-zinc-500 mb-6">Describe your idea to the AI Director and this stage fills in automatically — or open one of your saved projects.</p>
+        <div className="flex flex-wrap justify-center gap-2">
+          <button onClick={onStart} className="px-4 py-2 rounded-lg text-xs font-semibold" style={{ backgroundColor: '#d4a84b', color: '#09090b' }}>Start in the AI Director</button>
+          <button onClick={onOpenProjects} className="px-4 py-2 rounded-lg text-xs font-medium border" style={{ borderColor: 'rgba(255,255,255,0.1)', color: '#d4d4d8' }}>Open a project</button>
         </div>
       </div>
     </div>

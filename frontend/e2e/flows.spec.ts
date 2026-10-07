@@ -25,16 +25,16 @@ test('end-to-end: idea → story → all stages → teaser → export', async ({
   await page.getByRole('button', { name: 'Continue with Horror & Thriller' }).click()
   await expect(page).toHaveURL(/\/director$/)
 
-  // Locked stages before any story exists
-  await expect(page.getByTestId('nav-story')).toHaveAttribute('aria-disabled', 'true')
+  // No locked stages
+  await expect(page.locator('[aria-disabled="true"]')).toHaveCount(0)
 
   // AI Director conversation drives every stage
   await runDirector(page)
   for (const stage of [...STAGES, 'music'] as const) {
-    await expect(page.getByTestId(`nav-${stage}`)).toHaveAttribute('aria-disabled', 'false')
+    await expect(page.getByTestId(`nav-${stage}`)).toBeEnabled()
   }
 
-  // Deep links work for unlocked panels
+  // Deep links work for every panel
   await page.getByTestId('nav-storyboard').click()
   await expect(page).toHaveURL(/\/director\/storyboard$/)
   await page.getByRole('button', { name: 'Anime' }).click()
@@ -79,9 +79,21 @@ test('auth guard redirects to login, and session persists across reload', async 
   await expect(page.getByTestId('screen-director')).toBeVisible()
 })
 
-test('locked panel deep links fall back to the Director chat', async ({ page }) => {
+test('any panel opens directly from a deep link', async ({ page }) => {
   await signIn(page)
   await page.goto('/director/screenplay')
-  await expect(page).toHaveURL(/\/director$/)
-  await expect(page.getByTestId('panel-chat')).toBeVisible()
+  await expect(page).toHaveURL(/\/director\/screenplay$/)
+  await expect(page.getByTestId('panel-screenplay')).toBeVisible()
+})
+
+test('workspace pages: projects, assets, settings', async ({ page }) => {
+  await signIn(page)
+  await page.goto('/director')
+  await page.getByTestId('nav-projects').click()
+  await expect(page).toHaveURL(/\/projects$/)
+  await expect(page.getByTestId('project-card')).toHaveCount(1)
+  await page.getByTestId('nav-assets').click()
+  await expect(page.getByTestId('asset-card')).toHaveCount(7)
+  await page.getByTestId('nav-settings').click()
+  await expect(page.getByText('Creative defaults')).toBeVisible()
 })
