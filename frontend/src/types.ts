@@ -259,3 +259,44 @@ export function filmSeconds(film: FilmProject): number {
   const total = film.shots.reduce((sum, s) => sum + (parseFloat(s.duration) || 0), 0)
   return Math.round(total * 10) / 10
 }
+
+export interface ProjectSummary {
+  id: string
+  title: string
+  genre: string
+  status: string
+  logline: string
+  thumbnailUrl: string | null
+  assetCount: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AssetListItem extends Asset {
+  projectId: string
+  projectTitle: string
+  createdAt: string
+}
+
+export interface Preferences {
+  displayName: string
+  language: string
+  teaserSeconds: number
+  aspectRatio: '16:9' | '9:16' | '1:1'
+  quality: 'draft' | 'final'
+}
+
+export const DEFAULT_PREFERENCES: Preferences = { displayName: '', language: 'en', teaserSeconds: 30, aspectRatio: '16:9', quality: 'draft' }
+
+export interface Me {
+  id: string
+  email: string
+  preferences: Preferences
+}
+
+export interface Health {
+  status: string
+  version: string
+  authMode: string
+  providers: Record<'story' | 'image' | 'video' | 'tts', string>
+}

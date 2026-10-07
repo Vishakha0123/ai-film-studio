@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { screen, within, fireEvent } from '@testing-library/react'
+import { screen, within, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { renderApp } from './renderApp'
 
@@ -58,11 +58,14 @@ describe('onboarding', () => {
 })
 
 describe('AI Director', { timeout: 15000 }, () => {
-  it('locked panels cannot be opened before the story exists', async () => {
-    renderApp('/director/story', { loggedIn: true })
-    // redirected back to chat
-    expect(screen.getByTestId('panel-chat')).toBeInTheDocument()
-    expect(screen.getByTestId('nav-story')).toHaveAttribute('aria-disabled', 'true')
+  it('every stage is open from the start — no locks', async () => {
+    renderApp('/director/screenplay', { loggedIn: true })
+    expect(screen.getByTestId('panel-screenplay')).toBeInTheDocument()
+    for (const p of ['story', 'characters', 'dialogue', 'lyrics', 'scenes', 'storyboard', 'audio', 'music']) {
+      await userEvent.click(screen.getByTestId(`nav-${p}`))
+      expect(screen.getByTestId(`panel-${p}`)).toBeInTheDocument()
+    }
+    expect(document.querySelector('[aria-disabled="true"]')).toBeNull()
   })
 
   it('chat generates a story, unlocks the Story panel and keeps chat history', async () => {
@@ -72,7 +75,6 @@ describe('AI Director', { timeout: 15000 }, () => {
     // AI moves to the Story panel automatically
     expect(await screen.findByTestId('panel-story', {}, { timeout: 2000 })).toBeInTheDocument()
     expect(screen.getByTestId('panel-title')).toHaveTextContent('Story')
-    expect(screen.getByTestId('nav-story')).toHaveAttribute('aria-disabled', 'false')
 
     await userEvent.click(screen.getByRole('button', { name: 'Accept' }))
     expect(screen.getByText('Accepted')).toBeInTheDocument()
@@ -83,16 +85,13 @@ describe('AI Director', { timeout: 15000 }, () => {
     expect(screen.getByTestId('card-story')).toBeInTheDocument()
   })
 
-  it('full director walk-through unlocks every stage', async () => {
+  it('full director walk-through completes every stage', async () => {
     renderApp('/director', { loggedIn: true })
     const panels = ['story', 'characters', 'screenplay', 'dialogue', 'lyrics', 'scenes', 'storyboard', 'audio']
     for (const p of panels) {
       if (!screen.queryByTestId('panel-chat')) await userEvent.click(screen.getByTestId('nav-chat'))
       await userEvent.type(screen.getByLabelText('Message the AI Director'), `next ${p}{Enter}`)
       expect(await screen.findByTestId(`panel-${p}`, {}, { timeout: 2000 })).toBeInTheDocument()
-    }
-    for (const p of [...panels, 'music']) {
-      expect(screen.getByTestId(`nav-${p}`)).toHaveAttribute('aria-disabled', 'false')
     }
     await userEvent.click(screen.getByTestId('nav-music'))
     expect(screen.getByTestId('panel-music')).toBeVisible()
@@ -163,5 +162,57 @@ describe('generation → teaser → export', { timeout: 15000 }, () => {
     expect(screen.getByText('Exporting…')).toBeInTheDocument()
     expect(await screen.findByText('Your Teaser Is Ready.', {}, { timeout: 4000 })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Download MP4/ })).toBeInTheDocument()
+  })
+})
+
+describe('workspace pages (demo mode)', { timeout: 15000 }, () => {
+  it('sidebar links open Projects, Assets and Settings', async () => {
+    renderApp('/director', { loggedIn: true })
+    await userEvent.click(screen.getByTestId('nav-projects'))
+    expect(screen.getByTestId('screen-projects')).toBeInTheDocument()
+    expect(screen.getByTestId('nav-projects')).toHaveAttribute('aria-current', 'page')
+    await userEvent.click(screen.getByTestId('nav-assets'))
+    expect(screen.getByTestId('screen-assets')).toBeInTheDocument()
+    await userEvent.click(screen.getByTestId('nav-settings'))
+    expect(screen.getByTestId('screen-settings')).toBeInTheDocument()
+    await userEvent.click(screen.getByTestId('nav-storyboard'))
+    expect(screen.getByTestId('panel-storyboard')).toBeInTheDocument()
+  })
+
+  it('projects page lists, searches, renames and opens the sample film', async () => {
+    renderApp('/projects', { loggedIn: true })
+    expect(await screen.findAllByTestId('project-card')).toHaveLength(1)
+    await userEvent.type(screen.getByLabelText('Search projects'), 'nothing matches')
+    expect(screen.queryAllByTestId('project-card')).toHaveLength(0)
+    await userEvent.clear(screen.getByLabelText('Search projects'))
+    await userEvent.click(screen.getByRole('button', { name: 'Rename' }))
+    const input = screen.getByLabelText('Project title')
+    await userEvent.clear(input)
+    await userEvent.type(input, 'Silent Symphony{Enter}')
+    expect(await screen.findByRole('heading', { name: 'Silent Symphony' })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Open' }))
+    expect(await screen.findByTestId('panel-story')).toBeInTheDocument()
+  })
+
+  it('assets page filters by type', async () => {
+    renderApp('/assets', { loggedIn: true })
+    expect(await screen.findAllByTestId('asset-card')).toHaveLength(7)
+    await userEvent.click(screen.getByRole('tab', { name: 'Portraits' }))
+    await waitFor(() => expect(screen.getAllByTestId('asset-card')).toHaveLength(3))
+    await userEvent.click(screen.getByRole('tab', { name: 'Video' }))
+    expect(await screen.findByText('Nothing here yet')).toBeInTheDocument()
+  })
+
+  it('settings saves creative defaults and signs out', async () => {
+    renderApp('/settings', { loggedIn: true })
+    expect(await screen.findByTestId('account-email')).toHaveTextContent('director@cinema.ai')
+    await userEvent.selectOptions(screen.getByLabelText('Story & voice language'), 'ta')
+    fireEvent.change(screen.getByLabelText('Teaser length'), { target: { value: '45' } })
+    await userEvent.click(screen.getByRole('button', { name: /9:16/ }))
+    await userEvent.click(screen.getByRole('button', { name: 'Save settings' }))
+    expect(await screen.findByText('Saved. New films use these defaults.')).toBeInTheDocument()
+    expect(JSON.parse(localStorage.getItem('cineai.demoPreferences')!)).toMatchObject({ language: 'ta', teaserSeconds: 45, aspectRatio: '9:16' })
+    await userEvent.click(screen.getByRole('button', { name: 'Sign out' }))
+    expect(screen.getByTestId('screen-login')).toBeInTheDocument()
   })
 })

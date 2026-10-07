@@ -190,7 +190,7 @@ async def _character_image(db, job, project, char: dict, size: str) -> Asset:
     res = await with_retry(lambda: image_provider().generate_image(prompt, size="1024x1024"), job, db)
     record_usage(db, job, res)
     return await store_asset(db, project, "character_image", char["id"], res, data=res.data, ext=_image_ext(res.data),
-                             meta={"prompt": prompt})
+                             meta={"prompt": prompt, "name": char["name"]})
 
 
 async def _storyboard_image(db, job, project, shot: dict, size: str) -> Asset:

@@ -90,6 +90,7 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
     if (res.status === 401) setToken(null)
     throw new ApiError(typeof detail === 'string' ? detail : 'Request failed', res.status)
   }
+  if (res.status === 204) return undefined as T
   return (await res.json()) as T
 }
 

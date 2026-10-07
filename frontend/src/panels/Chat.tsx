@@ -87,7 +87,7 @@ export default function Chat({ progress, onAdvance, onGenerate, onOpenPanel, gen
   const [input, setInput] = useState('')
   const [isTyping, setIsTyping] = useState(false)
   const [status, setStatus] = useState('')
-  const { setProject } = useStudio()
+  const { setProject, preferences } = useStudio()
   const film = useFilm()
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -113,8 +113,8 @@ export default function Chat({ progress, onAdvance, onGenerate, onOpenPanel, gen
       !DEMO_MODE && progress === 0
         ? (async () => {
             setStatus('Creating your project')
-            const created = await createProject(genres ?? [])
-            await saveBrief(created.id, { prompt: text, genres })
+            const created = await createProject(genres ?? [], preferences.language)
+            await saveBrief(created.id, { prompt: text, genres, language: preferences.language, teaserSeconds: preferences.teaserSeconds, aspectRatio: preferences.aspectRatio })
             const job = await waitForJob(await planProject(created.id), j => setStatus(j.stage || 'Queued'))
             assertCompleted(job)
             const fresh = await getProject(created.id)

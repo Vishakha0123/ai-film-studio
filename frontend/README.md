@@ -31,12 +31,16 @@ render job. The current project reopens after a page reload.
 | `/onboarding` | Genre selection |
 | `/director` | AI Director chat |
 | `/director/:panel` | `story` · `characters` · `screenplay` · `dialogue` · `lyrics` · `scenes` · `storyboard` · `audio` · `music` |
+| `/projects` | All your films — search, open, rename, delete |
+| `/assets` | Asset library — portraits, frames, clips, voice, teasers; filter, regenerate, download |
+| `/settings` | Account, sign out, creative defaults (language, length, aspect, quality), provider status |
 | `/generation` | Teaser generation progress |
 | `/teaser` | Teaser player + versions + edit prompt |
 | `/export` | Format / quality export |
 
-Screens after `/login` require a session (token in `localStorage`). Workflow panels unlock
-as the AI Director progresses; locked deep links fall back to `/director`.
+Screens after `/login` require a session. Every Director stage is open at any time; stages the
+AI Director has completed show a check. In live mode, stages without a film yet show a prompt to
+start in the AI Director or open a saved project.
 
 ## Structure
 

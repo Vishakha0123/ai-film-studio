@@ -23,7 +23,8 @@ const DownloadIcon = ({ className, stroke = 'currentColor', strokeWidth = 2 }: {
 )
 
 export default function ExportScreen({ navigate }: { navigate: NavFn }) {
-  const [selectedFormat, setSelectedFormat] = useState('16:9')
+  const { preferences, project } = useStudio()
+  const [selectedFormat, setSelectedFormat] = useState<string>(preferences.aspectRatio)
   const [selectedQuality, setSelectedQuality] = useState('1080')
   const [exporting, setExporting] = useState(false)
   const [exported, setExported] = useState(false)
@@ -31,7 +32,6 @@ export default function ExportScreen({ navigate }: { navigate: NavFn }) {
   const [outputUrl, setOutputUrl] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const film = useFilm()
-  const { project } = useStudio()
 
   const handleExport = async () => {
     setExporting(true)
