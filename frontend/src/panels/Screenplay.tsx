@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { FILM_PROJECT } from '../types'
+import { useFilm } from '../studio'
 
 const AI_ACTIONS = ['Continue', 'Rewrite', 'Add Scene', 'Add Dialogue', 'Improve', 'Shorten', 'Expand', 'Make Cinematic']
 
@@ -29,7 +29,8 @@ const LINE_STYLES: Record<LineKind, React.CSSProperties> = {
 
 export default function Screenplay() {
   const [activeAction, setActiveAction] = useState<string | null>(null)
-  const lines = FILM_PROJECT.screenplay.split('\n')
+  const film = useFilm()
+  const lines = film.screenplay.split('\n')
 
   return (
     <div className="h-full flex flex-col overflow-hidden" data-testid="panel-screenplay">
@@ -59,7 +60,7 @@ export default function Screenplay() {
             <div>
               <p className="text-xs font-semibold tracking-widest uppercase mb-1" style={{ color: '#d4a84b' }}>Screenplay</p>
               <h2 className="text-xl font-light" style={{ fontFamily: 'Fraunces, Georgia, serif', color: '#f4f0ea' }}>
-                Echoes of the Forgotten
+                {film.title}
               </h2>
             </div>
             <div className="text-right">

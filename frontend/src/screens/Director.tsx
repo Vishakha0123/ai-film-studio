@@ -11,6 +11,7 @@ import Scenes from '../panels/Scenes'
 import Storyboard from '../panels/Storyboard'
 import Audio from '../panels/Audio'
 import Music from '../panels/Music'
+import { useFilm } from '../studio'
 
 export const PANEL_TITLES: Record<Panel, string> = {
   chat: 'AI Director',
@@ -43,6 +44,7 @@ interface DirectorProps {
 
 export default function Director({ navigate, panel, setPanel, progress, setProgress, messages, setMessages, genres, onNewFilm, replyDelay }: DirectorProps) {
   const [menuOpen, setMenuOpen] = useState(false)
+  const film = useFilm()
 
   const advance = () => {
     const next = PANEL_ORDER[progress]
@@ -85,7 +87,7 @@ export default function Director({ navigate, panel, setPanel, progress, setProgr
             <h1 className="text-sm font-semibold truncate" style={{ color: '#d4d4d8' }} data-testid="panel-title">{PANEL_TITLES[panel]}</h1>
             {progress > 0 && (
               <span className="hidden sm:inline text-[10px] px-2 py-0.5 rounded-full font-medium whitespace-nowrap" style={{ backgroundColor: 'rgba(212,168,75,0.1)', color: '#d4a84b' }}>
-                Echoes of the Forgotten
+                {film.title}
               </span>
             )}
           </div>

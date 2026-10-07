@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { FILM_PROJECT } from '../types'
+import { useFilm } from '../studio'
 
 type MusicTrack = {
   id: string
@@ -68,6 +68,7 @@ function createPreview(track: MusicTrack) {
 }
 
 export default function Music({ active }: { active: boolean }) {
+  const film = useFilm()
   const [prompt, setPrompt] = useState(INITIAL_TRACK.prompt)
   const [genre, setGenre] = useState(INITIAL_TRACK.genre)
   const [mood, setMood] = useState(INITIAL_TRACK.mood)
@@ -160,7 +161,7 @@ export default function Music({ active }: { active: boolean }) {
         <div>
           <p className="text-xs font-semibold tracking-widest uppercase mb-2 text-accent">Audio Studio</p>
           <h2 className="text-3xl font-light mb-1 text-film font-[family-name:var(--font-family-display)]">Music</h2>
-          <p className="text-sm text-zinc-500">Background Music · Songs · {FILM_PROJECT.title}</p>
+          <p className="text-sm text-zinc-500">Background Music · Songs · {film.title}</p>
         </div>
 
         <div className="px-5 py-4 rounded-xl bg-surface border border-white/7">

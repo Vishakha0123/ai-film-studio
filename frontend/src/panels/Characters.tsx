@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { FILM_PROJECT } from '../types'
+import { photoUrl } from '../types'
+import { useFilm } from '../studio'
 import type { Character } from '../types'
 
 const ACTIONS = ['Edit', 'Regenerate', 'Change Appearance', 'Add Character']
@@ -7,7 +8,8 @@ const ACTIONS = ['Edit', 'Regenerate', 'Change Appearance', 'Add Character']
 export default function Characters() {
   const [selected, setSelected] = useState<string | null>('1')
 
-  const chars = FILM_PROJECT.characters
+  const film = useFilm()
+  const chars = film.characters
   const char = chars.find(c => c.id === selected) ?? chars[0]
 
   return (
@@ -18,7 +20,7 @@ export default function Characters() {
           <h2 className="text-3xl font-light" style={{ fontFamily: 'Fraunces, Georgia, serif', color: '#f4f0ea' }}>
             Cast of Characters
           </h2>
-          <p className="text-sm text-zinc-500 mt-1">{chars.length} characters · Echoes of the Forgotten</p>
+          <p className="text-sm text-zinc-500 mt-1">{chars.length} characters · {film.title}</p>
         </div>
 
         <div className="flex gap-3 sm:gap-4 flex-wrap mb-8">
@@ -34,7 +36,7 @@ export default function Characters() {
               }}
             >
               <img
-                src={`https://images.unsplash.com/photo-${c.imageId}?w=64&h=64&fit=crop&auto=format`}
+                src={photoUrl(c, 64, 64)}
                 alt={c.name}
                 className="w-10 h-10 rounded-full object-cover flex-shrink-0"
                 style={{ filter: 'grayscale(30%) contrast(1.1)' }}
@@ -64,7 +66,7 @@ function CharacterDetail({ char }: { char: Character }) {
       <div className="md:col-span-1">
         <div className="aspect-[3/4] max-w-xs md:max-w-none mx-auto rounded-xl overflow-hidden relative" style={{ backgroundColor: '#111113' }}>
           <img
-            src={`https://images.unsplash.com/photo-${char.imageId}?w=400&h=533&fit=crop&auto=format`}
+            src={photoUrl(char, 400, 533)}
             alt={char.name}
             className="w-full h-full object-cover"
             style={{ filter: 'grayscale(20%) contrast(1.1)' }}

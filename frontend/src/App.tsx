@@ -1,8 +1,9 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom'
-import type { ChatMessage, NavFn, Panel, Screen } from './types'
+import type { ChatMessage, NavFn, Panel, ProjectData, Screen } from './types'
 import { PANELS } from './types'
-import { getToken } from './api'
+import { DEMO_MODE, getProject, getToken } from './api'
+import { StudioContext, type StudioContextValue } from './studio'
 import Landing from './screens/Landing'
 import Login from './screens/Login'
 import Onboarding from './screens/Onboarding'
@@ -71,11 +72,63 @@ function DirectorRoute({ studio, replyDelay }: { studio: StudioState; replyDelay
   )
 }
 
+const PROJECT_KEY = 'cineai.projectId'
+/** Every Director stage is unlocked once a project has been planned. */
+const PLANNED_PROGRESS = 8
+
+function readProjectId(): string | null {
+  try {
+    return localStorage.getItem(PROJECT_KEY)
+  } catch {
+    return null
+  }
+}
+
+function writeProjectId(id: string | null) {
+  try {
+    if (id) localStorage.setItem(PROJECT_KEY, id)
+    else localStorage.removeItem(PROJECT_KEY)
+  } catch {
+    /* storage unavailable */
+  }
+}
+
 function Screens({ replyDelay, generationStepMs }: AppProps) {
   const navigate = useScreenNavigate()
   const [progress, setProgress] = useState(0)
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages)
   const [genres, setGenres] = useState<string[]>([])
+  const [project, setProjectState] = useState<ProjectData | null>(null)
+  const [restoring, setRestoring] = useState(() => !DEMO_MODE && !!getToken() && !!readProjectId())
+
+  const setProject = useCallback((p: ProjectData | null) => {
+    setProjectState(p)
+    writeProjectId(p?.id ?? null)
+  }, [])
+
+  // Live mode: reopen the last project after a reload (state otherwise lives in memory).
+  useEffect(() => {
+    if (!restoring) return
+    getProject(readProjectId()!)
+      .then(p => {
+        setProject(p)
+        if (p.memory) setProgress(PLANNED_PROGRESS)
+        if (p.memory) setMessages(m => (m.length > 1 ? m : [...m, { id: 'restored', role: 'ai', content: `Welcome back. "${p.title}" is open — pick any stage on the left, or generate the teaser.`, card: 'generate' }]))
+      })
+      .catch(() => writeProjectId(null))
+      .finally(() => setRestoring(false))
+  }, [restoring, setProject])
+
+  const studioCtx = useMemo<StudioContextValue>(() => ({
+    project,
+    setProject,
+    refreshProject: async () => {
+      if (!project) return null
+      const fresh = await getProject(project.id)
+      setProject(fresh)
+      return fresh
+    },
+  }), [project, setProject])
 
   const studio: StudioState = {
     progress,
@@ -84,11 +137,15 @@ function Screens({ replyDelay, generationStepMs }: AppProps) {
     setMessages,
     genres,
     setGenres,
-    reset: () => { setProgress(0); setMessages(initialMessages()) },
+    reset: () => { setProgress(0); setMessages(initialMessages()); setProject(null) },
   }
 
   return (
+    <StudioContext.Provider value={studioCtx}>
     <div style={{ height: '100dvh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      {restoring ? (
+        <div className="flex-1 flex items-center justify-center bg-zinc-950 text-xs text-zinc-600" data-testid="restoring">Opening your project…</div>
+      ) : (
       <Routes>
         <Route path="/" element={<Landing navigate={navigate} />} />
         <Route path="/login" element={<Login navigate={navigate} />} />
@@ -100,7 +157,9 @@ function Screens({ replyDelay, generationStepMs }: AppProps) {
         <Route path="/export" element={<RequireAuth><ExportScreen navigate={navigate} /></RequireAuth>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      )}
     </div>
+    </StudioContext.Provider>
   )
 }
 

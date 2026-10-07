@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { NavFn } from '../types'
-import { signIn, signInWithGoogle, DEMO_MODE } from '../api'
+import { signIn, signInWithGoogle, DEMO_MODE, AUTH_PROVIDER } from '../api'
 
 const FilmIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5">
@@ -158,6 +158,9 @@ export default function Login({ navigate }: { navigate: NavFn }) {
 
         {DEMO_MODE && (
           <p className="text-center text-[10px] text-zinc-700 mt-6 tracking-wide">Demo mode — no backend connected</p>
+        )}
+        {AUTH_PROVIDER === 'dev' && (
+          <p className="text-center text-[10px] text-zinc-700 mt-6 tracking-wide">Dev login — any email works (Supabase not configured)</p>
         )}
       </div>
     </div>

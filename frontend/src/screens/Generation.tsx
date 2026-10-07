@@ -1,5 +1,8 @@
-import { useState, useEffect } from 'react'
-import type { NavFn } from '../types'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import type { CostEstimate, Job, NavFn } from '../types'
+import { filmSeconds } from '../types'
+import { DEMO_MODE, assertCompleted, estimateCost, startGeneration, waitForJob } from '../api'
+import { useFilm, useStudio } from '../studio'
 
 const STEPS = [
   { id: 'understand', label: 'Understanding', desc: 'Analyzing story, characters, and tone' },
@@ -19,15 +22,30 @@ interface Props {
   navigate: NavFn
   /** Milliseconds per step. Defaults to the Figma prototype pacing. */
   stepDuration?: number
+  /** Live mode: how often to poll the job (ms) */
+  pollMs?: number
 }
 
-export default function Generation({ navigate, stepDuration = 900 }: Props) {
+interface GenState {
+  currentStep: number
+  stepProgress: number
+  done: boolean
+  /** Live mode: what the backend is doing right now */
+  stage?: string
+  error?: string
+  /** Live mode: cost estimate waiting for the creator's confirmation */
+  confirm?: CostEstimate
+  start?: () => void
+}
+
+/** Figma prototype pacing — used in demo mode. */
+function useDemoGeneration(stepDuration: number, enabled: boolean): GenState {
   const [currentStep, setCurrentStep] = useState(0)
   const [stepProgress, setStepProgress] = useState(0)
   const [done, setDone] = useState(false)
 
   useEffect(() => {
-    if (done) return
+    if (done || !enabled) return
 
     const progressInterval = setInterval(() => {
       setStepProgress(p => {
@@ -52,7 +70,65 @@ export default function Generation({ navigate, stepDuration = 900 }: Props) {
       clearInterval(progressInterval)
       clearTimeout(stepTimer)
     }
-  }, [currentStep, done, stepDuration])
+  }, [currentStep, done, stepDuration, enabled])
+
+  return { currentStep, stepProgress, done }
+}
+
+/** Live mode: estimate cost, start the generate job, and follow its progress. */
+function useLiveGeneration(enabled: boolean, pollMs: number): GenState {
+  const { project, refreshProject } = useStudio()
+  const [job, setJob] = useState<Job | null>(null)
+  const [confirm, setConfirm] = useState<CostEstimate | undefined>()
+  const [error, setError] = useState<string | undefined>()
+  const [done, setDone] = useState(false)
+  const started = useRef(false)
+
+  const run = useCallback(async (confirmCost: boolean) => {
+    if (!project) return
+    setConfirm(undefined)
+    setError(undefined)
+    try {
+      const first = await startGeneration(project.id, 'draft', confirmCost)
+      const finished = await waitForJob(first, setJob, { intervalMs: pollMs })
+      assertCompleted(finished)
+      await refreshProject()
+      setDone(true)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Generation failed.')
+    }
+  }, [project, refreshProject, pollMs])
+
+  useEffect(() => {
+    if (!enabled || started.current) return
+    started.current = true
+    if (!project) {
+      setError('Start a film in the AI Director first — there is nothing to generate yet.')
+      return
+    }
+    estimateCost(project.id, 'draft')
+      .then(est => (est.requiresConfirmation ? setConfirm(est) : run(false)))
+      .catch(e => setError(e instanceof Error ? e.message : 'Could not estimate the cost.'))
+  }, [enabled, project, run])
+
+  const progress = done ? 100 : job?.progress ?? 0
+  const exact = (progress / 100) * STEPS.length
+  return {
+    currentStep: Math.min(STEPS.length - 1, Math.floor(exact)),
+    stepProgress: Math.round((exact % 1) * 100),
+    done,
+    stage: job?.stage,
+    error,
+    confirm,
+    start: () => run(true),
+  }
+}
+
+export default function Generation({ navigate, stepDuration = 900, pollMs = 1500 }: Props) {
+  const demo = useDemoGeneration(stepDuration, DEMO_MODE)
+  const live = useLiveGeneration(!DEMO_MODE, pollMs)
+  const { currentStep, stepProgress, done, stage, error, confirm, start } = DEMO_MODE ? demo : live
+  const film = useFilm()
 
   // Once every step is complete, hand over to the teaser player.
   useEffect(() => {
@@ -87,9 +163,9 @@ export default function Generation({ navigate, stepDuration = 900 }: Props) {
             className="text-3xl font-light mb-2"
             style={{ fontFamily: 'Fraunces, Georgia, serif', color: '#f4f0ea' }}
           >
-            Echoes of the Forgotten
+            {film.title}
           </h1>
-          <p className="text-sm text-zinc-500">Horror / Psychological Thriller · 10 seconds</p>
+          <p className="text-sm text-zinc-500">{film.genre} · {filmSeconds(film)} seconds</p>
         </div>
 
         {/* Progress ring */}
@@ -154,7 +230,7 @@ export default function Generation({ navigate, stepDuration = 900 }: Props) {
                   <p className="text-xs font-semibold" style={{ color: isActive ? '#f4f0ea' : isComplete ? '#52525b' : '#3f3f46' }}>
                     {step.label}
                   </p>
-                  {isActive && <p className="text-[10px] text-zinc-600 mt-0.5">{step.desc}</p>}
+                  {isActive && <p className="text-[10px] text-zinc-600 mt-0.5">{stage || step.desc}</p>}
                 </div>
 
                 {isActive && (
@@ -168,6 +244,29 @@ export default function Generation({ navigate, stepDuration = 900 }: Props) {
             )
           })}
         </div>
+
+        {/* Live mode: cost confirmation before expensive generation */}
+        {confirm && (
+          <div className="mb-8 px-5 py-4 rounded-xl text-left" style={{ backgroundColor: 'rgba(212,168,75,0.06)', border: '1px solid rgba(212,168,75,0.2)' }} data-testid="cost-confirm">
+            <p className="text-xs font-semibold tracking-widest uppercase mb-2" style={{ color: '#d4a84b' }}>Estimated cost</p>
+            <p className="text-sm text-zinc-300 mb-1">
+              {confirm.currency === 'USD' ? '$' : ''}{confirm.estimatedCost.toFixed(2)} · {confirm.images} images · {confirm.videoSeconds}s of video · {confirm.voiceLines} voice lines
+            </p>
+            <p className="text-xs text-zinc-600 mb-4">Draft quality. You can regenerate single shots later without paying for the whole teaser again.</p>
+            <button onClick={start} className="px-5 py-2 rounded-lg text-xs font-semibold" style={{ backgroundColor: '#d4a84b', color: '#09090b' }}>
+              Generate for ${confirm.estimatedCost.toFixed(2)}
+            </button>
+          </div>
+        )}
+
+        {error && (
+          <div className="mb-8 px-5 py-4 rounded-xl text-left" role="alert" style={{ backgroundColor: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.25)' }}>
+            <p className="text-sm text-red-300 mb-3">{error}</p>
+            <button onClick={() => navigate('director')} className="px-4 py-2 rounded-lg text-xs font-medium border" style={{ borderColor: 'rgba(255,255,255,0.1)', color: '#d4d4d8' }}>
+              Back to the AI Director
+            </button>
+          </div>
+        )}
 
         {/* Shot-level note */}
         <p className="text-xs text-zinc-700">

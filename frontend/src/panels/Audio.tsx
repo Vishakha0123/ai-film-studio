@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { FILM_PROJECT } from '../types'
+import { useFilm } from '../studio'
 import type { AudioTrack } from '../types'
 
 const TYPE_COLORS: Record<string, string> = {
@@ -21,7 +21,8 @@ const COMMANDS = ['Add thunder', 'Make voice scarier', 'Remove music', 'Add hear
 const SpeakerPath = 'M19.114 5.636a9 9 0 010 12.728M16.463 8.288a5.25 5.25 0 010 7.424M6.75 8.25l4.72-4.72a.75.75 0 011.28.53v15.88a.75.75 0 01-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 012.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75z'
 
 export default function Audio() {
-  const [tracks, setTracks] = useState<AudioTrack[]>(FILM_PROJECT.audioTracks)
+  const film = useFilm()
+  const [tracks, setTracks] = useState<AudioTrack[]>(film.audioTracks)
   const [command, setCommand] = useState('')
   const [isPlaying, setIsPlaying] = useState(false)
   const progress = 65
@@ -54,7 +55,7 @@ export default function Audio() {
               )}
             </button>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium text-zinc-300 mb-1 truncate">Echoes of the Forgotten — Full Mix</p>
+              <p className="text-xs font-medium text-zinc-300 mb-1 truncate">{film.title} — Full Mix</p>
               <div className="relative h-1 rounded-full" style={{ backgroundColor: '#27272a' }}>
                 <div className="absolute left-0 top-0 h-full rounded-full transition-all" style={{ width: `${progress}%`, backgroundColor: '#d4a84b' }} />
               </div>

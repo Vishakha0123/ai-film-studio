@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
-import type { Panel, ChatMessage } from '../types'
-import { generateStory } from '../api'
+import type { Panel, ChatMessage, FilmProject } from '../types'
+import { filmSeconds } from '../types'
+import { DEMO_MODE, assertCompleted, createProject, getProject, planProject, saveBrief, waitForJob } from '../api'
+import { useFilm, useStudio } from '../studio'
 
 const AI_RESPONSES: Record<number, { text: string; card: ChatMessage['card'] }> = {
   0: {
@@ -60,6 +62,23 @@ interface ChatProps {
   replyDelay?: number
 }
 
+/** Director replies for a live project, written from the generated film rather than the sample. */
+function liveResponse(stage: number, f: FilmProject): { text: string; card: ChatMessage['card'] } | undefined {
+  const names = f.characters.map(c => c.name.split(' ')[0])
+  const list = names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names[0] ?? 'your lead'
+  const secs = filmSeconds(f)
+  switch (stage) {
+    case 0: return { text: `I've built "${f.title}" around your idea — ${f.genre.toLowerCase() || 'a cinematic teaser'} with a ${f.tone.toLowerCase() || 'distinct'} tone.\n\n${f.logline}\n\nReview the story, then I'll introduce your cast.`, card: 'story' }
+    case 1: return { text: `${f.characters.length} characters, each with a look, a personality and an arc: ${list}.\n\nReady to move into the screenplay?`, card: 'characters' }
+    case 2: return { text: `The screenplay is written in proper format. Next, let's sharpen the dialogue so each character sounds like themselves.`, card: 'dialogue' }
+    case 3: return { text: `Dialogue is in place. Want lyrics for a theme that plays under the key scene?`, card: 'lyrics' }
+    case 4: return { text: `I've broken the story into ${f.scenes.length} scenes with timing and mood. Ready to storyboard?`, card: 'scenes' }
+    case 5: return { text: `${f.shots.length} shots storyboarded — about ${secs} seconds in total, with camera and movement for each.\n\nEverything is ready for visuals.`, card: 'storyboard' }
+    case 6: return { text: `Everything is in place.\n\n✓ Story ✓ Characters ✓ Screenplay ✓ Dialogue ✓ Scenes ✓ Storyboard\n\nGenerate the teaser when you're ready — you'll see the estimated cost first.`, card: 'generate' }
+    default: return undefined
+  }
+}
+
 export function initialMessages(): ChatMessage[] {
   return [WELCOME]
 }
@@ -67,6 +86,9 @@ export function initialMessages(): ChatMessage[] {
 export default function Chat({ progress, onAdvance, onGenerate, onOpenPanel, genres, messages, setMessages, replyDelay = 1600 }: ChatProps) {
   const [input, setInput] = useState('')
   const [isTyping, setIsTyping] = useState(false)
+  const [status, setStatus] = useState('')
+  const { setProject } = useStudio()
+  const film = useFilm()
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -86,29 +108,43 @@ export default function Chat({ progress, onAdvance, onGenerate, onOpenPanel, gen
     setInput('')
     setIsTyping(true)
 
-    // First idea kicks off story generation on the backend (no-op sample data in demo mode).
-    const backendCall = progress === 0 ? generateStory({ prompt: text, genres }).then(() => undefined) : Promise.resolve()
+    // Live mode: the first idea creates the project, saves the brief and runs the plan job.
+    const backendCall: Promise<FilmProject | null> =
+      !DEMO_MODE && progress === 0
+        ? (async () => {
+            setStatus('Creating your project')
+            const created = await createProject(genres ?? [])
+            await saveBrief(created.id, { prompt: text, genres })
+            const job = await waitForJob(await planProject(created.id), j => setStatus(j.stage || 'Queued'))
+            assertCompleted(job)
+            const fresh = await getProject(created.id)
+            setProject(fresh)
+            return fresh.memory
+          })()
+        : Promise.resolve(null)
 
     const minDelay = new Promise<void>(resolve => {
       timerRef.current = setTimeout(resolve, replyDelay)
     })
 
     Promise.all([backendCall, minDelay])
-      .then(() => {
-        const response = AI_RESPONSES[progress] || {
+      .then(([planned]) => {
+        const response = (DEMO_MODE ? AI_RESPONSES[progress] : liveResponse(progress, planned ?? film)) || {
           text: "I've noted that. What else would you like to adjust?",
           card: undefined,
         }
         setMessages(m => [...m, { id: (Date.now() + 1).toString(), role: 'ai', content: response.text, card: response.card }])
         setIsTyping(false)
+        setStatus('')
         onAdvance()
       })
       .catch((err: unknown) => {
         setMessages(m => [
           ...m,
-          { id: (Date.now() + 1).toString(), role: 'ai', content: `Something went wrong talking to the studio: ${err instanceof Error ? err.message : 'unknown error'}. Please try again.` },
+          { id: (Date.now() + 1).toString(), role: 'ai', content: `Something went wrong talking to the studio: ${err instanceof Error ? err.message : 'unknown error'} Please try again.` },
         ])
         setIsTyping(false)
+        setStatus('')
       })
   }
 
@@ -169,6 +205,7 @@ export default function Chat({ progress, onAdvance, onGenerate, onOpenPanel, gen
               <span className="typing-dot w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#52525b' }} />
               <span className="typing-dot w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#52525b' }} />
             </div>
+            {status && <p className="self-center text-xs text-zinc-500" data-testid="job-status">{status}…</p>}
           </div>
         )}
         <div ref={messagesEndRef} />
@@ -245,15 +282,17 @@ const CARD_PANEL: Partial<Record<NonNullable<ChatMessage['card']>, Panel>> = {
 }
 
 function MessageCard({ card, onGenerate, onOpenPanel }: { card: NonNullable<ChatMessage['card']>; onGenerate: () => void; onOpenPanel?: (p: Panel) => void }) {
+  const f = useFilm()
+  const secs = filmSeconds(f)
   const configs: Record<string, { label: string; color: string; desc: string }> = {
-    story: { label: 'Story Generated', color: '#d4a84b', desc: 'Echoes of the Forgotten · Horror / Thriller' },
-    characters: { label: 'Characters Created', color: '#8b7cf6', desc: '3 fully realized character profiles with portraits' },
+    story: { label: 'Story Generated', color: '#d4a84b', desc: `${f.title} · ${f.genre}` },
+    characters: { label: 'Characters Created', color: '#8b7cf6', desc: `${f.characters.length} fully realized character profiles with portraits` },
     screenplay: { label: 'Screenplay Written', color: '#06b6d4', desc: '12 pages · Proper screenplay format' },
     dialogue: { label: 'Dialogue Refined', color: '#10b981', desc: 'Scene-by-scene dialogue with character voice' },
     lyrics: { label: 'Lyrics Composed', color: '#f59e0b', desc: 'Verse · Chorus · Bridge · Emotionally precise' },
-    scenes: { label: 'Scenes Broken Down', color: '#f97316', desc: '4 scenes · 10s total duration' },
-    storyboard: { label: 'Storyboard Ready', color: '#ec4899', desc: '4 shots · Dark Cinema visual style' },
-    generate: { label: 'Ready to Generate', color: '#d4a84b', desc: 'All components complete · 10s teaser' },
+    scenes: { label: 'Scenes Broken Down', color: '#f97316', desc: `${f.scenes.length} scenes · ${secs}s total duration` },
+    storyboard: { label: 'Storyboard Ready', color: '#ec4899', desc: `${f.shots.length} shots · Dark Cinema visual style` },
+    generate: { label: 'Ready to Generate', color: '#d4a84b', desc: `All components complete · ${secs}s teaser` },
   }
 
   const config = configs[card]
