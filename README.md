@@ -1,15 +1,34 @@
 # AI Film Studio (Cinéma AI)
 
-Turn a film idea into a story, characters, screenplay, storyboard, voice, music and a 10-second cinematic teaser.
+Turn a film idea into a story, characters, screenplay, storyboard, voice, music and a cinematic teaser.
 
 ```
 ai-film-studio/
-├── frontend/   React + Vite + TypeScript + Tailwind web app (Figma design)   → see frontend/README.md
-├── backend/    FastAPI service (/api/v1) — AI pipeline: Sarvam (text, voice), OpenAI (images), Seedance (video)
-├── database/   PostgreSQL schema & migrations
-├── tests/      Backend / cross-service tests
-└── docs/
-    └── figma-comparison/   Side-by-side screenshots: Figma design vs implementation
+├── frontend/   React + Vite + TypeScript + Tailwind (Figma design)        → frontend/README.md
+├── backend/    FastAPI · SQLAlchemy/Alembic · Supabase Auth · AI adapters  → backend/README.md
+│               (Sarvam story+voice, OpenAI images, Seedance video; mock providers for free local runs)
+├── database/   schema.sql (generated from migrations) · supabase_rls.sql
+├── tests/      backend/ — pytest API + pipeline + provider adapter tests
+├── docs/       figma-comparison/ — Figma vs implementation screenshots
+└── .github/    CI: backend tests, frontend typecheck/tests/build, Playwright E2E
 ```
 
-The frontend runs standalone in demo mode; point `VITE_API_URL` at the backend to go live.
+## Run the whole app locally (no keys needed)
+
+```bash
+# 1. Backend
+cd backend
+python -m venv .venv && source .venv/bin/activate     # Windows: .venv\Scripts\activate
+pip install -r requirements-dev.txt
+cp .env.example .env              # then set AUTH_MODE=dev for the quickest start
+alembic upgrade head
+uvicorn app.main:app --reload     # http://localhost:8000/docs
+
+# 2. Frontend (new terminal)
+cd frontend
+npm install
+cp .env.example .env              # set VITE_API_URL=http://localhost:8000
+npm run dev                       # http://localhost:5173
+```
+
+Then connect Supabase and the real AI providers when ready — see `backend/README.md`.

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useFilm } from '../studio'
 
 const SECTIONS = ['Verse', 'Pre-Chorus', 'Chorus', 'Bridge'] as const
 type Section = typeof SECTIONS[number]
@@ -23,6 +24,7 @@ The answer lives in B-flat night`,
 const ACTIONS = ['Complete Lyrics', 'Improve Rhyme', 'Increase Emotion', 'Add Verse', 'Generate Chorus', 'Translate', 'Regenerate']
 
 export default function Lyrics() {
+  const film = useFilm()
   const [activeSection, setActiveSection] = useState<Section>('Verse')
   const [activeAction, setActiveAction] = useState<string | null>(null)
   const [content, setContent] = useState<Record<Section, string>>(INITIAL_LYRICS)
@@ -35,7 +37,7 @@ export default function Lyrics() {
           <h2 className="text-3xl font-light mb-1" style={{ fontFamily: 'Fraunces, Georgia, serif', color: '#f4f0ea' }}>
             Between the Rests
           </h2>
-          <p className="text-sm text-zinc-500">Main theme · Echoes of the Forgotten · Dark Classical</p>
+          <p className="text-sm text-zinc-500">Main theme · {film.title} · Dark Classical</p>
         </div>
 
         {/* Section tabs */}

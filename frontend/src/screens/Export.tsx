@@ -1,5 +1,8 @@
 import { useState } from 'react'
 import type { NavFn } from '../types'
+import { filmSeconds, photoUrl } from '../types'
+import { DEMO_MODE, assertCompleted, startRender, waitForJob } from '../api'
+import { useFilm, useStudio } from '../studio'
 
 const FORMATS = [
   { id: '16:9', label: '16:9', sub: '1920×1080 · MP4', icon: '▬', desc: 'Cinema / Desktop' },
@@ -25,12 +28,31 @@ export default function ExportScreen({ navigate }: { navigate: NavFn }) {
   const [exporting, setExporting] = useState(false)
   const [exported, setExported] = useState(false)
 
-  const handleExport = () => {
+  const [outputUrl, setOutputUrl] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const film = useFilm()
+  const { project } = useStudio()
+
+  const handleExport = async () => {
     setExporting(true)
-    setTimeout(() => {
-      setExporting(false)
+    setError(null)
+    if (DEMO_MODE) {
+      setTimeout(() => {
+        setExporting(false)
+        setExported(true)
+      }, 2200)
+      return
+    }
+    try {
+      if (!project) throw new Error('Start a film in the AI Director first.')
+      const job = assertCompleted(await waitForJob(await startRender(project.id, selectedFormat, selectedQuality)))
+      setOutputUrl(String(job.result.outputUrl ?? ''))
       setExported(true)
-    }, 2200)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Export failed.')
+    } finally {
+      setExporting(false)
+    }
   }
 
   return (
@@ -69,7 +91,7 @@ export default function ExportScreen({ navigate }: { navigate: NavFn }) {
                 <h1 className="text-3xl font-light mb-2" style={{ fontFamily: 'Fraunces, Georgia, serif', color: '#f4f0ea' }}>
                   Your Teaser Is Ready.
                 </h1>
-                <p className="text-sm text-zinc-500">Echoes of the Forgotten · {selectedFormat} · {selectedQuality}</p>
+                <p className="text-sm text-zinc-500">{film.title} · {selectedFormat} · {selectedQuality}</p>
               </>
             ) : (
               <>
@@ -82,7 +104,7 @@ export default function ExportScreen({ navigate }: { navigate: NavFn }) {
                 <h1 className="text-3xl font-light mb-2" style={{ fontFamily: 'Fraunces, Georgia, serif', color: '#f4f0ea' }}>
                   Export Your Film
                 </h1>
-                <p className="text-sm text-zinc-500">Echoes of the Forgotten · 10 seconds · Horror Thriller</p>
+                <p className="text-sm text-zinc-500">{film.title} · {filmSeconds(film)} seconds · {film.genre}</p>
               </>
             )}
           </div>
@@ -98,7 +120,7 @@ export default function ExportScreen({ navigate }: { navigate: NavFn }) {
             }}
           >
             <img
-              src="https://images.unsplash.com/photo-1478720568477-152d9b164e26?w=800&h=450&fit=crop&auto=format"
+              src={photoUrl(film.shots[2] ?? film.shots[0], 800, 450)}
               alt="Teaser preview"
               className="w-full h-full object-cover"
               style={{ filter: 'grayscale(25%) contrast(1.2) brightness(0.7)' }}
@@ -106,7 +128,7 @@ export default function ExportScreen({ navigate }: { navigate: NavFn }) {
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="text-center">
                 <p className="text-[10px] font-semibold tracking-widest uppercase" style={{ color: '#d4a84b' }}>Preview</p>
-                <p className="text-xs font-semibold" style={{ color: '#f4f0ea', fontFamily: 'Fraunces, Georgia, serif' }}>Echoes of the Forgotten</p>
+                <p className="text-xs font-semibold" style={{ color: '#f4f0ea', fontFamily: 'Fraunces, Georgia, serif' }}>{film.title}</p>
               </div>
             </div>
           </div>
@@ -161,16 +183,36 @@ export default function ExportScreen({ navigate }: { navigate: NavFn }) {
             </div>
           </div>
 
+          {error && (
+            <p role="alert" className="mb-4 px-4 py-3 rounded-xl text-sm text-red-300" style={{ backgroundColor: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.25)' }}>
+              {error}
+            </p>
+          )}
+
           {/* Export / Download button */}
           {exported ? (
             <div className="space-y-3">
-              <button
-                className="w-full py-3.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90 flex items-center justify-center gap-2"
-                style={{ backgroundColor: '#10b981', color: '#fff' }}
-              >
-                <DownloadIcon className="w-4 h-4" />
-                Download MP4
-              </button>
+              {outputUrl ? (
+                <a
+                  href={outputUrl}
+                  download={`${film.title}.mp4`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="w-full py-3.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90 flex items-center justify-center gap-2"
+                  style={{ backgroundColor: '#10b981', color: '#fff' }}
+                >
+                  <DownloadIcon className="w-4 h-4" />
+                  Download MP4
+                </a>
+              ) : (
+                <button
+                  className="w-full py-3.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90 flex items-center justify-center gap-2"
+                  style={{ backgroundColor: '#10b981', color: '#fff' }}
+                >
+                  <DownloadIcon className="w-4 h-4" />
+                  Download MP4
+                </button>
+              )}
               <div className="flex gap-2">
                 {['Copy Link', 'Share', 'New Film'].map(a => (
                   <button

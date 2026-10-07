@@ -1,6 +1,9 @@
 import { useState, useRef, useEffect } from 'react'
 import type { NavFn } from '../types'
+import { filmSeconds, photoUrl } from '../types'
+import { useFilm, useStudio } from '../studio'
 
+/** Shot titles from the design, used for the sample film. */
 const SHOTS = [
   { imageId: '1518709268805-4e9042af9f23', title: 'Mountain Estate — Dusk' },
   { imageId: '1536440136628-849c177e76a1', title: 'The Changed Score' },
@@ -20,6 +23,16 @@ const QUICK_EDITS = [
 const glass = { backgroundColor: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(8px)' }
 
 export default function Teaser({ navigate }: { navigate: NavFn }) {
+  const film = useFilm()
+  const { project } = useStudio()
+  const seconds = filmSeconds(film) || 10
+  const shots = film.shots.map((s, i) => ({
+    ...s,
+    title: project ? s.description : SHOTS[i]?.title ?? s.description,
+  }))
+  const words = film.title.split(' ')
+  const titleHead = words.slice(0, -1).join(' ')
+  const titleTail = words[words.length - 1]
   const [isPlaying, setIsPlaying] = useState(false)
   const [progress, setProgress] = useState(0)
   const [showOverlay, setShowOverlay] = useState(true)
@@ -31,11 +44,11 @@ export default function Teaser({ navigate }: { navigate: NavFn }) {
     if (!isPlaying) return
     intervalRef.current = setInterval(() => {
       setProgress(p => (p >= 100 ? 100 : p + 1))
-    }, 100)
+    }, (seconds * 1000) / 100)
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current)
     }
-  }, [isPlaying])
+  }, [isPlaying, seconds])
 
   // End of playback: stop and rewind (kept outside the state updater to avoid side effects there)
   useEffect(() => {
@@ -50,18 +63,31 @@ export default function Teaser({ navigate }: { navigate: NavFn }) {
     setIsPlaying(p => !p)
   }
 
-  const currentShot = Math.min(Math.floor((progress / 100) * SHOTS.length), SHOTS.length - 1)
+  const currentShot = Math.min(Math.floor((progress / 100) * shots.length), shots.length - 1)
+  const shot = shots[currentShot]
 
   return (
     <div className="relative flex flex-col h-full bg-zinc-950 overflow-hidden" data-testid="screen-teaser">
       {/* Cinematic player — full bleed */}
       <div className="relative flex-1 min-h-[220px] overflow-hidden cursor-pointer" onClick={togglePlay} data-testid="teaser-player">
-        <img
-          src={`https://images.unsplash.com/photo-${SHOTS[currentShot].imageId}?w=1920&h=1080&fit=crop&auto=format&q=80`}
-          alt={SHOTS[currentShot].title}
-          className="w-full h-full object-cover transition-all duration-700"
-          style={{ filter: 'grayscale(25%) contrast(1.2) brightness(0.75)' }}
-        />
+        {isPlaying && shot.videoUrl ? (
+          <video
+            key={shot.videoUrl}
+            src={shot.videoUrl}
+            autoPlay
+            muted
+            playsInline
+            className="w-full h-full object-cover"
+            style={{ filter: 'grayscale(25%) contrast(1.2) brightness(0.75)' }}
+          />
+        ) : (
+          <img
+            src={photoUrl(shot, 1920, 1080)}
+            alt={shot.title}
+            className="w-full h-full object-cover transition-all duration-700"
+            style={{ filter: 'grayscale(25%) contrast(1.2) brightness(0.75)' }}
+          />
+        )}
 
         {/* Cinematic black bars */}
         <div className="absolute top-0 left-0 right-0 h-[12%]" style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.9), transparent)' }} />
@@ -71,17 +97,17 @@ export default function Teaser({ navigate }: { navigate: NavFn }) {
         {showOverlay && (
           <div className="absolute inset-0 flex flex-col items-center justify-center animate-fade-in px-4">
             <div className="text-center">
-              <p className="text-xs font-semibold tracking-[0.3em] uppercase mb-3" style={{ color: '#d4a84b' }}>Horror / Psychological Thriller</p>
+              <p className="text-xs font-semibold tracking-[0.3em] uppercase mb-3" style={{ color: '#d4a84b' }}>{film.genre}</p>
               <h1
                 className="text-4xl sm:text-5xl md:text-7xl font-light mb-4"
                 style={{ fontFamily: 'Fraunces, Georgia, serif', color: '#f4f0ea', textShadow: '0 2px 40px rgba(0,0,0,0.8)' }}
               >
-                Echoes of the<br />
-                <em>Forgotten</em>
+                {titleHead}{titleHead && <br />}
+                <em>{titleTail}</em>
               </h1>
               <div className="flex items-center justify-center gap-3 mt-6">
                 <div className="h-px w-12" style={{ backgroundColor: 'rgba(212,168,75,0.4)' }} />
-                <p className="text-xs tracking-widest uppercase" style={{ color: 'rgba(212,168,75,0.6)' }}>10 Seconds</p>
+                <p className="text-xs tracking-widest uppercase" style={{ color: 'rgba(212,168,75,0.6)' }}>{seconds} Seconds</p>
                 <div className="h-px w-12" style={{ backgroundColor: 'rgba(212,168,75,0.4)' }} />
               </div>
             </div>
@@ -105,7 +131,7 @@ export default function Teaser({ navigate }: { navigate: NavFn }) {
         {/* Shot label */}
         {isPlaying && (
           <div className="absolute bottom-8 left-8 animate-fade-in">
-            <p className="text-xs text-zinc-400">{SHOTS[currentShot].title}</p>
+            <p className="text-xs text-zinc-400">{shot.title}</p>
           </div>
         )}
 
@@ -123,7 +149,7 @@ export default function Teaser({ navigate }: { navigate: NavFn }) {
           </button>
           <div className="flex items-center gap-2">
             <span data-testid="teaser-time" className="text-xs font-mono text-zinc-400 px-2 py-1 rounded" style={glass}>
-              {Math.floor(progress / 10)}s / 10s
+              {Math.floor((progress / 100) * seconds)}s / {seconds}s
             </span>
             <button
               onClick={e => { e.stopPropagation(); setShowVersions(v => !v) }}
@@ -242,7 +268,7 @@ export default function Teaser({ navigate }: { navigate: NavFn }) {
             >
               <div className="w-12 h-8 rounded overflow-hidden flex-shrink-0" style={{ backgroundColor: '#1a1a1e' }}>
                 <img
-                  src={`https://images.unsplash.com/photo-${SHOTS[0].imageId}?w=48&h=32&fit=crop&auto=format`}
+                  src={photoUrl(shots[0], 48, 32)}
                   alt=""
                   className="w-full h-full object-cover opacity-60"
                 />

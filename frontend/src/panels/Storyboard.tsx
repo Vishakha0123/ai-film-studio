@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { FILM_PROJECT } from '../types'
+import { photoUrl } from '../types'
+import { useFilm } from '../studio'
 import type { Shot } from '../types'
 
 const VISUAL_STYLES = ['Photorealistic', 'Dark Cinema', 'Anime', '3D Render', 'Vintage', 'Custom']
@@ -7,7 +8,8 @@ const VISUAL_STYLES = ['Photorealistic', 'Dark Cinema', 'Anime', '3D Render', 'V
 export default function Storyboard({ onGenerate }: { onGenerate: () => void }) {
   const [style, setStyle] = useState('Dark Cinema')
   const [selected, setSelected] = useState<string | null>(null)
-  const shots = FILM_PROJECT.shots
+  const film = useFilm()
+  const shots = film.shots
 
   return (
     <div className="h-full overflow-y-auto px-4 sm:px-6 py-8" data-testid="panel-storyboard">
@@ -81,7 +83,7 @@ function ShotCard({ shot, isSelected, onSelect }: { shot: Shot; isSelected: bool
     >
       <div className="relative aspect-video bg-zinc-900">
         <img
-          src={`https://images.unsplash.com/photo-${shot.imageId}?w=600&h=338&fit=crop&auto=format&q=70`}
+          src={photoUrl(shot, 600, 338, 70)}
           alt={shot.description}
           className="w-full h-full object-cover"
           style={{ filter: 'grayscale(30%) contrast(1.15)', opacity: 0.85 }}

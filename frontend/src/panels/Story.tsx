@@ -1,18 +1,48 @@
 import { useState } from 'react'
-import { FILM_PROJECT } from '../types'
+import { DEMO_MODE, approveStep, assertCompleted, editProject, waitForJob, type EditAction } from '../api'
+import { useFilm, useStudio } from '../studio'
 
 const ACTIONS = ['Accept', 'Rewrite', 'Continue', 'Make Darker', 'Change Ending', 'Regenerate']
+
+/** What each AI action asks the backend to do to the story. */
+const ACTION_REQUESTS: Record<string, { action: EditAction; instruction: string }> = {
+  Rewrite: { action: 'transform', instruction: 'Rewrite the story with fresh wording, keeping the same events and characters.' },
+  Continue: { action: 'continue', instruction: 'Continue the story with one more paragraph.' },
+  'Make Darker': { action: 'improve', instruction: 'Make the story darker and more unsettling.' },
+  'Change Ending': { action: 'transform', instruction: 'Change the ending to a different, surprising one.' },
+  Regenerate: { action: 'transform', instruction: 'Write a completely new version of the story for the same idea.' },
+}
 
 export default function Story() {
   const [accepted, setAccepted] = useState(false)
   const [activeAction, setActiveAction] = useState<string | null>(null)
+  const [working, setWorking] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const { project, refreshProject } = useStudio()
 
-  const handleAction = (action: string) => {
-    if (action === 'Accept') { setAccepted(true); setActiveAction('Accept') }
-    else setActiveAction(action)
+  const handleAction = async (action: string) => {
+    setActiveAction(action)
+    setError(null)
+    if (action === 'Accept') {
+      setAccepted(true)
+      if (project) await approveStep(project.id, 'story').catch(() => undefined)
+      return
+    }
+    if (DEMO_MODE || !project) return
+    const req = ACTION_REQUESTS[action]
+    setWorking(true)
+    try {
+      assertCompleted(await waitForJob(await editProject(project.id, req.action, 'story', req.instruction)))
+      await refreshProject()
+      setAccepted(false)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'The story could not be updated.')
+    } finally {
+      setWorking(false)
+    }
   }
 
-  const f = FILM_PROJECT
+  const f = useFilm()
 
   return (
     <div className="h-full overflow-y-auto px-4 sm:px-6 py-8" data-testid="panel-story">
@@ -74,6 +104,7 @@ export default function Story() {
               <button
                 key={action}
                 onClick={() => handleAction(action)}
+                disabled={working}
                 className="px-4 py-2 rounded-lg text-xs font-medium border transition-all hover:opacity-80"
                 style={
                   activeAction === action && action === 'Accept'
@@ -88,6 +119,9 @@ export default function Story() {
             ))}
           </div>
         </div>
+
+        {working && <p className="text-xs" style={{ color: '#d4a84b' }} data-testid="story-working">Revising the story…</p>}
+        {error && <p role="alert" className="text-xs text-red-400">{error}</p>}
 
         {/* Edit via chat */}
         <div className="flex items-center gap-3 px-4 py-3 rounded-xl border" style={{ borderColor: 'rgba(255,255,255,0.06)', backgroundColor: 'rgba(255,255,255,0.02)' }}>

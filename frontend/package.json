@@ -1,7 +1,7 @@
 {
   "name": "ai-film-studio-frontend",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,12 +10,15 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test",
-    "screenshots": "playwright test --project=screenshots"
+    "test:e2e": "playwright test --project=desktop --project=mobile",
+    "screenshots": "playwright test --project=screenshots",
+    "test:e2e:live": "playwright test -c playwright.live.config.ts",
+    "test:e2e:supabase": "playwright test -c playwright.supabase.config.ts"
   },
   "dependencies": {
     "@fontsource-variable/fraunces": "^5.3.0",
     "@fontsource-variable/manrope": "^5.3.0",
+    "@supabase/supabase-js": "^2.117.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-router-dom": "^7.0.0"

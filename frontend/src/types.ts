@@ -22,6 +22,8 @@ export interface Character {
   arc: string
   relationships: string
   imageId: string
+  /** Generated portrait (backend asset), falls back to imageId photo */
+  imageUrl?: string
 }
 
 export interface Scene {
@@ -45,6 +47,9 @@ export interface Shot {
   characters: string
   mood: string
   imageId: string
+  /** Generated storyboard frame and video clip (backend assets) */
+  imageUrl?: string
+  videoUrl?: string
 }
 
 export interface AudioTrack {
@@ -54,6 +59,13 @@ export interface AudioTrack {
   duration: string
   volume: number
   active: boolean
+  url?: string
+}
+
+export interface DialogueLine {
+  character: string
+  text: string
+  tone: string
 }
 
 export interface FilmProject {
@@ -67,6 +79,59 @@ export interface FilmProject {
   scenes: Scene[]
   shots: Shot[]
   audioTracks: AudioTrack[]
+  dialogue?: DialogueLine[]
+}
+
+export interface Asset {
+  id: string
+  type: 'character_image' | 'storyboard_image' | 'video_clip' | 'voice' | 'render' | string
+  ref: string
+  url: string
+  provider: string
+  version: number
+  status: 'ready' | 'outdated' | string
+  meta: Record<string, unknown>
+}
+
+/** A film project as returned by the backend */
+export interface ProjectData {
+  id: string
+  title: string
+  genre: string
+  status: string
+  memory: FilmProject | null
+  assets: Asset[]
+}
+
+export type JobStatus = 'queued' | 'running' | 'completed' | 'failed' | 'cancelled' | 'needs_review'
+
+export interface Job {
+  id: string
+  projectId: string
+  task: string
+  status: JobStatus
+  stage: string
+  progress: number
+  result: Record<string, unknown>
+  cost: number
+  error: string
+}
+
+export interface CostEstimate {
+  quality: 'draft' | 'final'
+  images: number
+  videoSeconds: number
+  voiceLines: number
+  estimatedCost: number
+  currency: string
+  requiresConfirmation: boolean
+}
+
+/** Photo for a character/shot: generated asset if present, otherwise the design's Unsplash still. */
+export function photoUrl(item: { imageUrl?: string; imageId: string }, w: number, h: number, q = 80): string {
+  if (item.imageUrl) return item.imageUrl
+  const id = item.imageId || "1478720568477-152d9b164e26"
+  return `https://images.unsplash.com/photo-${id}?w=${w}&h=${h}&fit=crop&auto=format&q=${q}`
 }
 
 export const FILM_PROJECT: FilmProject = {
@@ -187,4 +252,10 @@ SMASH CUT TO BLACK.`,
     { id: '4', type: 'ambience', name: 'Stone House Reverb', duration: '0:10', volume: 40, active: true },
     { id: '5', type: 'sfx', name: 'Piano (Ghostly)', duration: '0:05', volume: 65, active: true },
   ],
+}
+
+/** Total teaser length in seconds, from the shot durations ("2.5s" → 2.5). */
+export function filmSeconds(film: FilmProject): number {
+  const total = film.shots.reduce((sum, s) => sum + (parseFloat(s.duration) || 0), 0)
+  return Math.round(total * 10) / 10
 }

@@ -1,4 +1,5 @@
-import { FILM_PROJECT } from '../types'
+import { useFilm } from '../studio'
+import { filmSeconds } from '../types'
 
 const CHECKLIST = [
   { label: 'Story', done: true },
@@ -18,8 +19,9 @@ const MOOD_COLORS: Record<string, string> = {
 }
 
 export default function Scenes({ onGenerate }: { onGenerate: () => void }) {
-  const scenes = FILM_PROJECT.scenes
-  const totalDuration = '10s'
+  const film = useFilm()
+  const scenes = film.scenes
+  const totalDuration = `${filmSeconds(film)}s`
 
   return (
     <div className="h-full overflow-y-auto px-4 sm:px-6 py-8" data-testid="panel-scenes">
@@ -27,9 +29,9 @@ export default function Scenes({ onGenerate }: { onGenerate: () => void }) {
         <div>
           <p className="text-xs font-semibold tracking-widest uppercase mb-2" style={{ color: '#d4a84b' }}>Scene Breakdown</p>
           <h2 className="text-3xl font-light mb-1" style={{ fontFamily: 'Fraunces, Georgia, serif', color: '#f4f0ea' }}>
-            Echoes of the Forgotten
+            {film.title}
           </h2>
-          <p className="text-sm text-zinc-500">{scenes.length} scenes · {totalDuration} total · Horror / Psychological Thriller</p>
+          <p className="text-sm text-zinc-500">{scenes.length} scenes · {totalDuration} total · {film.genre}</p>
         </div>
 
         {/* Scenes */}

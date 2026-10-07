@@ -24,3 +24,14 @@ Thumbs.db
 frontend/test-results/
 frontend/playwright-report/
 docs/figma-comparison/raw/
+
+# Backend
+backend/.venv/
+backend/media/
+backend/*.db
+__pycache__/
+.pytest_cache/
+frontend/.e2e-dist/
+backend/.e2e/
+frontend/.e2e-dist-sb/
+backend/.e2e-sb/

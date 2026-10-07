@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useFilm } from '../studio'
 
 const SUGGESTIONS = [
   { id: '1', character: 'Elena', text: '"Thomas… you told me the score was finished. You told me you were finished."', tone: 'Grief' },
@@ -9,6 +10,13 @@ const SUGGESTIONS = [
 const COMMANDS = ['Make it emotional', 'Make it scarier', 'Make it quieter', 'Add subtext', 'Make it ambiguous']
 
 export default function Dialogue() {
+  const film = useFilm()
+  // Live projects carry their own key lines; the design's sample lines are used otherwise.
+  const live = film.dialogue && film.dialogue.length > 0
+  const suggestions = live
+    ? film.dialogue!.map((d, i) => ({ id: String(i + 1), character: d.character, text: `"${d.text.replace(/^"|"$/g, '')}"`, tone: d.tone }))
+    : SUGGESTIONS
+  const scene = live ? film.scenes.find(sc => sc.characters.length > 0) ?? film.scenes[0] : undefined
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [command, setCommand] = useState('')
   const [accepted, setAccepted] = useState<string[]>([])
@@ -19,16 +27,16 @@ export default function Dialogue() {
         <div>
           <p className="text-xs font-semibold tracking-widest uppercase mb-2" style={{ color: '#d4a84b' }}>Dialogue Workspace</p>
           <h2 className="text-3xl font-light mb-1" style={{ fontFamily: 'Fraunces, Georgia, serif', color: '#f4f0ea' }}>
-            Scene 2 — Study Interior
+            {scene ? `Scene ${scene.number} — ${scene.location}` : 'Scene 2 — Study Interior'}
           </h2>
-          <p className="text-sm text-zinc-500">Elena discovers the changed notation · Mood: Unsettling</p>
+          <p className="text-sm text-zinc-500">{scene ? `${scene.description} · Mood: ${scene.mood}` : 'Elena discovers the changed notation · Mood: Unsettling'}</p>
         </div>
 
         {/* Context card */}
         <div className="px-4 py-4 rounded-xl" style={{ backgroundColor: '#111113', border: '1px solid rgba(255,255,255,0.06)' }}>
           <p className="text-[10px] font-semibold tracking-widest uppercase mb-2" style={{ color: '#52525b' }}>Scene Context</p>
           <p className="text-sm leading-relaxed" style={{ color: '#a1a1aa' }}>
-            Elena is alone in the study late at night. She has been playing Thomas's unfinished symphony for hours. She notices the notation has changed — something she did not write. This is the first moment she speaks aloud in the film.
+            {scene ? film.logline : "Elena is alone in the study late at night. She has been playing Thomas's unfinished symphony for hours. She notices the notation has changed — something she did not write. This is the first moment she speaks aloud in the film."}
           </p>
         </div>
 
@@ -40,7 +48,7 @@ export default function Dialogue() {
           </div>
 
           <div className="space-y-3">
-            {SUGGESTIONS.map(s => {
+            {suggestions.map(s => {
               const isAccepted = accepted.includes(s.id)
               return (
                 <div

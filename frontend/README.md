@@ -8,13 +8,19 @@ React 19 + Vite + TypeScript + Tailwind CSS v4, built from the Figma Make design
 ```bash
 cd frontend
 npm install
-cp .env.example .env      # optional — leave VITE_API_URL empty for demo mode
+cp .env.example .env      # Windows: copy .env.example .env
 npm run dev               # http://localhost:5173
 ```
 
-**Demo mode vs live mode** — with `VITE_API_URL` empty, every screen works on the sample
-film ("Echoes of the Forgotten"). Set `VITE_API_URL=http://localhost:8000` to call the FastAPI
-backend at `/api/v1/...` (see `src/api/`).
+| `.env` | What you get |
+|---|---|
+| everything empty | **Demo mode** — sample film, no backend needed |
+| `VITE_API_URL=http://localhost:8000` | **Live mode, dev login** — backend with `AUTH_MODE=dev`, any email works |
+| + `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` | **Live mode, Supabase Auth** — email/password and Google |
+
+In live mode the AI Director creates a project, saves the brief and runs the plan job on the
+backend; Generation shows the cost estimate and follows the generate job; Export runs the FFmpeg
+render job. The current project reopens after a page reload.
 
 ## Screens & routes
 
@@ -36,7 +42,8 @@ as the AI Director progresses; locked deep links fall back to `/director`.
 
 ```
 src/
-  api/          API client (fetch wrapper, auth token, demo-mode fallbacks)
+  api/          API client: Supabase/dev auth, projects, jobs (polling), demo fallbacks
+  studio.tsx    Current project context (useFilm / useStudio)
   components/   Sidebar (desktop rail / mobile drawer)
   screens/      Landing, Login, Onboarding, Director, Generation, Teaser, Export
   panels/       Director panels: Chat, Story, Characters, Screenplay, Dialogue, Lyrics, Scenes, Storyboard, Audio, Music
@@ -49,7 +56,9 @@ e2e/            Playwright end-to-end, mobile and screenshot specs
 ```bash
 npm run typecheck
 npm test                  # unit + integration (Vitest, jsdom)
-npm run test:e2e          # Playwright: desktop + mobile walkthroughs
+npm run test:e2e          # Playwright: desktop + mobile walkthroughs (demo mode)
+npm run test:e2e:live     # full stack: real backend (dev auth, mock AI) + live frontend
+npm run test:e2e:supabase # Supabase sign-in → backend token verification
 npm run screenshots       # capture every screen to ../docs/figma-comparison/raw
 ```
 
