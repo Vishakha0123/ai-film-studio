@@ -17,7 +17,7 @@ export function classifyLine(line: string, i: number): LineKind {
   return 'action'
 }
 
-const LINE_STYLES: Record<LineKind, React.CSSProperties> = {
+export const LINE_STYLES: Record<LineKind, React.CSSProperties> = {
   title: { color: '#f4f0ea', fontWeight: '600', textAlign: 'center', fontSize: '15px' },
   heading: { color: '#f4f0ea', fontWeight: '600', marginTop: '24px', fontSize: '13px' },
   transition: { color: '#71717a', textAlign: 'right', marginTop: '16px' },

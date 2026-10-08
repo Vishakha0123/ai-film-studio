@@ -118,6 +118,13 @@ test('full stack workspace: settings defaults → projects (open, rename, delete
   await page.keyboard.press('Enter')
   await expect(card.getByRole('heading', { name: 'Madurai Nights' })).toBeVisible()
   await card.getByRole('button', { name: 'Open', exact: true }).click()
+  // The whole film on one page, read from the backend
+  await expect(page).toHaveURL(/\/projects\/[^/]+$/)
+  await expect(page.getByTestId('overview-title')).toHaveText('Madurai Nights')
+  await expect(page.getByTestId('overview-character')).toHaveCount(3)
+  await expect(page.getByTestId('overview-shot')).toHaveCount(4)
+  await expect(page.getByTestId('overview-shot').first().locator('img')).toHaveAttribute('src', /storyboard_image\/1-v1\.svg$/)
+  await page.getByRole('button', { name: 'Edit Story in the Director' }).click()
   await expect(page.getByTestId('panel-story')).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Madurai Nights' })).toBeVisible()
 
@@ -168,6 +175,11 @@ test('full stack: attach a story file → backend extracts it → plan uses it',
   await page.getByTestId('nav-chat').click()
   await expect(page.getByTestId('panel-chat')).toContainText('treatment.txt')
   await expect(page.getByTestId('mic-button')).toBeEnabled()
+
+  // The project page lists the source file alongside the film
+  await page.goto(`/projects/${projects[0].id}`)
+  await expect(page.getByTestId('overview-files')).toContainText('treatment.txt')
+  await expect(page.getByTestId('overview-files')).toContainText('lighthouse keeper in Kerala')
 })
 
 test('full stack: New Film keeps the first film saved and creates a second project', async ({ page, request }) => {
