@@ -14,6 +14,7 @@ import Teaser from './screens/Teaser'
 import ExportScreen from './screens/Export'
 import WorkspaceShell from './components/WorkspaceShell'
 import ProjectsPage from './screens/Projects'
+import ProjectOverview from './screens/ProjectOverview'
 import AssetsPage from './screens/Assets'
 import SettingsPage from './screens/Settings'
 import { initialMessages } from './panels/Chat'
@@ -192,6 +193,7 @@ function Screens({ replyDelay, generationStepMs }: AppProps) {
         <Route path="/director" element={<RequireAuth><DirectorRoute studio={studio} replyDelay={replyDelay} /></RequireAuth>} />
         <Route path="/director/:panel" element={<RequireAuth><DirectorRoute studio={studio} replyDelay={replyDelay} /></RequireAuth>} />
         <Route path="/projects" element={<RequireAuth><WorkspaceShell section="projects" title="Projects" progress={progress} navigate={navigate}><ProjectsPage /></WorkspaceShell></RequireAuth>} />
+        <Route path="/projects/:id" element={<RequireAuth><WorkspaceShell section="projects" title="Project" progress={progress} navigate={navigate}><ProjectOverview /></WorkspaceShell></RequireAuth>} />
         <Route path="/assets" element={<RequireAuth><WorkspaceShell section="assets" title="Assets" progress={progress} navigate={navigate}><AssetsPage /></WorkspaceShell></RequireAuth>} />
         <Route path="/settings" element={<RequireAuth><WorkspaceShell section="settings" title="Settings" progress={progress} navigate={navigate}><SettingsPage /></WorkspaceShell></RequireAuth>} />
         <Route path="/generation" element={<TeaserGate><RequireAuth><Generation navigate={navigate} stepDuration={generationStepMs} /></RequireAuth></TeaserGate>} />

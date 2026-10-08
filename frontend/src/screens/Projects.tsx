@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { DEMO_MODE, deleteProject, getProject, listProjects, renameProject } from '../api'
+import { DEMO_MODE, deleteProject, listProjects, renameProject } from '../api'
 import { useStudio } from '../studio'
 import type { ProjectSummary } from '../types'
 
@@ -44,18 +44,8 @@ export default function ProjectsPage() {
     return (projects ?? []).filter(p => !q || `${p.title} ${p.genre} ${p.logline}`.toLowerCase().includes(q))
   }, [projects, query])
 
-  const open = async (id: string) => {
-    setBusy(id)
-    setError(null)
-    try {
-      const p = await getProject(id)
-      openProject(p)
-      navigate(p.memory ? '/director/story' : '/director')
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not open the project.')
-      setBusy(null)
-    }
-  }
+  // Opening a project shows the whole film; "Open in Director" there continues editing.
+  const open = (id: string) => navigate(`/projects/${encodeURIComponent(id)}`)
 
   const saveTitle = async (id: string) => {
     const title = draftTitle.trim()
@@ -184,7 +174,7 @@ export default function ProjectsPage() {
                       className="flex-1 py-1.5 rounded-lg text-xs font-medium border transition-all hover:opacity-80 disabled:opacity-50"
                       style={{ borderColor: 'rgba(212,168,75,0.3)', color: '#d4a84b', backgroundColor: 'rgba(212,168,75,0.07)' }}
                     >
-                      {busy === p.id ? 'Opening…' : 'Open'}
+                      Open
                     </button>
                     <button
                       onClick={() => { setRenaming(p.id); setDraftTitle(p.title) }}

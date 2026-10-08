@@ -195,7 +195,32 @@ describe('workspace pages (demo mode)', { timeout: 15000 }, () => {
     await userEvent.type(input, 'Silent Symphony{Enter}')
     expect(await screen.findByRole('heading', { name: 'Silent Symphony' })).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Open' }))
+    expect(await screen.findByTestId('project-overview')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Edit Story in the Director' }))
     expect(await screen.findByTestId('panel-story')).toBeInTheDocument()
+  })
+
+  it('opening a project shows the whole film on one page', async () => {
+    renderApp('/projects/demo', { loggedIn: true })
+    expect(await screen.findByTestId('overview-title')).toHaveTextContent('Echoes of the Forgotten')
+    expect(screen.getByTestId('overview-stats')).toHaveTextContent('3 characters · 4 scenes · 4 shots')
+    for (const s of ['story', 'characters', 'screenplay', 'scenes', 'storyboard']) {
+      expect(screen.getByTestId(`overview-${s}`)).toBeInTheDocument()
+    }
+    expect(screen.getAllByTestId('overview-character')).toHaveLength(3)
+    expect(screen.getAllByTestId('overview-scene')).toHaveLength(4)
+    expect(screen.getAllByTestId('overview-shot')).toHaveLength(4)
+    expect(screen.getByTestId('overview-screenplay-text')).toHaveTextContent('FADE IN:')
+    expect(screen.getByText('Elena Vasquez')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Edit Storyboard in the Director' }))
+    expect(await screen.findByTestId('panel-storyboard')).toBeInTheDocument()
+  })
+
+  it('Open in Director continues the film in the chat', async () => {
+    renderApp('/projects/demo', { loggedIn: true })
+    await userEvent.click(await screen.findByRole('button', { name: 'Open in Director' }))
+    expect(screen.getByTestId('panel-chat')).toHaveTextContent('is open — pick any stage')
   })
 
   it('assets page filters by type', async () => {
