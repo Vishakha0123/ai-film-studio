@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.db import SessionLocal
-from app.models import AIJob, Asset, Project, UsageEvent
+from app.models import AIJob, Asset, Project, ProjectDocument, UsageEvent
 from app.providers import ProviderError, image_provider, story_provider, tts_provider, video_provider
 from app.providers.base import ProviderResult
 from app.schemas import FilmProject
@@ -130,6 +130,12 @@ async def task_plan(db: Session, job: AIJob, project: Project) -> dict:
     brief = dict(project.brief or {})
     if job.params.get("prompt"):
         brief["prompt"] = job.params["prompt"]
+    docs = db.scalars(select(ProjectDocument).where(ProjectDocument.project_id == project.id)
+                      .order_by(ProjectDocument.created_at)).all()
+    if docs:
+        from app.services.documents import source_material
+        brief["sourceMaterial"] = source_material(docs)
+        brief.setdefault("prompt", "Turn the attached source material into a teaser.")
     if not brief.get("prompt"):
         raise NeedsReview("Add a film idea to the brief before planning.")
     res = await with_retry(lambda: story_provider().plan_film(brief), job, db)

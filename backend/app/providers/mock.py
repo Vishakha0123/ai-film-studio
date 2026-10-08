@@ -7,7 +7,7 @@ import struct
 from html import escape
 from pathlib import Path
 
-from app.providers.base import ImageProvider, ProviderResult, StoryProvider, TTSProvider, VideoProvider
+from app.providers.base import ImageProvider, ProviderResult, StoryProvider, STTProvider, TTSProvider, VideoProvider
 
 SAMPLE = json.loads((Path(__file__).parent / "data" / "sample_film.json").read_text(encoding="utf-8"))
 
@@ -59,3 +59,8 @@ def _tone_wav(seconds: float = 1.0, freq: float = 220.0, rate: int = 16000) -> b
 class MockTTS(TTSProvider):
     async def generate_voice(self, text: str, *, language: str = "en-IN", speaker: str | None = None) -> ProviderResult:
         return ProviderResult(_tone_wav(min(3.0, 0.4 + len(text) / 40)), provider="mock", model="tone")
+
+
+class MockSTT(STTProvider):
+    async def transcribe(self, audio: bytes, *, filename: str, language: str = "en-IN") -> ProviderResult:
+        return ProviderResult("", provider="mock", model="none")

@@ -113,5 +113,27 @@ CREATE INDEX ix_workflow_steps_project_id ON workflow_steps (project_id);
 
 INSERT INTO alembic_version (version_num) VALUES ('0001') RETURNING alembic_version.version_num;
 
+-- Running upgrade 0001 -> 0002
+
+CREATE TABLE project_documents (
+    id VARCHAR(36) NOT NULL, 
+    project_id VARCHAR(36) NOT NULL, 
+    filename VARCHAR(255) NOT NULL, 
+    type VARCHAR(20) NOT NULL, 
+    content_type VARCHAR(120) NOT NULL, 
+    size INTEGER NOT NULL, 
+    file_url TEXT NOT NULL, 
+    extracted_text TEXT NOT NULL, 
+    source_reference VARCHAR(255) NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    PRIMARY KEY (id), 
+    FOREIGN KEY(project_id) REFERENCES projects (id) ON DELETE CASCADE
+);
+
+CREATE INDEX ix_project_documents_project_id ON project_documents (project_id);
+
+UPDATE alembic_version SET version_num='0002' WHERE alembic_version.version_num = '0001';
+
 COMMIT;
 

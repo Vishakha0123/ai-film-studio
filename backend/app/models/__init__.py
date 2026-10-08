@@ -50,6 +50,21 @@ class Project(TimestampMixin, Base):
     assets: Mapped[list["Asset"]] = relationship(back_populates="project", cascade="all, delete-orphan")
 
 
+class ProjectDocument(TimestampMixin, Base):
+    """Source material the creator attached (script, story PDF, reference image)."""
+
+    __tablename__ = "project_documents"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), index=True)
+    filename: Mapped[str] = mapped_column(String(255))
+    type: Mapped[str] = mapped_column(String(20))  # text | pdf | docx | image
+    content_type: Mapped[str] = mapped_column(String(120), default="")
+    size: Mapped[int] = mapped_column(Integer, default=0)
+    file_url: Mapped[str] = mapped_column(Text, default="")
+    extracted_text: Mapped[str] = mapped_column(Text, default="")
+    source_reference: Mapped[str] = mapped_column(String(255), default="")  # e.g. "pages 1-3"
+
+
 class Asset(TimestampMixin, Base):
     __tablename__ = "assets"
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)

@@ -40,12 +40,14 @@ class Settings(BaseSettings):
     IMAGE_PROVIDER: Literal["mock", "openai"] = "mock"
     VIDEO_PROVIDER: Literal["mock", "seedance"] = "mock"
     TTS_PROVIDER: Literal["mock", "sarvam"] = "mock"
+    STT_PROVIDER: Literal["mock", "sarvam"] = "mock"  # voice input in the AI Director chat
 
     SARVAM_API_KEY: str = ""
     SARVAM_BASE_URL: str = "https://api.sarvam.ai"
     SARVAM_CHAT_MODEL: str = "sarvam-105b"
     SARVAM_TTS_MODEL: str = "bulbul:v3"
     SARVAM_TTS_SPEAKER: str = "shubh"
+    SARVAM_STT_MODEL: str = "saaras:v3"
 
     OPENAI_API_KEY: str = ""
     OPENAI_BASE_URL: str = "https://api.openai.com/v1"

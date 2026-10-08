@@ -21,6 +21,7 @@ const PROVIDER_NAMES: Record<string, Record<string, string>> = {
   image: { openai: 'OpenAI GPT Image', mock: 'Placeholder frames (mock)' },
   video: { seedance: 'Seedance · Atlas Cloud', mock: 'No video (mock)' },
   tts: { sarvam: 'Sarvam Bulbul', mock: 'Test tone (mock)' },
+  stt: { sarvam: 'Sarvam Saaras', mock: 'Browser speech (mock server)' },
 }
 
 const AUTH_LABEL: Record<string, string> = {
@@ -197,12 +198,12 @@ export default function SettingsPage() {
               <p className="text-xs text-zinc-600 break-all">{API_BASE} {health && `· API v${health.version}`}</p>
               {health && (
                 <ul className="divide-y" style={{ borderColor: 'rgba(255,255,255,0.05)' }} data-testid="provider-list">
-                  {(['story', 'image', 'video', 'tts'] as const).map(k => {
-                    const id = health.providers[k]
+                  {(['story', 'image', 'video', 'tts', 'stt'] as const).map(k => {
+                    const id = health.providers[k] ?? 'mock'
                     const live = id !== 'mock'
                     return (
                       <li key={k} className="flex items-center justify-between py-2.5 text-sm" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
-                        <span className="text-zinc-500">{{ story: 'Story & screenplay', image: 'Images', video: 'Video', tts: 'Voice' }[k]}</span>
+                        <span className="text-zinc-500">{{ story: 'Story & screenplay', image: 'Images', video: 'Video', tts: 'Voice', stt: 'Voice input' }[k]}</span>
                         <span className="flex items-center gap-2">
                           <span className="text-zinc-300">{PROVIDER_NAMES[k][id] ?? id}</span>
                           <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={live ? { backgroundColor: 'rgba(16,185,129,0.12)', color: '#10b981' } : { backgroundColor: 'rgba(113,113,122,0.15)', color: '#a1a1aa' }}>

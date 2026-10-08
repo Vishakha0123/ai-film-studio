@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
 import type { Panel, ChatMessage, FilmProject } from '../types'
 import { filmSeconds } from '../types'
-import { DEMO_MODE, assertCompleted, createProject, getProject, planProject, saveBrief, waitForJob } from '../api'
+import { ATTACHMENT_ACCEPT, DEMO_MODE, MAX_ATTACHMENTS, MAX_ATTACHMENT_BYTES, assertCompleted, createProject, getProject, planProject, saveBrief, uploadDocument, waitForJob } from '../api'
+import { useDictation } from '../lib/useDictation'
 import { useFilm, useStudio } from '../studio'
 
 const AI_RESPONSES: Record<number, { text: string; card: ChatMessage['card'] }> = {
@@ -87,11 +88,41 @@ export default function Chat({ progress, onAdvance, onGenerate, onOpenPanel, gen
   const [input, setInput] = useState('')
   const [isTyping, setIsTyping] = useState(false)
   const [status, setStatus] = useState('')
-  const { setProject, preferences } = useStudio()
+  const { project, setProject, preferences } = useStudio()
   const film = useFilm()
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [files, setFiles] = useState<File[]>([])
+  const [notice, setNotice] = useState<string | null>(null)
+  const [dragging, setDragging] = useState(false)
+  const inputValue = useRef(input)
+  inputValue.current = input
+  const dictation = useDictation({ language: preferences.language, getText: () => inputValue.current, setText: setInput })
+
+  // Grow the textarea with its content (up to max-height), so the controls stay aligned on one line.
+  useEffect(() => {
+    const el = inputRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${Math.min(el.scrollHeight, 160)}px`
+  }, [input])
+
+  const addFiles = (list: FileList | File[]) => {
+    const accepted = ATTACHMENT_ACCEPT.split(',')
+    const next = [...files]
+    const problems: string[] = []
+    for (const f of Array.from(list)) {
+      const ext = '.' + (f.name.split('.').pop() ?? '').toLowerCase()
+      if (!accepted.includes(ext)) problems.push(`${f.name}: use PDF, Word, text or an image`)
+      else if (f.size > MAX_ATTACHMENT_BYTES) problems.push(`${f.name}: larger than 10 MB`)
+      else if (next.length >= MAX_ATTACHMENTS) problems.push(`Up to ${MAX_ATTACHMENTS} files per message`)
+      else if (!next.some(x => x.name === f.name && x.size === f.size)) next.push(f)
+    }
+    setFiles(next)
+    setNotice(problems.length ? [...new Set(problems)].join(' · ') : null)
+  }
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView?.({ behavior: 'smooth' })
@@ -101,12 +132,32 @@ export default function Chat({ progress, onAdvance, onGenerate, onOpenPanel, gen
 
   const sendMessage = () => {
     const text = input.trim()
-    if (!text || isTyping) return
+    if ((!text && files.length === 0) || isTyping) return
+    if (dictation.state === 'listening') dictation.toggle()
 
-    const userMsg: ChatMessage = { id: Date.now().toString(), role: 'user', content: text }
+    const attached = files
+    const userMsg: ChatMessage = { id: Date.now().toString(), role: 'user', content: text, attachments: attached.map(f => f.name) }
     setMessages(m => [...m, userMsg])
     setInput('')
+    setFiles([])
+    setNotice(null)
     setIsTyping(true)
+
+    const uploadAll = async (projectId: string) => {
+      for (const [i, f] of attached.entries()) {
+        setStatus(`Reading ${f.name} (${i + 1}/${attached.length})`)
+        await uploadDocument(projectId, f)
+      }
+    }
+
+    // Files added to an existing film become source material for its next plan or edit.
+    if (!DEMO_MODE && project && progress > 0 && attached.length && !text) {
+      uploadAll(project.id)
+        .then(() => setMessages(m => [...m, { id: `${Date.now()}`, role: 'ai', content: `Added ${attached.length === 1 ? attached[0].name : `${attached.length} files`} to "${project.title}". I'll use ${attached.length === 1 ? 'it' : 'them'} as source material for the next revision.` }]))
+        .catch((err: unknown) => setMessages(m => [...m, { id: `${Date.now()}`, role: 'ai', content: `I couldn't read that file: ${err instanceof Error ? err.message : 'unknown error'}` }]))
+        .finally(() => { setIsTyping(false); setStatus('') })
+      return
+    }
 
     // Live mode: the first idea creates the project, saves the brief and runs the plan job.
     const backendCall: Promise<FilmProject | null> =
@@ -114,14 +165,18 @@ export default function Chat({ progress, onAdvance, onGenerate, onOpenPanel, gen
         ? (async () => {
             setStatus('Creating your project')
             const created = await createProject(genres ?? [], preferences.language)
-            await saveBrief(created.id, { prompt: text, genres, language: preferences.language, teaserSeconds: preferences.teaserSeconds, aspectRatio: preferences.aspectRatio })
+            await uploadAll(created.id)
+            const prompt = text || `Turn the attached ${attached.length === 1 ? 'file' : 'files'} into a teaser.`
+            await saveBrief(created.id, { prompt, genres, language: preferences.language, teaserSeconds: preferences.teaserSeconds, aspectRatio: preferences.aspectRatio })
             const job = await waitForJob(await planProject(created.id), j => setStatus(j.stage || 'Queued'))
             assertCompleted(job)
             const fresh = await getProject(created.id)
             setProject(fresh)
             return fresh.memory
           })()
-        : Promise.resolve(null)
+        : !DEMO_MODE && project && attached.length
+          ? uploadAll(project.id).then(() => null)
+          : Promise.resolve(null)
 
     const minDelay = new Promise<void>(resolve => {
       timerRef.current = setTimeout(resolve, replyDelay)
@@ -155,10 +210,21 @@ export default function Chat({ progress, onAdvance, onGenerate, onOpenPanel, gen
     }
   }
 
-  const canSend = input.trim() !== '' && !isTyping
+  const canSend = (input.trim() !== '' || files.length > 0) && !isTyping
 
   return (
-    <div className="flex flex-col h-full" data-testid="panel-chat">
+    <div
+      className="relative flex flex-col h-full"
+      data-testid="panel-chat"
+      onDragOver={e => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); setDragging(true) } }}
+      onDragLeave={e => { if (e.currentTarget === e.target) setDragging(false) }}
+      onDrop={e => { e.preventDefault(); setDragging(false); if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files) }}
+    >
+      {dragging && (
+        <div className="absolute inset-3 z-20 rounded-2xl border-2 border-dashed flex items-center justify-center pointer-events-none" style={{ borderColor: 'rgba(212,168,75,0.5)', backgroundColor: 'rgba(9,9,11,0.85)' }}>
+          <p className="text-sm" style={{ color: '#d4a84b' }}>Drop your story, script, lyrics or reference images</p>
+        </div>
+      )}
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 space-y-6">
         {messages.map(msg => (
@@ -182,6 +248,15 @@ export default function Chat({ progress, onAdvance, onGenerate, onOpenPanel, gen
                 }
               >
                 {msg.content}
+                {msg.attachments && msg.attachments.length > 0 && (
+                  <div className={`flex flex-wrap gap-1.5 ${msg.content ? 'mt-2' : ''}`}>
+                    {msg.attachments.map(name => (
+                      <span key={name} className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md" style={{ backgroundColor: 'rgba(255,255,255,0.06)', color: '#d4d4d8' }}>
+                        <PaperclipIcon className="w-3 h-3" />{name}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {msg.card && <MessageCard card={msg.card} onGenerate={onGenerate} onOpenPanel={onOpenPanel} />}
@@ -228,44 +303,88 @@ export default function Chat({ progress, onAdvance, onGenerate, onOpenPanel, gen
 
       {/* Input */}
       <div className="px-3 sm:px-4 pb-4">
-        <div className="flex items-end gap-2 sm:gap-3 px-3 sm:px-4 py-3 rounded-2xl border" style={{ backgroundColor: '#111113', borderColor: 'rgba(255,255,255,0.09)' }}>
-          <button aria-label="Attach file" className="p-1 text-zinc-600 hover:text-zinc-400 transition-colors mb-0.5 flex-shrink-0">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5">
-              <path d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
+        <div className="rounded-2xl border transition-colors focus-within:border-zinc-600" style={{ backgroundColor: '#111113', borderColor: dictation.state === 'listening' ? 'rgba(239,68,68,0.45)' : 'rgba(255,255,255,0.09)' }}>
+          {files.length > 0 && (
+            <div className="flex flex-wrap gap-2 px-3 pt-3" data-testid="attachment-chips">
+              {files.map((f, i) => (
+                <span key={`${f.name}-${i}`} className="inline-flex items-center gap-2 max-w-[240px] pl-2.5 pr-1 py-1 rounded-lg text-xs" style={{ backgroundColor: '#1a1a1e', border: '1px solid rgba(255,255,255,0.07)', color: '#d4d4d8' }}>
+                  <PaperclipIcon className="w-3.5 h-3.5 flex-shrink-0 text-zinc-500" />
+                  <span className="truncate">{f.name}</span>
+                  <span className="text-zinc-600 flex-shrink-0">{f.size < 1024 * 1024 ? `${Math.max(1, Math.round(f.size / 1024))} KB` : `${(f.size / 1024 / 1024).toFixed(1)} MB`}</span>
+                  <button aria-label={`Remove ${f.name}`} onClick={() => setFiles(fs => fs.filter((_, j) => j !== i))} className="w-5 h-5 rounded flex items-center justify-center text-zinc-500 hover:text-zinc-200 hover:bg-zinc-700/50">×</button>
+                </span>
+              ))}
+            </div>
+          )}
 
-          <textarea
-            ref={inputRef}
-            rows={1}
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={handleKey}
-            aria-label="Message the AI Director"
-            placeholder="Describe the film you want to create…"
-            className="flex-1 min-w-0 bg-transparent text-sm text-zinc-200 placeholder-zinc-600 resize-none focus:outline-none leading-relaxed"
-            style={{ maxHeight: 120 }}
-          />
+          <div className="flex items-end gap-1 p-2">
+            <input
+              ref={fileRef}
+              type="file"
+              multiple
+              accept={ATTACHMENT_ACCEPT}
+              className="hidden"
+              data-testid="file-input"
+              onChange={e => { if (e.target.files) addFiles(e.target.files); e.target.value = '' }}
+            />
+            <button
+              aria-label="Attach files"
+              title="Attach a story, script, lyrics (PDF, Word, text) or reference images"
+              onClick={() => fileRef.current?.click()}
+              disabled={isTyping}
+              className="w-9 h-9 flex-shrink-0 rounded-xl flex items-center justify-center text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/60 transition-colors disabled:opacity-40"
+            >
+              <PaperclipIcon className="w-5 h-5" />
+            </button>
 
-          <button aria-label="Voice input" className="p-1 text-zinc-600 hover:text-zinc-400 transition-colors mb-0.5 flex-shrink-0">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5">
-              <path d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
+            <textarea
+              ref={inputRef}
+              rows={1}
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={handleKey}
+              onPaste={e => { if (e.clipboardData.files.length) { e.preventDefault(); addFiles(e.clipboardData.files) } }}
+              aria-label="Message the AI Director"
+              placeholder={dictation.state === 'listening' ? 'Listening… speak your idea' : files.length ? 'Add a note about these files (optional)…' : 'Describe the film you want to create…'}
+              className="flex-1 min-w-0 self-center bg-transparent text-sm text-zinc-200 placeholder-zinc-600 resize-none focus:outline-none px-1.5 py-2 leading-5 max-h-40 overflow-y-auto"
+            />
 
-          <button
-            aria-label="Send"
-            onClick={sendMessage}
-            disabled={!canSend}
-            className="p-2 rounded-xl transition-all flex-shrink-0 disabled:opacity-30"
-            style={{ backgroundColor: canSend ? '#d4a84b' : '#27272a', color: canSend ? '#09090b' : '#52525b' }}
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
-              <path d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
+            <button
+              aria-label={dictation.state === 'listening' ? 'Stop voice input' : 'Voice input'}
+              aria-pressed={dictation.state === 'listening'}
+              title={dictation.mode === 'server' ? 'Speak — transcribed by Sarvam' : 'Speak your idea'}
+              onClick={dictation.toggle}
+              disabled={dictation.state === 'transcribing' || isTyping}
+              data-testid="mic-button"
+              className={`relative w-9 h-9 flex-shrink-0 rounded-xl flex items-center justify-center transition-colors disabled:opacity-40 ${dictation.state === 'listening' ? 'text-red-400 bg-red-500/10' : 'text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/60'}`}
+            >
+              {dictation.state === 'listening' && <span className="absolute inset-1 rounded-lg animate-ping bg-red-500/20" aria-hidden />}
+              {dictation.state === 'transcribing' ? (
+                <svg className="spinner w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" strokeOpacity="0.25" /><path d="M12 2a10 10 0 0 1 10 10" strokeLinecap="round" /></svg>
+              ) : (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5 relative">
+                  <path d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              )}
+            </button>
+
+            <button
+              aria-label="Send"
+              onClick={sendMessage}
+              disabled={!canSend}
+              className="w-9 h-9 flex-shrink-0 rounded-xl flex items-center justify-center transition-all disabled:opacity-30"
+              style={{ backgroundColor: canSend ? '#d4a84b' : '#27272a', color: canSend ? '#09090b' : '#52525b' }}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
+                <path d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          </div>
         </div>
-        <p className="text-center text-[10px] text-zinc-700 mt-2 hidden sm:block">Press Enter to send · Shift+Enter for new line</p>
+        {(notice || dictation.error) && (
+          <p role="alert" className="text-xs text-red-300 mt-2 px-1">{notice ?? dictation.error}</p>
+        )}
+        <p className="text-center text-[10px] text-zinc-700 mt-2 hidden sm:block">Enter to send · Shift+Enter for a new line · Attach or drop PDF, Word, text or images · Mic for voice</p>
       </div>
     </div>
   )
@@ -322,5 +441,13 @@ function MessageCard({ card, onGenerate, onOpenPanel }: { card: NonNullable<Chat
         {card === 'generate' ? 'Generate ▶' : 'View →'}
       </button>
     </div>
+  )
+}
+
+function PaperclipIcon({ className }: { className: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className={className} aria-hidden>
+      <path d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   )
 }

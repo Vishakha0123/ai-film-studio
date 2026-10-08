@@ -38,5 +38,6 @@ def health():
         "version": app.version,
         "authMode": settings.AUTH_MODE,
         "providers": {"story": settings.STORY_PROVIDER, "image": settings.IMAGE_PROVIDER,
-                      "video": settings.VIDEO_PROVIDER, "tts": settings.TTS_PROVIDER},
+                      "video": settings.VIDEO_PROVIDER, "tts": settings.TTS_PROVIDER,
+                      "stt": settings.STT_PROVIDER},
     }

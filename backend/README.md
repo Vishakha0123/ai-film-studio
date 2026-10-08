@@ -49,6 +49,7 @@ local test users (`google-user@dev.local`, `apple-user@dev.local`).
 |---|---|---|
 | Story, characters, screenplay, edits | `STORY_PROVIDER=sarvam` | `SARVAM_API_KEY` |
 | Voice lines | `TTS_PROVIDER=sarvam` | `SARVAM_API_KEY` |
+| Chat mic (speech-to-text) | `STT_PROVIDER=sarvam` | `SARVAM_API_KEY` |
 | Character portraits, storyboard frames | `IMAGE_PROVIDER=openai` | `OPENAI_API_KEY` |
 | Shot video clips | `VIDEO_PROVIDER=seedance` | `ATLAS_API_KEY` (+ `SEEDANCE_MODEL`) |
 
@@ -58,6 +59,9 @@ local test users (`google-user@dev.local`, `apple-user@dev.local`).
 |---|---|---|
 | GET | `/me` | Current user |
 | POST / GET | `/projects` | Create / list projects |
+| POST / GET | `/projects/{id}/documents` | Attach source files (PDF, DOCX, TXT/MD/Fountain, images; 10 MB) / list them |
+| DELETE | `/documents/{id}` | Remove an attached file |
+| POST | `/transcribe` | Speech-to-text for the chat mic (multipart `audio`, `language`) |
 | GET | `/projects/{id}` | Project with memory and asset URLs |
 | POST | `/projects/{id}/brief` | Save the guided brief (idea, genres, language, length, aspect) |
 | POST | `/projects/{id}/plan` | **Job** — story, characters, screenplay, scenes, shots |

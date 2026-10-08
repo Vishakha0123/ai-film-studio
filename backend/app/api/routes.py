@@ -1,16 +1,19 @@
 """REST API (report section 28). Every route checks that the project belongs to the caller."""
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Header, HTTPException, UploadFile, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.auth import CurrentUser, get_current_user
 from app.config import Settings, get_settings
 from app.db import get_db
-from app.models import AIJob, Asset, Project, User, WorkflowStep
-from app.schemas import (ApproveRequest, AssetListItem, AssetOut, Brief, CostEstimate, EditRequest, FilmProject,
+from app.models import AIJob, Asset, Project, ProjectDocument, User, WorkflowStep
+from app.schemas import (ApproveRequest, AssetListItem, AssetOut, Brief, CostEstimate, DocumentOut, EditRequest, FilmProject, Transcript,
                          GenerateRequest, JobOut, Me, PlanRequest, Preferences, ProjectCreate, ProjectOut, ProjectSummary,
                          ProjectUpdate, RenderRequest)
+from app.providers import ProviderError, stt_provider
+from app.services import storage
+from app.services.documents import MAX_FILES_PER_PROJECT, DocumentError, validate_and_extract
 from app.services.jobs import create_job
 from app.services.pipeline import estimate
 
@@ -125,6 +128,7 @@ def delete_project(project_id: str, db: Session = Depends(get_db), user: Current
     project = _own_project(db, project_id, user)
     db.query(AIJob).filter(AIJob.project_id == project.id).delete()
     db.query(WorkflowStep).filter(WorkflowStep.project_id == project.id).delete()
+    db.query(ProjectDocument).filter(ProjectDocument.project_id == project.id).delete()
     db.delete(project)  # assets cascade
     db.commit()
 
@@ -260,3 +264,67 @@ def cancel_job(job_id: str, db: Session = Depends(get_db), user: CurrentUser = D
 def provider_webhook(provider: str):
     """Reserved for provider completion callbacks. Jobs currently poll providers directly."""
     return {"received": provider}
+
+
+# ---------- Attached source material (report section 20) ----------
+
+def _doc_out(d: ProjectDocument) -> DocumentOut:
+    return DocumentOut(id=d.id, filename=d.filename, type=d.type, size=d.size, file_url=d.file_url,
+                       source_reference=d.source_reference, preview=d.extracted_text[:280], created_at=d.created_at)
+
+
+@router.post("/projects/{project_id}/documents", response_model=DocumentOut, status_code=201)
+async def upload_document(project_id: str, file: UploadFile = File(...), db: Session = Depends(get_db),
+                          user: CurrentUser = Depends(get_current_user)):
+    project = _own_project(db, project_id, user)
+    count = db.scalar(select(func.count()).select_from(ProjectDocument).where(ProjectDocument.project_id == project.id)) or 0
+    if count >= MAX_FILES_PER_PROJECT:
+        raise HTTPException(409, detail=f"A project can have up to {MAX_FILES_PER_PROJECT} attached files")
+    data = await file.read(10 * 1024 * 1024 + 1)
+    name = (file.filename or "attachment").replace("/", "_").replace("\\", "_")[-200:]
+    try:
+        kind, text, ref = validate_and_extract(name, data)
+    except DocumentError as e:
+        raise HTTPException(422, detail=str(e))
+    doc = ProjectDocument(project_id=project.id, filename=name, type=kind, content_type=file.content_type or "",
+                          size=len(data), extracted_text=text, source_reference=ref)
+    db.add(doc)
+    db.flush()
+    doc.file_url = await storage.save_bytes(f"projects/{project.id}/documents/{doc.id}-{name}", data, file.content_type)
+    db.commit()
+    return _doc_out(doc)
+
+
+@router.get("/projects/{project_id}/documents", response_model=list[DocumentOut])
+def list_documents(project_id: str, db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
+    project = _own_project(db, project_id, user)
+    rows = db.scalars(select(ProjectDocument).where(ProjectDocument.project_id == project.id)
+                      .order_by(ProjectDocument.created_at)).all()
+    return [_doc_out(d) for d in rows]
+
+
+@router.delete("/documents/{document_id}", status_code=204)
+def delete_document(document_id: str, db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
+    doc = db.get(ProjectDocument, document_id)
+    if doc is None:
+        raise HTTPException(404, detail="Document not found")
+    _own_project(db, doc.project_id, user)
+    db.delete(doc)
+    db.commit()
+
+
+# ---------- Voice input ----------
+
+@router.post("/transcribe", response_model=Transcript)
+async def transcribe(audio: UploadFile = File(...), language: str = Form("en"),
+                     user: CurrentUser = Depends(get_current_user), settings: Settings = Depends(get_settings)):
+    if settings.STT_PROVIDER == "mock":
+        raise HTTPException(501, detail="Voice transcription isn't connected on the server (STT_PROVIDER=mock)")
+    data = await audio.read(10 * 1024 * 1024 + 1)
+    if not data or len(data) > 10 * 1024 * 1024:
+        raise HTTPException(422, detail="Recordings can be up to 10 MB (about 30 seconds works best)")
+    try:
+        res = await stt_provider().transcribe(data, filename=audio.filename or "voice.webm", language=language)
+    except ProviderError as e:
+        raise HTTPException(502, detail=f"Transcription failed: {e}")
+    return Transcript(text=res.data, provider=res.provider)

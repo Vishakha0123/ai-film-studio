@@ -12,7 +12,7 @@ import httpx
 from app.config import get_settings
 from app.prompts import EDIT, PLAN_FILM, render
 from app.providers._json import extract_json
-from app.providers.base import ProviderError, ProviderResult, StoryProvider, TTSProvider
+from app.providers.base import ProviderError, ProviderResult, STTProvider, StoryProvider, TTSProvider
 
 LANG_CODES = {"en": "en-IN", "hi": "hi-IN", "ta": "ta-IN", "te": "te-IN", "kn": "kn-IN", "ml": "ml-IN",
               "bn": "bn-IN", "mr": "mr-IN", "gu": "gu-IN", "pa": "pa-IN", "od": "od-IN"}
@@ -89,3 +89,25 @@ class SarvamTTS(TTSProvider):
         _raise_for(r)
         audio = base64.b64decode(r.json()["audios"][0])
         return ProviderResult(audio, provider="sarvam", model=s.SARVAM_TTS_MODEL, cost=s.COST_PER_TTS_LINE)
+
+
+class SarvamSTT(STTProvider):
+    """Saaras speech-to-text (REST, clips under ~30 s). Docs: /api-reference-docs/speech-to-text/transcribe"""
+
+    async def transcribe(self, audio: bytes, *, filename: str, language: str = "en-IN") -> ProviderResult:
+        s = get_settings()
+        if not s.SARVAM_API_KEY:
+            raise ProviderError("SARVAM_API_KEY is not set")
+        lang = LANG_CODES.get(language, language if "-" in language else "unknown")
+        async with httpx.AsyncClient(timeout=60) as client:
+            try:
+                r = await client.post(
+                    f"{s.SARVAM_BASE_URL}/speech-to-text",
+                    headers={"api-subscription-key": s.SARVAM_API_KEY},
+                    files={"file": (filename, audio, "audio/webm" if filename.endswith(".webm") else "application/octet-stream")},
+                    data={"model": s.SARVAM_STT_MODEL, "language_code": lang},
+                )
+            except httpx.TransportError as e:
+                raise ProviderError(f"Sarvam unreachable: {e}", transient=True) from e
+        _raise_for(r)
+        return ProviderResult(r.json().get("transcript", "").strip(), provider="sarvam", model=s.SARVAM_STT_MODEL)

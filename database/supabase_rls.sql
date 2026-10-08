@@ -5,6 +5,7 @@
 alter table public.users            enable row level security;
 alter table public.projects         enable row level security;
 alter table public.assets           enable row level security;
+alter table public.project_documents enable row level security;
 alter table public.ai_jobs          enable row level security;
 alter table public.workflow_steps   enable row level security;
 alter table public.usage_events     enable row level security;
