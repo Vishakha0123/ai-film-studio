@@ -1,5 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import type { Panel, NavFn } from '../types'
+import { COMING_SOON, isPanelLocked, isTeaserLocked } from '../features'
+import LockIcon, { ComingSoonButton } from './LockIcon'
 
 export const WORKFLOW = [
   { id: 'chat' as Panel, label: 'Director', icon: ChatIcon, stage: -1 },
@@ -142,6 +144,25 @@ export default function Sidebar({ panel, section, setPanel, progress, navigate, 
             {WORKFLOW.map(item => {
               const isActive = panel === item.id
               const isComplete = isStageComplete(item.stage, progress)
+              const locked = isPanelLocked(item.id)
+
+              if (locked) {
+                return (
+                  <button
+                    key={item.id}
+                    data-testid={`nav-${item.id}`}
+                    aria-disabled="true"
+                    title={`${item.label} — ${COMING_SOON}`}
+                    className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left cursor-not-allowed"
+                    style={{ color: '#52525b' }}
+                  >
+                    <span><item.icon /></span>
+                    <span className="text-xs font-medium flex-1">{item.label}</span>
+                    <span className="text-[9px] font-semibold uppercase tracking-wider text-zinc-600">Soon</span>
+                    <LockIcon className="w-3 h-3 flex-shrink-0 text-zinc-600" />
+                  </button>
+                )
+              }
 
               return (
                 <button
@@ -169,9 +190,15 @@ export default function Sidebar({ panel, section, setPanel, progress, navigate, 
             })}
           </div>
 
-          {progress >= 6 && (
+          {progress >= 6 && isTeaserLocked() && (
+            <div className="mt-4">
+              <ComingSoonButton label="Generate Teaser" className="w-full py-2.5 text-xs" testId="sidebar-generate" />
+            </div>
+          )}
+          {progress >= 6 && !isTeaserLocked() && (
             <div className="mt-4">
               <button
+                data-testid="sidebar-generate"
                 onClick={onGenerate}
                 className="w-full py-2.5 rounded-lg text-xs font-semibold transition-all hover:opacity-90 glow-accent"
                 style={{ backgroundColor: '#d4a84b', color: '#09090b' }}

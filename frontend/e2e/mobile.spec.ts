@@ -30,7 +30,7 @@ test('mobile: sidebar is a drawer and the director flow works', async ({ page })
   await expect(sidebar).toHaveAttribute('data-open', 'false')
   await expect(page.getByTestId('panel-characters')).toBeVisible()
 
-  for (const path of ['/director', '/director/storyboard', '/director/audio', '/teaser', '/export', '/projects', '/assets', '/settings']) {
+  for (const path of ['/director', '/director/storyboard', '/new', '/projects', '/assets', '/settings']) {
     await page.goto(path)
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
     expect(overflow, path).toBeLessThanOrEqual(0)

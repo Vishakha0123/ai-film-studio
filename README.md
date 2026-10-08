@@ -32,3 +32,5 @@ npm run dev                       # http://localhost:5173
 ```
 
 Then connect Supabase and the real AI providers when ready — see `backend/README.md`.
+
+**Coming soon:** Audio, Music and Generate Teaser (with the generation, teaser and export screens) are locked in the app for now. To try them locally, set `VITE_UNLOCK_PREVIEW=true` in `frontend/.env` and restart `npm run dev`. To release one permanently, remove it from `frontend/src/features.ts`.

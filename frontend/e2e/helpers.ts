@@ -21,7 +21,8 @@ export async function signIn(page: Page) {
   await expect(page.getByTestId('screen-onboarding')).toBeVisible()
 }
 
-export const STAGES = ['story', 'characters', 'screenplay', 'dialogue', 'lyrics', 'scenes', 'storyboard', 'audio'] as const
+/** Stages the AI Director walks through (Audio and Music are Coming soon). */
+export const STAGES = ['story', 'characters', 'screenplay', 'dialogue', 'lyrics', 'scenes', 'storyboard'] as const
 
 /** Drives the AI Director chat through every workflow stage. */
 export async function runDirector(page: Page, opts: { openMenu?: () => Promise<void> } = {}) {

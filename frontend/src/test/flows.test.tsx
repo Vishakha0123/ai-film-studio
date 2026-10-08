@@ -1,7 +1,12 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { screen, within, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { renderApp } from './renderApp'
+
+// These flows cover the full product, including the Coming-soon features (Audio, Music,
+// Generate Teaser). The locked default is covered in lockedFeatures.test.tsx.
+beforeEach(() => { vi.stubEnv('VITE_UNLOCK_PREVIEW', 'true') })
+afterEach(() => { vi.unstubAllEnvs() })
 
 describe('public screens', () => {
   it('landing shows the hero and routes to login', async () => {
@@ -57,7 +62,7 @@ describe('onboarding', () => {
 })
 
 describe('AI Director', { timeout: 15000 }, () => {
-  it('every stage is open from the start — no locks', async () => {
+  it('with VITE_UNLOCK_PREVIEW every stage is open from the start', async () => {
     renderApp('/director/screenplay', { loggedIn: true })
     expect(screen.getByTestId('panel-screenplay')).toBeInTheDocument()
     for (const p of ['story', 'characters', 'dialogue', 'lyrics', 'scenes', 'storyboard', 'audio', 'music']) {

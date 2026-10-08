@@ -39,7 +39,8 @@ export default defineConfig({
       url: WEB,
       reuseExistingServer: false,
       timeout: 120_000,
-      env: { VITE_API_URL: API, VITE_SUPABASE_URL: '', VITE_SUPABASE_ANON_KEY: '' },
+      // Unlocked so the full stack run still covers generation, teaser and export.
+      env: { VITE_API_URL: API, VITE_SUPABASE_URL: '', VITE_SUPABASE_ANON_KEY: '', VITE_UNLOCK_PREVIEW: 'true' },
     },
   ],
 })
