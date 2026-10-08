@@ -45,6 +45,12 @@ class VideoProvider(ABC):
         """Return a video URL (str) in `data`, or None if the provider produces no video."""
 
 
+class STTProvider(ABC):
+    @abstractmethod
+    async def transcribe(self, audio: bytes, *, filename: str, language: str = "en-IN") -> ProviderResult:
+        """Return the transcript (str) in `data`."""
+
+
 class TTSProvider(ABC):
     @abstractmethod
     async def generate_voice(self, text: str, *, language: str = "en-IN", speaker: str | None = None) -> ProviderResult:

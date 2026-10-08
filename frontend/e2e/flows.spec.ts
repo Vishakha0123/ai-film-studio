@@ -97,3 +97,19 @@ test('workspace pages: projects, assets, settings', async ({ page }) => {
   await page.getByTestId('nav-settings').click()
   await expect(page.getByText('Creative defaults')).toBeVisible()
 })
+
+test('chat input controls are vertically aligned and the textarea grows', async ({ page }) => {
+  await preparePage(page)
+  await signIn(page)
+  await page.goto('/director')
+  const box = page.getByLabel('Message the AI Director')
+  const centers = async () => Promise.all(
+    [page.getByRole('button', { name: 'Attach files' }), box, page.getByTestId('mic-button'), page.getByRole('button', { name: 'Send' })]
+      .map(async l => { const b = (await l.boundingBox())!; return b.y + b.height / 2 }),
+  )
+  const c = await centers()
+  for (const y of c) expect(Math.abs(y - c[0])).toBeLessThanOrEqual(1)
+  const h1 = (await box.boundingBox())!.height
+  await box.fill('line 1\nline 2\nline 3\nline 4')
+  expect((await box.boundingBox())!.height).toBeGreaterThan(h1 + 20)
+})

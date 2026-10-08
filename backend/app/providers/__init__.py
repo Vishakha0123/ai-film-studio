@@ -1,7 +1,7 @@
 """Model router: picks the configured provider for each task (report section 17)."""
 
 from app.config import get_settings
-from app.providers.base import ImageProvider, ProviderError, StoryProvider, TTSProvider, VideoProvider
+from app.providers.base import ImageProvider, ProviderError, StoryProvider, STTProvider, TTSProvider, VideoProvider
 
 
 def story_provider() -> StoryProvider:
@@ -36,4 +36,12 @@ def tts_provider() -> TTSProvider:
     return MockTTS()
 
 
-__all__ = ["ProviderError", "story_provider", "image_provider", "video_provider", "tts_provider"]
+def stt_provider() -> STTProvider:
+    if get_settings().STT_PROVIDER == "sarvam":
+        from app.providers.sarvam import SarvamSTT
+        return SarvamSTT()
+    from app.providers.mock import MockSTT
+    return MockSTT()
+
+
+__all__ = ["ProviderError", "story_provider", "image_provider", "video_provider", "tts_provider", "stt_provider"]

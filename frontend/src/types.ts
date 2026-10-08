@@ -10,6 +10,8 @@ export interface ChatMessage {
   role: 'user' | 'ai'
   content: string
   card?: 'story' | 'characters' | 'screenplay' | 'dialogue' | 'lyrics' | 'scenes' | 'storyboard' | 'generate'
+  /** File names the creator attached to this message */
+  attachments?: string[]
 }
 
 export interface Character {
@@ -298,5 +300,17 @@ export interface Health {
   status: string
   version: string
   authMode: string
-  providers: Record<'story' | 'image' | 'video' | 'tts', string>
+  providers: Record<'story' | 'image' | 'video' | 'tts' | 'stt', string>
+}
+
+/** A file the creator attached as source material (story, script, lyrics, reference image) */
+export interface ProjectDocument {
+  id: string
+  filename: string
+  type: 'text' | 'pdf' | 'docx' | 'image'
+  size: number
+  fileUrl: string
+  sourceReference: string
+  preview: string
+  createdAt: string
 }

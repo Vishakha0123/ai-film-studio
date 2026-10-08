@@ -141,3 +141,31 @@ test('full stack workspace: settings defaults → projects (open, rename, delete
   expect(await (await request.get(`${API}/api/v1/projects`, { headers: auth })).json()).toEqual([])
   expect(errors).toEqual([])
 })
+
+test('full stack: attach a story file → backend extracts it → plan uses it', async ({ page, request }) => {
+  await preparePage(page)
+  const email = 'files-user@dev.local'
+  const auth = { Authorization: `Bearer dev:${email}` }
+  await page.addInitScript(e => localStorage.setItem('cineai.token', `dev:${e}`), email)
+  await page.goto('/director')
+
+  // Paperclip opens the native picker; choose a text file, send it with no message
+  const chooser = page.waitForEvent('filechooser')
+  await page.getByRole('button', { name: 'Attach files' }).click()
+  await (await chooser).setFiles({ name: 'treatment.txt', mimeType: 'text/plain', buffer: Buffer.from('A lighthouse keeper in Kerala finds a radio that receives tomorrow\'s news.') })
+  await expect(page.getByTestId('attachment-chips')).toContainText('treatment.txt')
+  await page.getByRole('button', { name: 'Send' }).click()
+  await expect(page.getByTestId('panel-story')).toBeVisible({ timeout: 20_000 })
+
+  const projects = await (await request.get(`${API}/api/v1/projects`, { headers: auth })).json()
+  expect(projects).toHaveLength(1)
+  const docs = await (await request.get(`${API}/api/v1/projects/${projects[0].id}/documents`, { headers: auth })).json()
+  expect(docs).toHaveLength(1)
+  expect(docs[0].filename).toBe('treatment.txt')
+  expect(docs[0].preview).toContain('lighthouse keeper in Kerala')
+
+  // Back in the chat, the message shows the attachment; the mic is ready (browser speech — server STT is mock)
+  await page.getByTestId('nav-chat').click()
+  await expect(page.getByTestId('panel-chat')).toContainText('treatment.txt')
+  await expect(page.getByTestId('mic-button')).toBeEnabled()
+})

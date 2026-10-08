@@ -69,7 +69,8 @@ async function authHeader(): Promise<string | null> {
 
 export async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers)
-  if (init.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
+  // FormData (file uploads) sets its own multipart Content-Type with the boundary.
+  if (init.body && !(init.body instanceof FormData) && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
   const auth = await authHeader()
   if (auth) headers.set('Authorization', auth)
 

@@ -217,3 +217,38 @@ export async function getHealth(): Promise<Health | null> {
     return null
   }
 }
+
+/* ---------- Attachments & voice input ---------- */
+
+import type { ProjectDocument } from '../types'
+
+/** File types the AI Director accepts as source material (validated again on the server). */
+export const ATTACHMENT_ACCEPT = '.pdf,.docx,.txt,.md,.fountain,.png,.jpg,.jpeg,.webp'
+export const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024
+export const MAX_ATTACHMENTS = 5
+
+export async function uploadDocument(projectId: string, file: File): Promise<ProjectDocument> {
+  if (DEMO_MODE) {
+    await delay(300)
+    const kind = /\.(png|jpe?g|webp)$/i.test(file.name) ? 'image' : /\.pdf$/i.test(file.name) ? 'pdf' : /\.docx$/i.test(file.name) ? 'docx' : 'text'
+    const preview = kind === 'text' ? (await file.text()).slice(0, 280) : ''
+    return { id: `demo-${file.name}`, filename: file.name, type: kind, size: file.size, fileUrl: '', sourceReference: '', preview, createdAt: new Date().toISOString() }
+  }
+  const form = new FormData()
+  form.append('file', file)
+  return request<ProjectDocument>(`/projects/${encodeURIComponent(projectId)}/documents`, { method: 'POST', body: form })
+}
+
+export async function listDocuments(projectId: string): Promise<ProjectDocument[]> {
+  if (DEMO_MODE) return []
+  return request<ProjectDocument[]>(`/projects/${encodeURIComponent(projectId)}/documents`)
+}
+
+/** Server-side speech-to-text (Sarvam). Returns the transcript. */
+export async function transcribeAudio(audio: Blob, language: string): Promise<string> {
+  const form = new FormData()
+  form.append('audio', audio, audio.type.includes('mp4') ? 'voice.m4a' : 'voice.webm')
+  form.append('language', language)
+  const res = await request<{ text: string; provider: string }>('/transcribe', { method: 'POST', body: form })
+  return res.text
+}

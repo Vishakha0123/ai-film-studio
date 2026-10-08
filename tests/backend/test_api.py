@@ -335,3 +335,111 @@ def test_timestamps_are_utc(client):
     assert p["createdAt"].endswith("Z") or p["createdAt"].endswith("+00:00")
     [s] = client.get("/api/v1/projects", headers=auth()).json()
     assert s["updatedAt"].endswith("Z") or s["updatedAt"].endswith("+00:00")
+
+
+# ---------- attachments & voice ----------
+
+def _pdf_bytes(text: str) -> bytes:
+    """Minimal single-page PDF with one line of text."""
+    content = f"BT /F1 18 Tf 50 700 Td ({text}) Tj ET".encode()
+    objs = [b"<< /Type /Catalog /Pages 2 0 R >>", b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>",
+            b"<< /Length %d >>\nstream\n" % len(content) + content + b"\nendstream",
+            b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"]
+    out, offsets = b"%PDF-1.4\n", []
+    for i, o in enumerate(objs, 1):
+        offsets.append(len(out))
+        out += b"%d 0 obj\n" % i + o + b"\nendobj\n"
+    xref = len(out)
+    out += b"xref\n0 %d\n0000000000 65535 f \n" % (len(objs) + 1) + b"".join(b"%010d 00000 n \n" % o for o in offsets)
+    return out + b"trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (len(objs) + 1, xref)
+
+
+def _docx_bytes(lines: list[str]) -> bytes:
+    import io, zipfile
+    body = "".join(f"<w:p><w:r><w:t>{l}</w:t></w:r></w:p>" for l in lines)
+    xml = f'<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>{body}</w:body></w:document>'
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr("word/document.xml", xml)
+    return buf.getvalue()
+
+
+def test_upload_documents_extracts_text(client):
+    p = client.post("/api/v1/projects", json={}, headers=auth()).json()
+    url = f"/api/v1/projects/{p['id']}/documents"
+    txt = client.post(url, files={"file": ("idea.md", b"# Monsoon\nMeera waits at Chennai Central.", "text/markdown")}, headers=auth())
+    assert txt.status_code == 201 and txt.json()["type"] == "text" and "Meera" in txt.json()["preview"]
+    pdf = client.post(url, files={"file": ("script.pdf", _pdf_bytes("INT. CHENNAI CENTRAL - NIGHT"), "application/pdf")}, headers=auth()).json()
+    assert pdf["type"] == "pdf" and "CHENNAI CENTRAL" in pdf["preview"] and pdf["sourceReference"] == "1 page"
+    docx = client.post(url, files={"file": ("lyrics.docx", _docx_bytes(["Mazhai varum", "Un ninaivu"]), "application/vnd.openxmlformats-officedocument.wordprocessingml.document")}, headers=auth()).json()
+    assert docx["type"] == "docx" and "Mazhai varum" in docx["preview"]
+    png = client.post(url, files={"file": ("ref.png", b"\x89PNG\r\n\x1a\n" + b"0" * 64, "image/png")}, headers=auth()).json()
+    assert png["type"] == "image" and png["preview"] == ""
+    assert client.get(png["fileUrl"].replace("http://localhost:8000", "")).status_code == 200
+    assert len(client.get(url, headers=auth()).json()) == 4
+    assert client.delete(f"/api/v1/documents/{png['id']}", headers=auth()).status_code == 204
+    assert len(client.get(url, headers=auth()).json()) == 3
+
+
+def test_upload_rejects_bad_files(client):
+    p = client.post("/api/v1/projects", json={}, headers=auth()).json()
+    url = f"/api/v1/projects/{p['id']}/documents"
+    assert client.post(url, files={"file": ("virus.exe", b"MZ...", "application/octet-stream")}, headers=auth()).status_code == 422
+    fake = client.post(url, files={"file": ("fake.pdf", b"not a pdf", "application/pdf")}, headers=auth())
+    assert fake.status_code == 422 and "match" in fake.json()["detail"]
+    big = client.post(url, files={"file": ("big.txt", b"a" * (10 * 1024 * 1024 + 1), "text/plain")}, headers=auth())
+    assert big.status_code == 422
+    assert client.post(url, files={"file": ("a.txt", b"hi", "text/plain")}, headers=auth("other@x.io")).status_code == 404
+
+
+def test_plan_uses_attached_source_material(client, monkeypatch):
+    from app.providers.mock import MockStory
+    seen = {}
+    orig = MockStory.plan_film
+
+    async def spy(self, brief):
+        seen.update(brief)
+        return await orig(self, brief)
+
+    monkeypatch.setattr(MockStory, "plan_film", spy)
+    p = client.post("/api/v1/projects", json={}, headers=auth()).json()
+    client.post(f"/api/v1/projects/{p['id']}/documents", files={"file": ("story.txt", b"Meera and Arjun meet in the rain.", "text/plain")}, headers=auth())
+    job = client.post(f"/api/v1/projects/{p['id']}/plan", json={}, headers=auth()).json()  # no typed prompt needed
+    assert client.get(f"/api/v1/jobs/{job['id']}", headers=auth()).json()["status"] == "completed"
+    assert "Meera and Arjun meet in the rain." in seen["sourceMaterial"] and "story.txt" in seen["sourceMaterial"]
+
+
+def test_transcribe_mock_is_not_connected(client):
+    r = client.post("/api/v1/transcribe", files={"audio": ("v.webm", b"\x1aE\xdf\xa3", "audio/webm")}, data={"language": "ta"}, headers=auth())
+    assert r.status_code == 501
+    assert client.get("/health").json()["providers"]["stt"] == "mock"
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_sarvam_stt(monkeypatch):
+    from app.config import get_settings
+    from app.providers.sarvam import SarvamSTT
+    monkeypatch.setattr(get_settings(), "SARVAM_API_KEY", "k")
+    route = respx.post("https://api.sarvam.ai/speech-to-text").mock(return_value=Response(200, json={"request_id": "r", "transcript": " மழை பெய்கிறது ", "language_code": "ta-IN"}))
+    res = await SarvamSTT().transcribe(b"audio", filename="voice.webm", language="ta")
+    assert res.data == "மழை பெய்கிறது"
+    req = route.calls[0].request
+    assert req.headers["api-subscription-key"] == "k"
+    assert b'name="language_code"' in req.content and b"ta-IN" in req.content and b"saaras:v3" in req.content
+
+
+def test_transcribe_with_sarvam(client, monkeypatch):
+    from app.config import get_settings
+    from app.providers.base import ProviderResult
+    from app.providers.sarvam import SarvamSTT
+    monkeypatch.setattr(get_settings(), "STT_PROVIDER", "sarvam")
+
+    async def fake(self, audio, *, filename, language="en-IN"):
+        assert language == "hi" and filename == "v.webm"
+        return ProviderResult("नमस्ते", provider="sarvam")
+
+    monkeypatch.setattr(SarvamSTT, "transcribe", fake)
+    r = client.post("/api/v1/transcribe", files={"audio": ("v.webm", b"abc", "audio/webm")}, data={"language": "hi"}, headers=auth())
+    assert r.status_code == 200 and r.json() == {"text": "नमस्ते", "provider": "sarvam"}

@@ -187,6 +187,22 @@ class JobOut(Schema):
     updated_at: UTCDateTime
 
 
+class DocumentOut(Schema):
+    id: str
+    filename: str
+    type: str
+    size: int
+    file_url: str
+    source_reference: str
+    preview: str = ""  # first characters of the extracted text
+    created_at: UTCDateTime
+
+
+class Transcript(Schema):
+    text: str
+    provider: str
+
+
 class CostEstimate(Schema):
     quality: Literal["draft", "final"]
     images: int
