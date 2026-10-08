@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import type { NavFn } from '../types'
 import { filmSeconds, photoUrl } from '../types'
 import { DEMO_MODE, assertCompleted, startRender, waitForJob } from '../api'
@@ -23,6 +24,7 @@ const DownloadIcon = ({ className, stroke = 'currentColor', strokeWidth = 2 }: {
 )
 
 export default function ExportScreen({ navigate }: { navigate: NavFn }) {
+  const routerNavigate = useNavigate()
   const { preferences, project } = useStudio()
   const [selectedFormat, setSelectedFormat] = useState<string>(preferences.aspectRatio)
   const [selectedQuality, setSelectedQuality] = useState('1080')
@@ -217,7 +219,7 @@ export default function ExportScreen({ navigate }: { navigate: NavFn }) {
                 {['Copy Link', 'Share', 'New Film'].map(a => (
                   <button
                     key={a}
-                    onClick={a === 'New Film' ? () => navigate('landing') : undefined}
+                    onClick={a === 'New Film' ? () => routerNavigate('/new') : undefined}
                     className="flex-1 py-2.5 rounded-xl text-sm border transition-all hover:opacity-80"
                     style={{ borderColor: 'rgba(255,255,255,0.08)', color: '#71717a' }}
                   >

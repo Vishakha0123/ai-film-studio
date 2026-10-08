@@ -100,7 +100,7 @@ export default function ProjectsPage() {
             </p>
           </div>
           <button
-            onClick={() => { newFilm(); navigate('/director') }}
+            onClick={() => navigate('/new')}
             className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-semibold transition-all hover:opacity-90"
             style={{ backgroundColor: '#d4a84b', color: '#09090b' }}
           >
@@ -127,7 +127,7 @@ export default function ProjectsPage() {
           <div className="px-6 py-14 rounded-xl text-center" style={{ backgroundColor: '#111113', border: '1px dashed rgba(255,255,255,0.08)' }}>
             <p className="text-lg font-light mb-2" style={{ fontFamily: 'Fraunces, Georgia, serif', color: '#f4f0ea' }}>No films yet</p>
             <p className="text-sm text-zinc-500 mb-5">Describe an idea to the AI Director and your first project appears here.</p>
-            <button onClick={() => { newFilm(); navigate('/director') }} className="px-4 py-2 rounded-lg text-xs font-semibold" style={{ backgroundColor: '#d4a84b', color: '#09090b' }}>
+            <button onClick={() => navigate('/new')} className="px-4 py-2 rounded-lg text-xs font-semibold" style={{ backgroundColor: '#d4a84b', color: '#09090b' }}>
               Start a film
             </button>
           </div>

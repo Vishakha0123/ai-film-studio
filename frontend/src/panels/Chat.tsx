@@ -80,8 +80,10 @@ function liveResponse(stage: number, f: FilmProject): { text: string; card: Chat
   }
 }
 
-export function initialMessages(): ChatMessage[] {
-  return [WELCOME]
+export function initialMessages(genres: string[] = []): ChatMessage[] {
+  if (!genres.length) return [WELCOME]
+  const g = genres.length === 1 ? genres[0] : `${genres.slice(0, -1).join(', ')} & ${genres[genres.length - 1]}`
+  return [{ ...WELCOME, content: `Let's make a new ${g} film. Describe your idea — a single sentence or a detailed treatment — or attach a script, story or lyrics. I'll handle the rest.\n\nWhat's your story?` }]
 }
 
 export default function Chat({ progress, onAdvance, onGenerate, onOpenPanel, genres, messages, setMessages, replyDelay = 1600 }: ChatProps) {
@@ -94,6 +96,9 @@ export default function Chat({ progress, onAdvance, onGenerate, onOpenPanel, gen
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // False once this chat is replaced (New Film) — late replies from the old film are dropped.
+  const alive = useRef(true)
+  useEffect(() => { alive.current = true; return () => { alive.current = false } }, [])
   const [files, setFiles] = useState<File[]>([])
   const [notice, setNotice] = useState<string | null>(null)
   const [dragging, setDragging] = useState(false)
@@ -153,9 +158,9 @@ export default function Chat({ progress, onAdvance, onGenerate, onOpenPanel, gen
     // Files added to an existing film become source material for its next plan or edit.
     if (!DEMO_MODE && project && progress > 0 && attached.length && !text) {
       uploadAll(project.id)
-        .then(() => setMessages(m => [...m, { id: `${Date.now()}`, role: 'ai', content: `Added ${attached.length === 1 ? attached[0].name : `${attached.length} files`} to "${project.title}". I'll use ${attached.length === 1 ? 'it' : 'them'} as source material for the next revision.` }]))
-        .catch((err: unknown) => setMessages(m => [...m, { id: `${Date.now()}`, role: 'ai', content: `I couldn't read that file: ${err instanceof Error ? err.message : 'unknown error'}` }]))
-        .finally(() => { setIsTyping(false); setStatus('') })
+        .then(() => alive.current && setMessages(m => [...m, { id: `${Date.now()}`, role: 'ai', content: `Added ${attached.length === 1 ? attached[0].name : `${attached.length} files`} to "${project.title}". I'll use ${attached.length === 1 ? 'it' : 'them'} as source material for the next revision.` }]))
+        .catch((err: unknown) => alive.current && setMessages(m => [...m, { id: `${Date.now()}`, role: 'ai', content: `I couldn't read that file: ${err instanceof Error ? err.message : 'unknown error'}` }]))
+        .finally(() => { if (alive.current) { setIsTyping(false); setStatus('') } })
       return
     }
 
@@ -168,10 +173,10 @@ export default function Chat({ progress, onAdvance, onGenerate, onOpenPanel, gen
             await uploadAll(created.id)
             const prompt = text || `Turn the attached ${attached.length === 1 ? 'file' : 'files'} into a teaser.`
             await saveBrief(created.id, { prompt, genres, language: preferences.language, teaserSeconds: preferences.teaserSeconds, aspectRatio: preferences.aspectRatio })
-            const job = await waitForJob(await planProject(created.id), j => setStatus(j.stage || 'Queued'))
+            const job = await waitForJob(await planProject(created.id), j => alive.current && setStatus(j.stage || 'Queued'))
             assertCompleted(job)
             const fresh = await getProject(created.id)
-            setProject(fresh)
+            if (alive.current) setProject(fresh)
             return fresh.memory
           })()
         : !DEMO_MODE && project && attached.length
@@ -184,6 +189,7 @@ export default function Chat({ progress, onAdvance, onGenerate, onOpenPanel, gen
 
     Promise.all([backendCall, minDelay])
       .then(([planned]) => {
+        if (!alive.current) return
         const response = (DEMO_MODE ? AI_RESPONSES[progress] : liveResponse(progress, planned ?? film)) || {
           text: "I've noted that. What else would you like to adjust?",
           card: undefined,
@@ -194,6 +200,7 @@ export default function Chat({ progress, onAdvance, onGenerate, onOpenPanel, gen
         onAdvance()
       })
       .catch((err: unknown) => {
+        if (!alive.current) return
         setMessages(m => [
           ...m,
           { id: (Date.now() + 1).toString(), role: 'ai', content: `Something went wrong talking to the studio: ${err instanceof Error ? err.message : 'unknown error'} Please try again.` },

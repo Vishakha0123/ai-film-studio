@@ -169,3 +169,27 @@ test('full stack: attach a story file → backend extracts it → plan uses it',
   await expect(page.getByTestId('panel-chat')).toContainText('treatment.txt')
   await expect(page.getByTestId('mic-button')).toBeEnabled()
 })
+
+test('full stack: New Film keeps the first film saved and creates a second project', async ({ page, request }) => {
+  await preparePage(page)
+  const email = 'newfilm-user@dev.local'
+  const auth = { Authorization: `Bearer dev:${email}` }
+  await page.addInitScript(e => localStorage.setItem('cineai.token', `dev:${e}`), email)
+  await page.goto('/director')
+  await page.getByLabel('Message the AI Director').fill('A lighthouse keeper hears tomorrow on the radio')
+  await page.keyboard.press('Enter')
+  await expect(page.getByTestId('panel-story')).toBeVisible({ timeout: 20_000 })
+
+  await page.getByRole('button', { name: 'New Film' }).click()
+  await expect(page.getByTestId('new-film-note')).toContainText('stays saved in Projects')
+  await page.getByRole('button', { name: /Comedy/ }).click()
+  await page.getByRole('button', { name: 'Start Comedy film' }).click()
+  await expect(page.getByTestId('panel-chat')).toContainText("Let's make a new Comedy film")
+  await page.getByLabel('Message the AI Director').fill('Two rival chai stalls on the same street')
+  await page.keyboard.press('Enter')
+  await expect(page.getByTestId('panel-story')).toBeVisible({ timeout: 20_000 })
+
+  const projects = await (await request.get(`${API}/api/v1/projects`, { headers: auth })).json()
+  expect(projects).toHaveLength(2)
+  expect(projects.map((p: { genre: string }) => p.genre)).toContain('Comedy')
+})

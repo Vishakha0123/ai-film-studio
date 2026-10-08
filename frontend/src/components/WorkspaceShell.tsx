@@ -2,7 +2,6 @@ import { useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Sidebar, { type WorkspaceSection } from './Sidebar'
 import type { NavFn, Panel } from '../types'
-import { useStudio } from '../studio'
 
 interface Props {
   section: WorkspaceSection
@@ -18,7 +17,6 @@ interface Props {
 export default function WorkspaceShell({ section, title, progress, navigate, actions, children }: Props) {
   const [menuOpen, setMenuOpen] = useState(false)
   const nav = useNavigate()
-  const { newFilm } = useStudio()
   const setPanel = (p: Panel) => nav(p === 'chat' ? '/director' : `/director/${p}`)
 
   return (
@@ -30,7 +28,7 @@ export default function WorkspaceShell({ section, title, progress, navigate, act
         progress={progress}
         navigate={navigate}
         onGenerate={() => navigate('generation')}
-        onNewFilm={() => { newFilm(); nav('/director') }}
+        onNewFilm={() => nav('/new')}
         open={menuOpen}
         onClose={() => setMenuOpen(false)}
       />

@@ -41,10 +41,12 @@ interface DirectorProps {
   setMessages: (fn: (m: ChatMessage[]) => ChatMessage[]) => void
   genres: string[]
   onNewFilm: () => void
+  /** Changes on New Film so the chat starts clean. */
+  filmKey?: number
   replyDelay?: number
 }
 
-export default function Director({ navigate, panel, setPanel, progress, setProgress, messages, setMessages, genres, onNewFilm, replyDelay }: DirectorProps) {
+export default function Director({ navigate, panel, setPanel, progress, setProgress, messages, setMessages, genres, onNewFilm, filmKey = 0, replyDelay }: DirectorProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const film = useFilm()
   const { project } = useStudio()
@@ -124,6 +126,7 @@ export default function Director({ navigate, panel, setPanel, progress, setProgr
         <div className="flex-1 overflow-hidden">
           {panel === 'chat' && (
             <Chat
+              key={filmKey}
               progress={progress}
               onAdvance={advance}
               onGenerate={handleGenerate}
