@@ -6,47 +6,37 @@ export { DEMO_MODE, AUTH_PROVIDER, ApiError, getToken } from './client'
 
 /* ---------- Auth ---------- */
 
+export type AuthProvider = 'google' | 'apple'
+
 export interface Session {
   email: string
 }
 
-export async function signIn(email: string, password: string, mode: 'login' | 'signup' = 'login'): Promise<Session> {
-  if (AUTH_PROVIDER === 'demo') {
-    await delay(1200)
-    setToken('demo-token')
-    return { email }
-  }
-  if (AUTH_PROVIDER === 'dev') {
-    // Backend AUTH_MODE=dev accepts "dev:<email>" tokens (local development only).
-    setToken(`dev:${email.trim().toLowerCase()}`)
-    await request('/me')
-    return { email }
-  }
-  const supabase = await getSupabase()!
-  const { data, error } =
-    mode === 'login'
-      ? await supabase.auth.signInWithPassword({ email, password })
-      : await supabase.auth.signUp({ email, password })
-  if (error) throw new ApiError(error.message, error.status ?? 400)
-  if (!data.session) throw new ApiError('Check your email to confirm your account, then sign in.', 400)
-  setToken('supabase')
-  return { email: data.user?.email ?? email }
-}
-
-export async function signInWithGoogle(): Promise<Session> {
+/**
+ * Sign in with Google or Apple. There is no email/password form: Supabase hosts the
+ * provider's consent screen and redirects back to /onboarding with the session.
+ *  - demo: signs straight in (no backend)
+ *  - dev:  backend AUTH_MODE=dev; each provider maps to a fixed local test user
+ */
+export async function signInWithProvider(provider: AuthProvider): Promise<Session> {
   if (AUTH_PROVIDER === 'demo') {
     await delay(1000)
     setToken('demo-token')
     return { email: 'director@cinema.ai' }
   }
-  if (AUTH_PROVIDER === 'dev') throw new ApiError('Google sign-in needs Supabase. Use email in dev mode.', 400)
+  if (AUTH_PROVIDER === 'dev') {
+    const email = `${provider}-user@dev.local`
+    setToken(`dev:${email}`)
+    await request('/me')
+    return { email }
+  }
   const supabase = await getSupabase()!
   const { error } = await supabase.auth.signInWithOAuth({
-    provider: 'google',
+    provider,
     options: { redirectTo: `${window.location.origin}/onboarding` },
   })
   if (error) throw new ApiError(error.message, 400)
-  return new Promise(() => {}) // browser redirects to Google
+  return new Promise(() => {}) // the browser is redirected to Google / Apple
 }
 
 export async function signOut() {

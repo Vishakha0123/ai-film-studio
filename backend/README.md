@@ -18,7 +18,8 @@ uvicorn app.main:app --reload        # http://localhost:8000  ·  API docs at /d
 ```
 
 Quick start without Supabase: in `.env` set `AUTH_MODE=dev` (keeps SQLite + mock providers).
-Then run the frontend with `VITE_API_URL=http://localhost:8000` and log in with any email.
+Then run the frontend with `VITE_API_URL=http://localhost:8000`; the Google and Apple buttons sign in
+local test users (`google-user@dev.local`, `apple-user@dev.local`).
 
 ## Connect Supabase
 
@@ -30,7 +31,16 @@ Then run the frontend with `VITE_API_URL=http://localhost:8000` and log in with 
 5. Storage: create a **public** bucket `assets`, set `STORAGE_BACKEND=supabase` and
    `SUPABASE_SERVICE_ROLE_KEY` (server only). Seedance needs public image URLs, so use this
    whenever `VIDEO_PROVIDER=seedance`.
-6. Auth → Providers: enable Email (and Google if you want the Google button).
+6. Sign-in is **Google and Apple only** (no email/password). In Supabase → Authentication:
+   - **Providers → Google**: enable, paste the OAuth Client ID and Secret from Google Cloud Console
+     (Credentials → OAuth client → Web application). Authorized redirect URI:
+     `https://<project-ref>.supabase.co/auth/v1/callback`.
+   - **Providers → Apple**: enable, paste the Services ID, Team ID, Key ID and the `.p8` key from
+     Apple Developer (Certificates, IDs & Profiles → Identifiers → Services ID with "Sign in with Apple").
+     Return URL: `https://<project-ref>.supabase.co/auth/v1/callback`.
+   - **Providers → Email**: turn off, so accounts can only be created through Google or Apple.
+   - **URL Configuration**: Site URL = your frontend (e.g. `http://localhost:5173`), and add
+     `http://localhost:5173/onboarding` (plus your production URL) to Redirect URLs.
    Frontend `.env`: `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
 
 ## Turn on real AI

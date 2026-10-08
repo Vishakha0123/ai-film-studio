@@ -4,7 +4,7 @@
  * Modes (from frontend/.env):
  *  - Demo:     VITE_API_URL empty → every screen runs on the sample film, no backend needed.
  *  - Live:     VITE_API_URL=http://localhost:8000
- *      · with VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY → Supabase Auth (email, Google)
+ *      · with VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY → Supabase Auth (Google, Apple)
  *      · without them → dev login (backend must run with AUTH_MODE=dev)
  */
 import type { SupabaseClient } from '@supabase/supabase-js'
