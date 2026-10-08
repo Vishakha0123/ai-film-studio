@@ -10,7 +10,8 @@ export interface StudioContextValue {
   /** Makes a saved project current and opens all its Director stages */
   openProject: (p: ProjectData) => void
   /** Clears the workspace for a new film */
-  newFilm: () => void
+  /** Clears the current film (chat, stages, project) and starts fresh with the given genres. */
+  newFilm: (genres?: string[]) => void
   /** Creator defaults from Settings */
   preferences: Preferences
   setPreferences: (p: Preferences) => void

@@ -63,8 +63,15 @@ test('end-to-end: idea → story → all stages → teaser → export', async ({
   await page.getByRole('button', { name: /1:1 1080×1080/ }).click()
   await page.getByRole('button', { name: 'Export 1:1 · 1080' }).click()
   await expect(page.getByText('Your Teaser Is Ready.')).toBeVisible({ timeout: 6000 })
+  // New Film → pick a genre → a clean Director chat
   await page.getByRole('button', { name: 'New Film' }).click()
-  await expect(page).toHaveURL(/\/$/)
+  await expect(page).toHaveURL(/\/new$/)
+  await expect(page.getByTestId('new-film-note')).toContainText('Echoes of the Forgotten')
+  await page.getByRole('button', { name: /Sci-Fi/ }).click()
+  await page.getByRole('button', { name: 'Start Sci-Fi film' }).click()
+  await expect(page).toHaveURL(/\/director$/)
+  await expect(page.getByTestId('panel-chat')).toContainText("Let's make a new Sci-Fi film")
+  await expect(page.getByTestId('panel-chat')).not.toContainText('A grieving composer')
 
   expect(errors).toEqual([])
 })

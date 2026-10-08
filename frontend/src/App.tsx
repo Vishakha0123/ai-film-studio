@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom'
 import type { ChatMessage, NavFn, Panel, Preferences, ProjectData, Screen } from './types'
-import { DEFAULT_PREFERENCES, PANELS } from './types'
+import { DEFAULT_PREFERENCES, FILM_PROJECT, PANELS } from './types'
 import { DEMO_MODE, getMe, getProject, getToken } from './api'
 import { StudioContext, type StudioContextValue } from './studio'
 import Landing from './screens/Landing'
 import Login from './screens/Login'
-import Onboarding from './screens/Onboarding'
+import Onboarding, { NewFilm } from './screens/Onboarding'
 import Director from './screens/Director'
 import Generation from './screens/Generation'
 import Teaser from './screens/Teaser'
@@ -44,7 +44,8 @@ interface StudioState {
   setMessages: (fn: (m: ChatMessage[]) => ChatMessage[]) => void
   genres: string[]
   setGenres: (fn: (g: string[]) => string[]) => void
-  reset: () => void
+  reset: (genres?: string[]) => void
+  filmKey: number
 }
 
 function DirectorRoute({ studio, replyDelay }: { studio: StudioState; replyDelay?: number }) {
@@ -67,7 +68,8 @@ function DirectorRoute({ studio, replyDelay }: { studio: StudioState; replyDelay
       messages={studio.messages}
       setMessages={studio.setMessages}
       genres={studio.genres}
-      onNewFilm={() => { studio.reset(); setPanel('chat') }}
+      onNewFilm={() => nav('/new')}
+      filmKey={studio.filmKey}
       replyDelay={replyDelay}
     />
   )
@@ -126,10 +128,13 @@ function Screens({ replyDelay, generationStepMs }: AppProps) {
     ])
   }, [setProject])
 
-  const newFilm = useCallback(() => {
+  const [filmKey, setFilmKey] = useState(0)
+  const newFilm = useCallback((nextGenres: string[] = []) => {
     setProgress(0)
-    setMessages(initialMessages())
+    setGenres(nextGenres)
+    setMessages(initialMessages(nextGenres))
     setProject(null)
+    setFilmKey(k => k + 1) // remounts the chat: clears the draft, attachments and any pending reply
   }, [setProject])
 
   // Live mode: reopen the last project after a reload (state otherwise lives in memory).
@@ -164,6 +169,7 @@ function Screens({ replyDelay, generationStepMs }: AppProps) {
     genres,
     setGenres,
     reset: newFilm,
+    filmKey,
   }
 
   return (
@@ -176,6 +182,7 @@ function Screens({ replyDelay, generationStepMs }: AppProps) {
         <Route path="/" element={<Landing navigate={navigate} />} />
         <Route path="/login" element={<Login navigate={navigate} />} />
         <Route path="/onboarding" element={<RequireAuth><Onboarding navigate={navigate} selected={genres} setSelected={setGenres} /></RequireAuth>} />
+        <Route path="/new" element={<RequireAuth><NewFilm current={progress > 0 ? { title: project?.title || (DEMO_MODE ? FILM_PROJECT.title : 'your current film'), saved: !DEMO_MODE && !!project } : null} onStart={g => { newFilm(g); navigate('director') }} /></RequireAuth>} />
         <Route path="/director" element={<RequireAuth><DirectorRoute studio={studio} replyDelay={replyDelay} /></RequireAuth>} />
         <Route path="/director/:panel" element={<RequireAuth><DirectorRoute studio={studio} replyDelay={replyDelay} /></RequireAuth>} />
         <Route path="/projects" element={<RequireAuth><WorkspaceShell section="projects" title="Projects" progress={progress} navigate={navigate}><ProjectsPage /></WorkspaceShell></RequireAuth>} />
