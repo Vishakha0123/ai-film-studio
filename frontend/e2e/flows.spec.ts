@@ -5,7 +5,7 @@ test.beforeEach(async ({ page }) => {
   await preparePage(page)
 })
 
-test('end-to-end: idea → story → all stages → teaser → export', async ({ page }) => {
+test('end-to-end: idea → story → every open stage → Coming-soon features are locked → New Film', async ({ page }) => {
   test.setTimeout(180_000)
   const errors: string[] = []
   page.on('pageerror', e => errors.push(e.message))
@@ -25,53 +25,51 @@ test('end-to-end: idea → story → all stages → teaser → export', async ({
   await page.getByRole('button', { name: 'Continue with Horror & Thriller' }).click()
   await expect(page).toHaveURL(/\/director$/)
 
-  // No locked stages
-  await expect(page.locator('[aria-disabled="true"]')).toHaveCount(0)
+  // Audio, Music and Generate Teaser are Coming soon; every other stage is open
+  for (const p of ['audio', 'music']) {
+    await expect(page.getByTestId(`nav-${p}`)).toHaveAttribute('aria-disabled', 'true')
+    await expect(page.getByTestId(`nav-${p}`)).toContainText('Soon')
+  }
+  await expect(page.getByTestId('topbar-generate')).toHaveAttribute('aria-disabled', 'true')
 
-  // AI Director conversation drives every stage
+  // AI Director conversation drives every open stage
   await runDirector(page)
-  for (const stage of [...STAGES, 'music'] as const) {
-    await expect(page.getByTestId(`nav-${stage}`)).toBeEnabled()
+  for (const stage of STAGES) {
+    await expect(page.getByTestId(`nav-${stage}`)).not.toHaveAttribute('aria-disabled', 'true')
   }
 
-  // Deep links work for every panel
+  // Deep links work for open panels
   await page.getByTestId('nav-storyboard').click()
   await expect(page).toHaveURL(/\/director\/storyboard$/)
   await page.getByRole('button', { name: 'Anime' }).click()
   await expect(page.getByText('Visual style: Anime')).toBeVisible()
+  await expect(page.getByRole('button', { name: /Generate Visuals & Video/ })).toHaveAttribute('aria-disabled', 'true')
 
-  // Chat history survives switching panels
+  // Last chat step offers generation as Coming soon and stays in the chat
   await page.getByTestId('nav-chat').click()
-  await expect(page.getByTestId('card-story')).toBeVisible()
+  await page.getByLabel('Message the AI Director').fill('continue')
+  await page.keyboard.press('Enter')
   await expect(page.getByTestId('card-generate')).toBeVisible()
+  await expect(page.getByText(/Teaser generation is coming soon/)).toBeVisible()
+  await expect(page.getByTestId('card-generate').getByRole('button', { name: /Generate/ })).toBeDisabled()
+  await page.getByTestId('card-generate').getByRole('button', { name: /Generate/ }).click({ force: true })
+  await expect(page).toHaveURL(/\/director$/)
+  await expect(page.getByTestId('card-story')).toBeVisible() // chat history kept
+  await expect(page.getByTestId('sidebar-generate')).toHaveAttribute('aria-disabled', 'true')
 
-  // Generate teaser
-  await page.getByTestId('card-generate').getByRole('button', { name: 'Generate ▶' }).click()
-  await expect(page).toHaveURL(/\/generation$/)
-  await expect(page.getByTestId('screen-generation')).toBeVisible()
-  await expect(page.getByText('Generating', { exact: true })).toBeVisible()
-  await expect(page).toHaveURL(/\/teaser$/, { timeout: 20_000 })
+  // Locked screens can't be opened by URL
+  for (const path of ['/director/audio', '/director/music', '/generation', '/teaser', '/export']) {
+    await page.goto(path)
+    await expect(page).toHaveURL(/\/director$/)
+  }
 
-  // Teaser player
-  await page.getByRole('button', { name: 'Play' }).click()
-  await expect(page.getByTestId('teaser-time')).not.toHaveText('0s / 10s', { timeout: 3000 })
-  await page.getByRole('button', { name: 'Pause' }).click()
-
-  // Export
-  await page.getByRole('button', { name: 'Export' }).click()
-  await expect(page).toHaveURL(/\/export$/)
-  await page.getByRole('button', { name: /1:1 1080×1080/ }).click()
-  await page.getByRole('button', { name: 'Export 1:1 · 1080' }).click()
-  await expect(page.getByText('Your Teaser Is Ready.')).toBeVisible({ timeout: 6000 })
   // New Film → pick a genre → a clean Director chat
   await page.getByRole('button', { name: 'New Film' }).click()
   await expect(page).toHaveURL(/\/new$/)
-  await expect(page.getByTestId('new-film-note')).toContainText('Echoes of the Forgotten')
   await page.getByRole('button', { name: /Sci-Fi/ }).click()
   await page.getByRole('button', { name: 'Start Sci-Fi film' }).click()
   await expect(page).toHaveURL(/\/director$/)
   await expect(page.getByTestId('panel-chat')).toContainText("Let's make a new Sci-Fi film")
-  await expect(page.getByTestId('panel-chat')).not.toContainText('A grieving composer')
 
   expect(errors).toEqual([])
 })

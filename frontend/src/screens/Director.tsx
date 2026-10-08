@@ -14,6 +14,8 @@ import Audio from '../panels/Audio'
 import Music from '../panels/Music'
 import { useFilm, useStudio } from '../studio'
 import { DEMO_MODE } from '../api'
+import { isPanelLocked, isTeaserLocked } from '../features'
+import { ComingSoonButton } from '../components/LockIcon'
 
 export const PANEL_TITLES: Record<Panel, string> = {
   chat: 'AI Director',
@@ -57,7 +59,8 @@ export default function Director({ navigate, panel, setPanel, progress, setProgr
   const advance = () => {
     const next = PANEL_ORDER[progress]
     setProgress(progress + 1)
-    if (next) setTimeout(() => setPanel(next), 100)
+    // Locked stages (Coming soon) still count as done, but the Director stays in the chat.
+    if (next && !isPanelLocked(next)) setTimeout(() => setPanel(next), 100)
   }
 
   const handleGenerate = () => navigate('generation')
@@ -112,6 +115,7 @@ export default function Director({ navigate, panel, setPanel, progress, setProgr
               </button>
             )}
             <div className="w-px h-4 bg-zinc-800" />
+            {isTeaserLocked() ? <ComingSoonButton label="Generate Teaser" className="text-xs px-3 py-1.5" testId="topbar-generate" /> : (
             <button
               onClick={handleGenerate}
               className="text-xs px-3 py-1.5 rounded-lg font-medium transition-all hover:opacity-80 whitespace-nowrap"
@@ -119,6 +123,7 @@ export default function Director({ navigate, panel, setPanel, progress, setProgr
             >
               Generate Teaser
             </button>
+            )}
           </div>
         </div>
 

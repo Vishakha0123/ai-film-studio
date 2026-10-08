@@ -4,6 +4,7 @@ import type { ChatMessage, NavFn, Panel, Preferences, ProjectData, Screen } from
 import { DEFAULT_PREFERENCES, FILM_PROJECT, PANELS } from './types'
 import { DEMO_MODE, getMe, getProject, getToken } from './api'
 import { StudioContext, type StudioContextValue } from './studio'
+import { isPanelLocked, isTeaserLocked } from './features'
 import Landing from './screens/Landing'
 import Login from './screens/Login'
 import Onboarding, { NewFilm } from './screens/Onboarding'
@@ -54,7 +55,7 @@ function DirectorRoute({ studio, replyDelay }: { studio: StudioState; replyDelay
   const { panel: param } = useParams()
   const panel = (param ?? 'chat') as Panel
 
-  if (!PANELS.includes(panel)) return <Navigate to="/director" replace />
+  if (!PANELS.includes(panel) || isPanelLocked(panel)) return <Navigate to="/director" replace />
 
   const setPanel = (p: Panel) => nav(p === 'chat' ? '/director' : `/director/${p}`)
 
@@ -73,6 +74,11 @@ function DirectorRoute({ studio, replyDelay }: { studio: StudioState; replyDelay
       replyDelay={replyDelay}
     />
   )
+}
+
+/** Generation, teaser and export are Coming soon: deep links go back to the Director. */
+function TeaserGate({ children }: { children: React.ReactElement }) {
+  return isTeaserLocked() ? <Navigate to="/director" replace /> : children
 }
 
 const PROJECT_KEY = 'cineai.projectId'
@@ -188,9 +194,9 @@ function Screens({ replyDelay, generationStepMs }: AppProps) {
         <Route path="/projects" element={<RequireAuth><WorkspaceShell section="projects" title="Projects" progress={progress} navigate={navigate}><ProjectsPage /></WorkspaceShell></RequireAuth>} />
         <Route path="/assets" element={<RequireAuth><WorkspaceShell section="assets" title="Assets" progress={progress} navigate={navigate}><AssetsPage /></WorkspaceShell></RequireAuth>} />
         <Route path="/settings" element={<RequireAuth><WorkspaceShell section="settings" title="Settings" progress={progress} navigate={navigate}><SettingsPage /></WorkspaceShell></RequireAuth>} />
-        <Route path="/generation" element={<RequireAuth><Generation navigate={navigate} stepDuration={generationStepMs} /></RequireAuth>} />
-        <Route path="/teaser" element={<RequireAuth><Teaser navigate={navigate} /></RequireAuth>} />
-        <Route path="/export" element={<RequireAuth><ExportScreen navigate={navigate} /></RequireAuth>} />
+        <Route path="/generation" element={<TeaserGate><RequireAuth><Generation navigate={navigate} stepDuration={generationStepMs} /></RequireAuth></TeaserGate>} />
+        <Route path="/teaser" element={<TeaserGate><RequireAuth><Teaser navigate={navigate} /></RequireAuth></TeaserGate>} />
+        <Route path="/export" element={<TeaserGate><RequireAuth><ExportScreen navigate={navigate} /></RequireAuth></TeaserGate>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       )}

@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
+import { isTeaserLocked } from '../features'
+import { ComingSoonButton } from '../components/LockIcon'
 import type { Panel, ChatMessage, FilmProject } from '../types'
 import { filmSeconds } from '../types'
 import { ATTACHMENT_ACCEPT, DEMO_MODE, MAX_ATTACHMENTS, MAX_ATTACHMENT_BYTES, assertCompleted, createProject, getProject, planProject, saveBrief, uploadDocument, waitForJob } from '../api'
@@ -64,6 +66,15 @@ interface ChatProps {
 }
 
 /** Director replies for a live project, written from the generated film rather than the sample. */
+const TEASER_SOON = 'Teaser generation is coming soon — until then you can keep refining any stage.'
+
+/** The sample film's scripted replies; the last one can't offer generation while it's locked. */
+function demoResponse(stage: number) {
+  const r = AI_RESPONSES[stage]
+  if (r?.card === 'generate' && isTeaserLocked()) return { ...r, text: r.text.replace(/Your 10-second[^]*$/, TEASER_SOON) }
+  return r
+}
+
 function liveResponse(stage: number, f: FilmProject): { text: string; card: ChatMessage['card'] } | undefined {
   const names = f.characters.map(c => c.name.split(' ')[0])
   const list = names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names[0] ?? 'your lead'
@@ -75,7 +86,7 @@ function liveResponse(stage: number, f: FilmProject): { text: string; card: Chat
     case 3: return { text: `Dialogue is in place. Want lyrics for a theme that plays under the key scene?`, card: 'lyrics' }
     case 4: return { text: `I've broken the story into ${f.scenes.length} scenes with timing and mood. Ready to storyboard?`, card: 'scenes' }
     case 5: return { text: `${f.shots.length} shots storyboarded — about ${secs} seconds in total, with camera and movement for each.\n\nEverything is ready for visuals.`, card: 'storyboard' }
-    case 6: return { text: `Everything is in place.\n\n✓ Story ✓ Characters ✓ Screenplay ✓ Dialogue ✓ Scenes ✓ Storyboard\n\nGenerate the teaser when you're ready — you'll see the estimated cost first.`, card: 'generate' }
+    case 6: return { text: `Everything is in place.\n\n✓ Story ✓ Characters ✓ Screenplay ✓ Dialogue ✓ Scenes ✓ Storyboard\n\n${isTeaserLocked() ? TEASER_SOON : 'Generate the teaser when you\'re ready — you\'ll see the estimated cost first.'}`, card: 'generate' }
     default: return undefined
   }
 }
@@ -190,7 +201,7 @@ export default function Chat({ progress, onAdvance, onGenerate, onOpenPanel, gen
     Promise.all([backendCall, minDelay])
       .then(([planned]) => {
         if (!alive.current) return
-        const response = (DEMO_MODE ? AI_RESPONSES[progress] : liveResponse(progress, planned ?? film)) || {
+        const response = (DEMO_MODE ? demoResponse(progress) : liveResponse(progress, planned ?? film)) || {
           text: "I've noted that. What else would you like to adjust?",
           card: undefined,
         }
@@ -440,6 +451,7 @@ function MessageCard({ card, onGenerate, onOpenPanel }: { card: NonNullable<Chat
           <p className="text-xs text-zinc-500">{config.desc}</p>
         </div>
       </div>
+      {card === 'generate' && isTeaserLocked() ? <ComingSoonButton label="Generate" className="text-xs px-3 py-1.5 flex-shrink-0" /> : (
       <button
         onClick={card === 'generate' ? onGenerate : target && onOpenPanel ? () => onOpenPanel(target) : undefined}
         className="text-xs px-3 py-1.5 rounded-lg border transition-all hover:opacity-80 flex-shrink-0"
@@ -447,6 +459,7 @@ function MessageCard({ card, onGenerate, onOpenPanel }: { card: NonNullable<Chat
       >
         {card === 'generate' ? 'Generate ▶' : 'View →'}
       </button>
+      )}
     </div>
   )
 }

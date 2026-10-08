@@ -1,3 +1,5 @@
+import { isTeaserLocked } from '../features'
+import { ComingSoonButton } from '../components/LockIcon'
 import { useFilm } from '../studio'
 import { filmSeconds } from '../types'
 
@@ -99,8 +101,9 @@ export default function Scenes({ onGenerate }: { onGenerate: () => void }) {
           <div className="flex flex-wrap items-center justify-between gap-4 pt-4 border-t" style={{ borderColor: 'rgba(212,168,75,0.15)' }}>
             <div>
               <p className="text-sm font-semibold" style={{ color: '#f4f0ea' }}>Duration: {totalDuration}</p>
-              <p className="text-xs text-zinc-500 mt-0.5">Audio generation optional — you can add it after</p>
+              <p className="text-xs text-zinc-500 mt-0.5">{isTeaserLocked() ? 'Teaser generation is coming soon' : 'Audio generation optional — you can add it after'}</p>
             </div>
+            {isTeaserLocked() ? <ComingSoonButton label="Generate Teaser" /> : (
             <button
               onClick={onGenerate}
               className="px-6 py-2.5 rounded-lg text-sm font-semibold transition-all hover:opacity-90 active:scale-[0.98] glow-accent"
@@ -108,6 +111,7 @@ export default function Scenes({ onGenerate }: { onGenerate: () => void }) {
             >
               Generate Teaser ▶
             </button>
+            )}
           </div>
         </div>
       </div>

@@ -1,3 +1,5 @@
+import { isTeaserLocked } from '../features'
+import { ComingSoonButton } from '../components/LockIcon'
 import { useState } from 'react'
 import { photoUrl } from '../types'
 import { useFilm } from '../studio'
@@ -57,6 +59,7 @@ export default function Storyboard({ onGenerate }: { onGenerate: () => void }) {
             <p className="text-sm text-zinc-400">All shots reviewed</p>
             <p className="text-xs text-zinc-600 mt-0.5">Visual style: {style}</p>
           </div>
+          {isTeaserLocked() ? <ComingSoonButton label="Generate Visuals & Video" /> : (
           <button
             onClick={onGenerate}
             className="px-6 py-2.5 rounded-lg text-sm font-semibold transition-all hover:opacity-90 active:scale-[0.98]"
@@ -64,6 +67,7 @@ export default function Storyboard({ onGenerate }: { onGenerate: () => void }) {
           >
             Generate Visuals & Video ▶
           </button>
+          )}
         </div>
       </div>
     </div>
