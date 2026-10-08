@@ -5,7 +5,7 @@ import { getSupabase, setToken } from './api/client'
 import './index.css'
 
 /**
- * With Supabase Auth, restore the session (and finish a Google OAuth redirect, whose tokens
+ * With Supabase Auth, restore the session (and finish a Google/Apple sign-in redirect, whose tokens
  * arrive in the URL) before the first render, so route guards see the signed-in user.
  */
 async function boot() {

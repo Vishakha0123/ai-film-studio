@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { signIn, signOut, getToken, createProject, planProject, DEMO_MODE } from './index'
+import { signInWithProvider, signOut, getToken, createProject, planProject, DEMO_MODE } from './index'
 import { request, ApiError } from './client'
 import { FILM_PROJECT } from '../types'
 
@@ -11,8 +11,8 @@ describe('api (demo mode)', () => {
   })
 
   it('signIn stores a session token and signOut clears it', async () => {
-    const session = await signIn('a@b.co', 'pw')
-    expect(session.email).toBe('a@b.co')
+    const session = await signInWithProvider('google')
+    expect(session.email).toBe('director@cinema.ai')
     expect(getToken()).toBe('demo-token')
     signOut()
     expect(getToken()).toBeNull()
@@ -57,14 +57,15 @@ describe('live mode (VITE_API_URL set, dev login)', () => {
   }
   afterEach(() => vi.unstubAllEnvs())
 
-  it('dev sign-in sends a dev token to /me', async () => {
+  it('dev sign-in maps each provider to a local test user', async () => {
     const api = await liveApi()
     expect(api.AUTH_PROVIDER).toBe('dev')
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({ id: 'u', email: 'a@b.co' })))
-    await api.signIn('A@B.co', 'x')
+    const session = await api.signInWithProvider('apple')
+    expect(session.email).toBe('apple-user@dev.local')
     const [url, init] = fetchMock.mock.calls[0]
     expect(url).toBe('http://api.test/api/v1/me')
-    expect(new Headers((init as RequestInit).headers).get('Authorization')).toBe('Bearer dev:a@b.co')
+    expect(new Headers((init as RequestInit).headers).get('Authorization')).toBe('Bearer dev:apple-user@dev.local')
   })
 
   it('waitForJob polls /jobs/{id} until the job finishes', async () => {

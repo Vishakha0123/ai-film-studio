@@ -20,7 +20,7 @@ ai-film-studio/
 cd backend
 python -m venv .venv && source .venv/bin/activate     # Windows: .venv\Scripts\activate
 pip install -r requirements-dev.txt
-cp .env.example .env              # then set AUTH_MODE=dev for the quickest start
+cp .env.example .env              # then set AUTH_MODE=dev for the quickest start (no Supabase needed)
 alembic upgrade head
 uvicorn app.main:app --reload     # http://localhost:8000/docs
 

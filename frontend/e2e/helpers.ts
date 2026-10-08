@@ -17,9 +17,7 @@ export async function preparePage(page: Page) {
 
 export async function signIn(page: Page) {
   await page.goto('/login')
-  await page.getByLabel('Email address').fill('director@cinema.ai')
-  await page.getByLabel('Password').fill('secret-password')
-  await page.getByRole('button', { name: 'Sign In' }).click()
+  await page.getByRole('button', { name: 'Continue with Google' }).click()
   await expect(page.getByTestId('screen-onboarding')).toBeVisible()
 }
 

@@ -24,22 +24,21 @@ describe('public screens', () => {
 })
 
 describe('authentication', () => {
-  it('signs in with email/password and lands on onboarding', async () => {
+  it('login offers only Google and Apple — no email or password form', () => {
     renderApp('/login')
-    await userEvent.type(screen.getByLabelText('Email address'), 'dir@film.ai')
-    await userEvent.type(screen.getByLabelText('Password'), 'secret')
-    await userEvent.click(screen.getByRole('button', { name: 'Sign In' }))
-    expect(screen.getByText('Signing in…')).toBeInTheDocument()
-    expect(await screen.findByTestId('screen-onboarding', {}, { timeout: 3000 })).toBeInTheDocument()
-    expect(localStorage.getItem('cineai.token')).toBe('demo-token')
+    expect(screen.getByRole('button', { name: 'Continue with Google' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Continue with Apple' })).toBeInTheDocument()
+    expect(screen.queryByLabelText(/email/i)).toBeNull()
+    expect(screen.queryByLabelText(/password/i)).toBeNull()
+    expect(screen.queryByRole('button', { name: /sign up|create account|sign in/i })).toBeNull()
   })
 
-  it('toggles between sign in and sign up', async () => {
+  it.each(['Google', 'Apple'])('continue with %s signs in and lands on onboarding', async name => {
     renderApp('/login')
-    expect(screen.getByText('Welcome back, director.')).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Sign Up' }))
-    expect(screen.getByText('Begin your first film.')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Create Account' })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: `Continue with ${name}` }))
+    expect(screen.getByText('Connecting…')).toBeInTheDocument()
+    expect(await screen.findByTestId('screen-onboarding', {}, { timeout: 3000 })).toBeInTheDocument()
+    expect(localStorage.getItem('cineai.token')).toBe('demo-token')
   })
 })
 
@@ -213,6 +212,6 @@ describe('workspace pages (demo mode)', { timeout: 15000 }, () => {
     expect(await screen.findByText('Saved. New films use these defaults.')).toBeInTheDocument()
     expect(JSON.parse(localStorage.getItem('cineai.demoPreferences')!)).toMatchObject({ language: 'ta', teaserSeconds: 45, aspectRatio: '9:16' })
     await userEvent.click(screen.getByRole('button', { name: 'Sign out' }))
-    expect(screen.getByTestId('screen-login')).toBeInTheDocument()
+    expect(await screen.findByTestId('screen-login')).toBeInTheDocument()
   })
 })

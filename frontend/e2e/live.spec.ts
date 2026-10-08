@@ -8,12 +8,11 @@ test('full stack: login → plan with AI → generate assets → teaser → rend
   page.on('pageerror', e => errors.push(e.message))
   await preparePage(page)
 
-  // Dev login through the backend
+  // Dev login through the backend (Google button → local Google test user)
   await page.goto('/login')
-  await expect(page.getByText('Dev login — any email works')).toBeVisible()
-  await page.getByLabel('Email address').fill('director@cinema.ai')
-  await page.getByLabel('Password').fill('anything')
-  await page.getByRole('button', { name: 'Sign In' }).click()
+  await expect(page.getByText('Dev login — each button signs in a local test user')).toBeVisible()
+  await expect(page.getByLabel(/email/i)).toHaveCount(0)
+  await page.getByRole('button', { name: 'Continue with Google' }).click()
   await expect(page.getByTestId('screen-onboarding')).toBeVisible()
   await page.getByRole('button', { name: /Horror/ }).click()
   await page.getByRole('button', { name: 'Continue with Horror' }).click()
@@ -25,7 +24,7 @@ test('full stack: login → plan with AI → generate assets → teaser → rend
   await expect(page.getByRole('heading', { name: 'Echoes of the Forgotten' })).toBeVisible()
 
   // The project really exists in the backend, owned by this user
-  const auth = { Authorization: 'Bearer dev:director@cinema.ai' }
+  const auth = { Authorization: 'Bearer dev:google-user@dev.local' }
   const projects = await (await request.get(`${API}/api/v1/projects`, { headers: auth })).json()
   expect(projects).toHaveLength(1)
   expect(projects[0].genre).toBe('Horror')
@@ -73,13 +72,11 @@ test('full stack workspace: settings defaults → projects (open, rename, delete
   const errors: string[] = []
   page.on('pageerror', e => errors.push(e.message))
   await preparePage(page)
-  const email = 'workspace@cinema.ai'
+  const email = 'apple-user@dev.local'
   const auth = { Authorization: `Bearer dev:${email}` }
 
   await page.goto('/login')
-  await page.getByLabel('Email address').fill(email)
-  await page.getByLabel('Password').fill('x')
-  await page.getByRole('button', { name: 'Sign In' }).click()
+  await page.getByRole('button', { name: 'Continue with Apple' }).click()
   await page.getByRole('button', { name: 'Skip', exact: true }).click()
 
   // Every stage is open; with no film yet, panels explain how to start
