@@ -4,17 +4,9 @@ import { AUTH_PROVIDER, DEMO_MODE, getHealth, getMe, savePreferences, signOut } 
 import { API_BASE } from '../api/client'
 import { useStudio } from '../studio'
 import type { Health, Me, Preferences } from '../types'
+import { FILM_LANGUAGES } from '../lib/languages'
 
-const LANGUAGES = [
-  { code: 'en', label: 'English' },
-  { code: 'ta', label: 'Tamil' },
-  { code: 'hi', label: 'Hindi' },
-  { code: 'te', label: 'Telugu' },
-  { code: 'kn', label: 'Kannada' },
-  { code: 'ml', label: 'Malayalam' },
-  { code: 'bn', label: 'Bengali' },
-  { code: 'mr', label: 'Marathi' },
-]
+const LANGUAGES = FILM_LANGUAGES.map(l => ({ code: l.code, label: l.code === 'en' ? l.label : `${l.label} · ${l.native}` }))
 
 const PROVIDER_NAMES: Record<string, Record<string, string>> = {
   story: { sarvam: 'Sarvam-105B', mock: 'Sample film (mock)' },

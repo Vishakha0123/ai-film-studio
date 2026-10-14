@@ -29,8 +29,12 @@ class StoryProvider(ABC):
         """Return a FilmProject dict (camelCase) for the brief."""
 
     @abstractmethod
-    async def edit(self, memory: dict, target: str, instruction: str) -> ProviderResult:
+    async def edit(self, memory: dict, target: str, instruction: str, *, language: str = "en") -> ProviderResult:
         """Return the new value for memory[target] after applying the instruction."""
+
+    @abstractmethod
+    async def translate_film(self, memory: dict, language: str) -> ProviderResult:
+        """Return the same FilmProject dict with every text value in `language` (a code like "ta")."""
 
 
 class ImageProvider(ABC):

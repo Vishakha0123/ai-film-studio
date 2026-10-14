@@ -3,7 +3,8 @@ import { isTeaserLocked } from '../features'
 import { ComingSoonButton } from '../components/LockIcon'
 import type { Panel, ChatMessage, FilmProject } from '../types'
 import { filmSeconds } from '../types'
-import { ATTACHMENT_ACCEPT, DEMO_MODE, MAX_ATTACHMENTS, MAX_ATTACHMENT_BYTES, assertCompleted, createProject, getProject, planProject, saveBrief, uploadDocument, waitForJob } from '../api'
+import { ATTACHMENT_ACCEPT, DEMO_MODE, MAX_ATTACHMENTS, MAX_ATTACHMENT_BYTES, assertCompleted, createProject, getProject, makeLanguageVersion, planProject, saveBrief, uploadDocument, waitForJob } from '../api'
+import { FILM_LANGUAGES, languageName } from '../lib/languages'
 import { useDictation } from '../lib/useDictation'
 import { useFilm, useStudio } from '../studio'
 
@@ -112,7 +113,12 @@ export default function Chat({ progress, onAdvance, onGenerate, onOpenPanel, gen
   const [input, setInput] = useState('')
   const [isTyping, setIsTyping] = useState(false)
   const [status, setStatus] = useState('')
-  const { project, setProject, preferences } = useStudio()
+  const { project, setProject, openProject, preferences } = useStudio()
+  // The film's language is separate from the prompt's: write the idea in any language, get the film in this one.
+  const [newFilmLanguage, setNewFilmLanguage] = useState(preferences.language)
+  useEffect(() => setNewFilmLanguage(preferences.language), [preferences.language])
+  const filmExists = DEMO_MODE ? progress > 0 : !!project?.memory
+  const filmLanguage = !filmExists ? newFilmLanguage : DEMO_MODE ? 'en' : project?.language || 'en'
   const film = useFilm()
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -191,10 +197,10 @@ export default function Chat({ progress, onAdvance, onGenerate, onOpenPanel, gen
       !DEMO_MODE && progress === 0
         ? (async () => {
             setStatus('Creating your project')
-            const created = await createProject(genres ?? [], preferences.language)
+            const created = await createProject(genres ?? [], newFilmLanguage)
             await uploadAll(created.id)
             const prompt = text || `Turn the attached ${attached.length === 1 ? 'file' : 'files'} into a teaser.`
-            await saveBrief(created.id, { prompt, genres, language: preferences.language, teaserSeconds: preferences.teaserSeconds, aspectRatio: preferences.aspectRatio })
+            await saveBrief(created.id, { prompt, genres, language: newFilmLanguage, teaserSeconds: preferences.teaserSeconds, aspectRatio: preferences.aspectRatio })
             const job = await waitForJob(await planProject(created.id), j => alive.current && setStatus(j.stage || 'Queued'))
             assertCompleted(job)
             const fresh = await getProject(created.id)
@@ -230,6 +236,33 @@ export default function Chat({ progress, onAdvance, onGenerate, onOpenPanel, gen
         setIsTyping(false)
         setStatus('')
       })
+  }
+
+  /**
+   * Before a film exists this just sets the language it will be written in. Afterwards it makes the
+   * same film in the new language (a new project; the original stays in Projects) — no retyping.
+   */
+  const changeLanguage = (lang: string) => {
+    if (!filmExists) { setNewFilmLanguage(lang); return }
+    if (lang === filmLanguage || isTyping) return
+    const name = languageName(lang)
+    const say = (content: string) => setMessages(m => [...m, { id: `${Date.now()}-lang-ai`, role: 'ai', content }])
+    setMessages(m => [...m, { id: `${Date.now()}-lang`, role: 'user', content: `Make this film in ${name}` }])
+    if (DEMO_MODE || !project) {
+      say(`Making the film in ${name} needs the studio backend — the demo film stays in English. Connect the backend and I'll rewrite every part of it in ${name} for you, no retyping.`)
+      return
+    }
+    const from = languageName(project.language)
+    setIsTyping(true)
+    setStatus(`Writing "${project.title}" in ${name}`)
+    makeLanguageVersion(project.id, lang, s => alive.current && setStatus(s))
+      .then(version => {
+        if (!alive.current) return
+        openProject(version)
+        say(`Here's "${version.title}" in ${name} — the same story, cast and storyboard, with every line rewritten in ${name}. The ${from} version is still in Projects.`)
+      })
+      .catch((err: unknown) => alive.current && say(`I couldn't make the ${name} version: ${err instanceof Error ? err.message : 'unknown error'}`))
+      .finally(() => { if (alive.current) { setIsTyping(false); setStatus('') } })
   }
 
   const handleKey = (e: React.KeyboardEvent) => {
@@ -413,7 +446,27 @@ export default function Chat({ progress, onAdvance, onGenerate, onOpenPanel, gen
         {(notice || dictation.error) && (
           <p role="alert" className="text-xs text-red-300 mt-2 px-1">{notice ?? dictation.error}</p>
         )}
-        <p className={`text-center text-[10px] text-zinc-700 mt-2 ${docked ? 'hidden' : 'hidden sm:block'}`}>Enter to send · Shift+Enter for a new line · Attach or drop PDF, Word, text or images · Mic for voice</p>
+        <div className="flex items-center justify-between gap-3 mt-2 px-1">
+          <label className="flex items-center gap-1.5 text-[11px] text-zinc-500 min-w-0" title="Write your idea in any language — the film is written in this one">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-3.5 h-3.5 flex-shrink-0" aria-hidden>
+              <path d="M12 21a9 9 0 100-18 9 9 0 000 18zM3.6 9h16.8M3.6 15h16.8M12 3a14 14 0 010 18M12 3a14 14 0 000 18" strokeLinecap="round" />
+            </svg>
+            <span className="whitespace-nowrap">{filmExists ? 'Film in' : 'Write film in'}</span>
+            <select
+              aria-label="Film language"
+              data-testid="film-language"
+              value={filmLanguage}
+              onChange={e => changeLanguage(e.target.value)}
+              disabled={isTyping}
+              className="bg-transparent text-zinc-300 rounded-md px-1 py-0.5 hover:bg-zinc-800/60 focus:outline-none focus:ring-1 focus:ring-zinc-600 disabled:opacity-50 cursor-pointer"
+            >
+              {FILM_LANGUAGES.map(l => (
+                <option key={l.code} value={l.code} style={{ backgroundColor: '#18181b' }}>{l.code === 'en' ? l.label : `${l.label} · ${l.native}`}</option>
+              ))}
+            </select>
+          </label>
+          <p className={`text-[10px] text-zinc-700 text-right ${docked ? 'hidden' : 'hidden md:block'}`}>Enter to send · Shift+Enter new line · Attach or drop files · Mic for voice</p>
+        </div>
       </div>
     </div>
   )

@@ -4,8 +4,9 @@ from pathlib import Path
 
 _DIR = Path(__file__).parent
 
-PLAN_FILM = "plan_film.v1"
-EDIT = "edit.v1"
+PLAN_FILM = "plan_film.v2"  # v2: writes in the chosen film language whatever the prompt language
+EDIT = "edit.v2"
+TRANSLATE_FILM = "translate_film.v1"
 
 
 def render(name: str, **values: object) -> str:

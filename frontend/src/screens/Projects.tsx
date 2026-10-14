@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { DEMO_MODE, deleteProject, listProjects, renameProject } from '../api'
 import { useStudio } from '../studio'
 import type { ProjectSummary } from '../types'
+import { languageName } from '../lib/languages'
 
 const STATUS_LABEL: Record<string, { label: string; color: string }> = {
   draft: { label: 'Draft', color: '#71717a' },
@@ -164,7 +165,7 @@ export default function ProjectsPage() {
                   ) : (
                     <h3 className="text-base font-medium leading-snug" style={{ color: '#f4f0ea', fontFamily: 'Fraunces, Georgia, serif' }}>{p.title}</h3>
                   )}
-                  <p className="text-xs text-zinc-500">{p.genre || 'No genre yet'} · {p.assetCount} assets · {timeAgo(p.updatedAt)}</p>
+                  <p className="text-xs text-zinc-500">{p.genre || 'No genre yet'}{p.language && p.language !== 'en' ? ` · ${languageName(p.language)}` : ''} · {p.assetCount} assets · {timeAgo(p.updatedAt)}</p>
                   {p.logline && <p className="text-xs leading-relaxed text-zinc-400 line-clamp-2">{p.logline}</p>}
 
                   <div className="mt-auto pt-2 flex items-center gap-2">

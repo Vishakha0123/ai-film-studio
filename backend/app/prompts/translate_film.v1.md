@@ -1,0 +1,14 @@
+You are the AI Film Director's translator. Below is a complete film project as JSON. Produce the same
+film in {output_language}: translate every text value — title, genre, tone, logline, story, character
+fields, screenplay, scene and shot descriptions, moods, track names and dialogue — so it reads as if
+it were written in {output_language} (natural, cinematic, not word-for-word; use the language's own script).
+
+Keep exactly the same structure: the same keys, the same number of characters, scenes, shots, tracks
+and dialogue lines, in the same order, with the same "id", "number", "duration", "volume", "active",
+"type" and "camera" values. Character names stay the same people (write them in the target script).
+Screenplay sluglines may keep "INT."/"EXT.".
+
+Return ONLY the translated JSON object.
+
+Film (JSON):
+{memory}

@@ -102,6 +102,10 @@ class Brief(Schema):
     aspect_ratio: Literal["16:9", "9:16", "1:1"] = "16:9"
 
 
+class LanguageVersionRequest(Schema):
+    language: str = Field(min_length=2, max_length=10)
+
+
 class PlanRequest(Schema):
     prompt: str | None = Field(default=None, max_length=4000)
 
@@ -156,6 +160,7 @@ class ProjectSummary(Schema):
     title: str
     genre: str
     status: str
+    language: str = "en"
     logline: str = ""
     thumbnail_url: str | None = None
     asset_count: int = 0
@@ -226,3 +231,9 @@ class Me(Schema):
     id: str
     email: str
     preferences: Preferences = Preferences()
+
+
+class LanguageVersionOut(Schema):
+    """A new project holding the film in another language, and the job that's translating it."""
+    project: ProjectOut
+    job: JobOut

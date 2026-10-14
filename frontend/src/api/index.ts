@@ -252,3 +252,24 @@ export async function transcribeAudio(audio: Blob, language: string): Promise<st
   const res = await request<{ text: string; provider: string }>('/transcribe', { method: 'POST', body: form })
   return res.text
 }
+
+/* ---------- Language versions ---------- */
+
+/**
+ * The same film in another language — the creator doesn't retype the idea. The backend copies the
+ * project (brief, source files, pictures) into a new one and translates every text in a job.
+ */
+export async function createLanguageVersion(projectId: string, language: string): Promise<{ project: ProjectData; job: Job }> {
+  if (DEMO_MODE) throw new ApiError('Making the film in another language needs the studio backend — the demo film stays in English.', 400)
+  return request<{ project: ProjectData; job: Job }>(`/projects/${encodeURIComponent(projectId)}/versions`, {
+    method: 'POST',
+    body: JSON.stringify({ language }),
+  })
+}
+
+/** Starts a language version, waits for the translation, and returns the finished project. */
+export async function makeLanguageVersion(projectId: string, language: string, onStage?: (stage: string) => void): Promise<ProjectData> {
+  const { project, job } = await createLanguageVersion(projectId, language)
+  assertCompleted(await waitForJob(job, j => onStage?.(j.stage || 'Queued')))
+  return getProject(project.id)
+}

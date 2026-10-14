@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { getProject, listDocuments } from '../api'
+import { getProject, listDocuments, makeLanguageVersion } from '../api'
+import { FILM_LANGUAGES, languageLabel, languageName } from '../lib/languages'
 import { useStudio } from '../studio'
 import { classifyLine, LINE_STYLES } from '../panels/Screenplay'
 import { filmSeconds, photoUrl } from '../types'
@@ -49,6 +50,22 @@ export default function ProjectOverview() {
   const [project, setProject] = useState<ProjectData | null>(null)
   const [docs, setDocs] = useState<ProjectDocument[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [translating, setTranslating] = useState<string | null>(null)
+  const [versionError, setVersionError] = useState<string | null>(null)
+
+  const makeVersion = async (lang: string) => {
+    if (!project || !lang) return
+    setVersionError(null)
+    setTranslating(`Writing it in ${languageName(lang)}…`)
+    try {
+      const version = await makeLanguageVersion(project.id, lang, s => setTranslating(`${s}…`))
+      nav(`/projects/${encodeURIComponent(version.id)}`)
+    } catch (e) {
+      setVersionError(e instanceof Error ? e.message : 'Could not make that version.')
+    } finally {
+      setTranslating(null)
+    }
+  }
 
   useEffect(() => {
     let alive = true
@@ -93,6 +110,7 @@ export default function ProjectOverview() {
             <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: `${status.color}22`, color: status.color }}>{status.label}</span>
             {f?.genre && <span className="text-xs text-zinc-400">{f.genre}</span>}
             {f?.tone && <span className="text-xs text-zinc-600">· {f.tone}</span>}
+            <span className="text-[10px] px-2 py-0.5 rounded-full border text-zinc-400" style={{ borderColor: 'rgba(255,255,255,0.1)' }} data-testid="overview-language">{languageLabel(project.language)}</span>
           </div>
           <h2 className="text-3xl md:text-4xl font-light mb-3" style={{ fontFamily: 'Fraunces, Georgia, serif', color: '#f4f0ea' }} data-testid="overview-title">{project.title}</h2>
           {f?.logline && <p className="text-sm leading-relaxed text-zinc-300 max-w-2xl mb-5">{f.logline}</p>}
@@ -101,13 +119,38 @@ export default function ProjectOverview() {
               {f.characters.length} characters · {f.scenes.length} scenes · {f.shots.length} shots · ~{filmSeconds(f)}s teaser{docs.length ? ` · ${docs.length} source ${docs.length === 1 ? 'file' : 'files'}` : ''}
             </p>
           )}
-          <button
-            onClick={() => openIn('chat')}
-            className="px-5 py-2.5 rounded-lg text-xs font-semibold transition-all hover:opacity-90"
-            style={{ backgroundColor: '#d4a84b', color: '#09090b' }}
-          >
-            Open in Director
-          </button>
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              onClick={() => openIn('chat')}
+              className="px-5 py-2.5 rounded-lg text-xs font-semibold transition-all hover:opacity-90"
+              style={{ backgroundColor: '#d4a84b', color: '#09090b' }}
+            >
+              Open in Director
+            </button>
+            {f && (
+              <label className="flex items-center gap-2 px-3 py-2 rounded-lg border text-xs text-zinc-400" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
+                Make it in
+                <select
+                  aria-label="Make this film in another language"
+                  data-testid="version-language"
+                  value=""
+                  disabled={!!translating}
+                  onChange={e => void makeVersion(e.target.value)}
+                  className="bg-transparent text-zinc-200 focus:outline-none cursor-pointer disabled:opacity-50"
+                >
+                  <option value="" style={{ backgroundColor: '#18181b' }}>another language…</option>
+                  {FILM_LANGUAGES.filter(l => l.code !== (project.language || 'en')).map(l => (
+                    <option key={l.code} value={l.code} style={{ backgroundColor: '#18181b' }}>{l.code === 'en' ? l.label : `${l.label} · ${l.native}`}</option>
+                  ))}
+                </select>
+              </label>
+            )}
+          </div>
+          {translating && <p className="text-xs mt-3" style={{ color: '#d4a84b' }} data-testid="version-status">{translating}</p>}
+          {versionError && <p role="alert" className="text-xs text-red-300 mt-3">{versionError}</p>}
+          {f && !translating && !versionError && (
+            <p className="text-[11px] text-zinc-600 mt-3">Same story, cast and pictures — every line rewritten in the new language. This version stays as it is.</p>
+          )}
         </div>
       </div>
 

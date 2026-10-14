@@ -47,7 +47,7 @@ local test users (`google-user@dev.local`, `apple-user@dev.local`).
 
 | Task | Setting | Key |
 |---|---|---|
-| Story, characters, screenplay, edits | `STORY_PROVIDER=sarvam` | `SARVAM_API_KEY` |
+| Story, characters, screenplay, edits, language versions | `STORY_PROVIDER=sarvam` | `SARVAM_API_KEY` |
 | Voice lines | `TTS_PROVIDER=sarvam` | `SARVAM_API_KEY` |
 | Chat mic (speech-to-text) | `STT_PROVIDER=sarvam` | `SARVAM_API_KEY` |
 | Character portraits, storyboard frames | `IMAGE_PROVIDER=openai` | `OPENAI_API_KEY` |
@@ -61,6 +61,7 @@ local test users (`google-user@dev.local`, `apple-user@dev.local`).
 | POST / GET | `/projects` | Create / list projects |
 | POST / GET | `/projects/{id}/documents` | Attach source files (PDF, DOCX, TXT/MD/Fountain, images; 10 MB) / list them |
 | DELETE | `/documents/{id}` | Remove an attached file |
+| POST | `/projects/{id}/versions` | Same film in another language (`{"language": "ta"}`): new project, translate job; original kept |
 | POST | `/transcribe` | Speech-to-text for the chat mic (multipart `audio`, `language`) |
 | GET | `/projects/{id}` | Project with memory and asset URLs |
 | POST | `/projects/{id}/brief` | Save the guided brief (idea, genres, language, length, aspect) |

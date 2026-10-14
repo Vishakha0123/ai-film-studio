@@ -128,6 +128,7 @@ def _image_ext(data: bytes) -> str:
 async def task_plan(db: Session, job: AIJob, project: Project) -> dict:
     set_progress(db, job, "Understanding the brief", 10)
     brief = dict(project.brief or {})
+    brief["language"] = brief.get("language") or project.language or "en"  # film language, not the prompt's
     if job.params.get("prompt"):
         brief["prompt"] = job.params["prompt"]
     docs = db.scalars(select(ProjectDocument).where(ProjectDocument.project_id == project.id)
@@ -167,7 +168,7 @@ async def task_edit(db: Session, job: AIJob, project: Project) -> dict:
     if not project.memory:
         raise NeedsReview("Plan the film before editing it.")
     set_progress(db, job, f"Revising {target}", 30)
-    res = await with_retry(lambda: story_provider().edit(project.memory, target, instruction), job, db)
+    res = await with_retry(lambda: story_provider().edit(project.memory, target, instruction, language=project.language or "en"), job, db)
     record_usage(db, job, res)
     memory = dict(project.memory)
     memory[target] = res.data
@@ -365,7 +366,62 @@ async def task_render(db: Session, job: AIJob, project: Project) -> dict:
     return {"outputUrl": asset.url, "assetId": asset.id}
 
 
-TASKS = {"plan": task_plan, "edit": task_edit, "generate": task_generate, "regenerate": task_regenerate, "render": task_render}
+# Fields that aren't words: kept out of translation and restored afterwards, by position.
+_VISUAL_KEYS = ("imageId", "imageUrl", "videoUrl", "url")
+VISUAL_ASSET_TYPES = ("character_image", "storyboard_image", "video_clip")
+
+
+def _split_visuals(memory: dict) -> tuple[dict, dict]:
+    text, visuals = {}, {}
+    for key, value in memory.items():
+        if isinstance(value, list) and value and all(isinstance(x, dict) for x in value):
+            text[key] = [{k: v for k, v in item.items() if k not in _VISUAL_KEYS} for item in value]
+            visuals[key] = [{k: item[k] for k in _VISUAL_KEYS if k in item} for item in value]
+        else:
+            text[key] = value
+    return text, visuals
+
+
+async def task_translate(db: Session, job: AIJob, project: Project) -> dict:
+    """A language version: the source film's story, cast, screenplay and storyboard in another language.
+
+    Pictures and clips carry over (they have no words); voice lines and renders are made again later.
+    """
+    source = db.get(Project, job.params["sourceProjectId"])
+    language = job.params["language"]
+    if source is None or not source.memory:
+        raise NeedsReview("The original film isn't planned yet, so there's nothing to translate.")
+    set_progress(db, job, "Translating the film", 20)
+    text, visuals = _split_visuals(source.memory)
+    res = await with_retry(lambda: story_provider().translate_film(text, language), job, db)
+    record_usage(db, job, res)
+    set_progress(db, job, "Checking the translation", 80)
+    data = res.data if isinstance(res.data, dict) else {}
+    for key, items in visuals.items():
+        translated = data.get(key)
+        if not isinstance(translated, list) or len(translated) != len(items):
+            raise NeedsReview(f"The translation changed the number of {key}. Try again.")
+        data[key] = [{**t, **v} for t, v in zip(translated, items)]
+    try:
+        memory = validate_film(data)
+    except ValidationError as e:
+        raise NeedsReview(f"The translated film was incomplete ({e.error_count()} problems). Try again.") from e
+
+    copied = 0
+    for a in db.scalars(select(Asset).where(Asset.project_id == source.id, Asset.type.in_(VISUAL_ASSET_TYPES),
+                                            Asset.status == "ready")).all():
+        db.add(Asset(project_id=project.id, type=a.type, ref=a.ref, url=a.url, provider=a.provider, model=a.model,
+                     version=a.version, status="ready", dependencies=[], meta={**(a.meta or {}), "copiedFrom": a.id}))
+        copied += 1
+    project.memory = memory
+    project.title = memory["title"][:300]
+    project.genre = memory.get("genre", source.genre)[:200]
+    project.status = "generated" if copied else "planned"
+    db.commit()
+    return {"title": project.title, "language": language, "sourceProjectId": source.id, "copiedAssets": copied}
+
+
+TASKS = {"plan": task_plan, "edit": task_edit, "translate": task_translate, "generate": task_generate, "regenerate": task_regenerate, "render": task_render}
 
 
 async def run_job(job_id: str) -> None:

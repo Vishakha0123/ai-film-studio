@@ -10,9 +10,10 @@ import json
 import httpx
 
 from app.config import get_settings
-from app.prompts import EDIT, PLAN_FILM, render
+from app.prompts import EDIT, PLAN_FILM, TRANSLATE_FILM, render
 from app.providers._json import extract_json
 from app.providers.base import ProviderError, ProviderResult, STTProvider, StoryProvider, TTSProvider
+from app.services.languages import describe
 
 LANG_CODES = {"en": "en-IN", "hi": "hi-IN", "ta": "ta-IN", "te": "te-IN", "kn": "kn-IN", "ml": "ml-IN",
               "bn": "bn-IN", "mr": "mr-IN", "gu": "gu-IN", "pa": "pa-IN", "od": "od-IN"}
@@ -57,17 +58,23 @@ class SarvamStory(StoryProvider):
         seconds = int(brief.get("teaserSeconds") or 30)
         shot_count = max(4, min(10, round(seconds / 4)))
         prompt = render(PLAN_FILM, brief=json.dumps(brief, ensure_ascii=False, indent=2),
-                        shot_count=shot_count, teaser_seconds=seconds)
+                        shot_count=shot_count, teaser_seconds=seconds,
+                        output_language=describe(brief.get("language") or "en"))
         return await self._chat(prompt)
 
-    async def edit(self, memory: dict, target: str, instruction: str) -> ProviderResult:
-        prompt = render(EDIT, target=target, instruction=instruction,
+    async def edit(self, memory: dict, target: str, instruction: str, *, language: str = "en") -> ProviderResult:
+        prompt = render(EDIT, target=target, instruction=instruction, output_language=describe(language),
                         memory=json.dumps(memory, ensure_ascii=False)[:12000])
         res = await self._chat(prompt)
         if not isinstance(res.data, dict) or "value" not in res.data:
             raise ProviderError("Sarvam edit reply had no 'value'", transient=True)
         res.data = res.data["value"]
         return res
+
+    async def translate_film(self, memory: dict, language: str) -> ProviderResult:
+        prompt = render(TRANSLATE_FILM, output_language=describe(language),
+                        memory=json.dumps(memory, ensure_ascii=False, indent=1))
+        return await self._chat(prompt)
 
 
 class SarvamTTS(TTSProvider):

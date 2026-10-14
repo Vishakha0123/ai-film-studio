@@ -228,3 +228,44 @@ test('full stack: Continue buttons walk the planned film and approve each step',
   const full = await (await request.get(`${API}/api/v1/projects/${p.id}`, { headers: auth })).json()
   expect(full.memory.title).toBeTruthy()
 })
+
+test('full stack: film language — English prompt, Tamil film, then Hindi and Telugu versions without retyping', async ({ page, request }) => {
+  await preparePage(page)
+  const email = 'language-user@dev.local'
+  const auth = { Authorization: `Bearer dev:${email}` }
+  await page.addInitScript(e => localStorage.setItem('cineai.token', `dev:${e}`), email)
+  await page.goto('/director')
+
+  // Prompt written in English, film chosen in Tamil
+  await page.getByLabel('Film language').selectOption('ta')
+  await page.getByLabel('Message the AI Director').fill('A fisherman finds a radio that plays tomorrow')
+  await page.keyboard.press('Enter')
+  await expect(page.getByTestId('panel-story')).toBeVisible({ timeout: 20_000 })
+  let projects = await (await request.get(`${API}/api/v1/projects`, { headers: auth })).json()
+  expect(projects).toHaveLength(1)
+  const original = await (await request.get(`${API}/api/v1/projects/${projects[0].id}`, { headers: auth })).json()
+  expect(original.language).toBe('ta')
+  expect(original.brief.prompt).toBe('A fisherman finds a radio that plays tomorrow')
+
+  // Same film in Hindi from the chat — nothing retyped
+  await page.getByTestId('nav-chat').click()
+  await expect(page.getByLabel('Film language')).toHaveValue('ta')
+  await page.getByLabel('Film language').selectOption('hi')
+  await expect(page.getByTestId('panel-chat')).toContainText('Make this film in Hindi')
+  await expect(page.getByTestId('panel-chat')).toContainText('in Hindi — the same story, cast and storyboard', { timeout: 20_000 })
+  await expect(page.getByLabel('Film language')).toHaveValue('hi')
+  projects = await (await request.get(`${API}/api/v1/projects`, { headers: auth })).json()
+  expect(projects).toHaveLength(2)
+  const hindi = projects.find((p: { language: string }) => p.language === 'hi')
+  const hindiFull = await (await request.get(`${API}/api/v1/projects/${hindi.id}`, { headers: auth })).json()
+  expect(hindiFull.brief.prompt).toBe(original.brief.prompt)
+  expect(hindiFull.title).toContain('हिन्दी')
+
+  // And Telugu from the project page
+  await page.goto(`/projects/${original.id}`)
+  await expect(page.getByTestId('overview-language')).toContainText('Tamil')
+  await page.getByLabel('Make this film in another language').selectOption('te')
+  await expect(page).not.toHaveURL(new RegExp(original.id), { timeout: 20_000 })
+  await expect(page.getByTestId('overview-language')).toContainText('Telugu')
+  await expect(page.getByTestId('overview-title')).toContainText('తెలుగు')
+})

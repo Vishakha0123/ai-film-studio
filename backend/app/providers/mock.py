@@ -23,7 +23,14 @@ class MockStory(StoryProvider):
         ]
         return ProviderResult(film, provider="mock", model="sample-film")
 
-    async def edit(self, memory: dict, target: str, instruction: str) -> ProviderResult:
+    async def translate_film(self, memory: dict, language: str) -> ProviderResult:
+        # No translation without a model: keep the text and mark the title so the version is recognisable.
+        from app.services.languages import native_name
+        film = copy.deepcopy(memory)
+        film["title"] = f"{film.get('title', 'Untitled')} ({native_name(language)})"
+        return ProviderResult(film, provider="mock", model="echo")
+
+    async def edit(self, memory: dict, target: str, instruction: str, *, language: str = "en") -> ProviderResult:
         value = copy.deepcopy(memory.get(target))
         if isinstance(value, str) and instruction:
             value = f"{value}\n\n[Revised: {instruction}]"

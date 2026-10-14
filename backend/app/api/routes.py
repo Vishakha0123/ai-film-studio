@@ -9,12 +9,13 @@ from app.config import Settings, get_settings
 from app.db import get_db
 from app.models import AIJob, Asset, Project, ProjectDocument, User, WorkflowStep
 from app.schemas import (ApproveRequest, AssetListItem, AssetOut, Brief, CostEstimate, DocumentOut, EditRequest, FilmProject, Transcript,
-                         GenerateRequest, JobOut, Me, PlanRequest, Preferences, ProjectCreate, ProjectOut, ProjectSummary,
+                         GenerateRequest, JobOut, LanguageVersionOut, LanguageVersionRequest, Me, PlanRequest, Preferences, ProjectCreate, ProjectOut, ProjectSummary,
                          ProjectUpdate, RenderRequest)
 from app.providers import ProviderError, stt_provider
 from app.services import storage
 from app.services.documents import MAX_FILES_PER_PROJECT, DocumentError, validate_and_extract
 from app.services.jobs import create_job
+from app.services.languages import LANGUAGES, is_supported
 from app.services.pipeline import estimate
 
 router = APIRouter()
@@ -100,7 +101,7 @@ def create_project(body: ProjectCreate, db: Session = Depends(get_db), user: Cur
 def _summary(p: Project) -> ProjectSummary:
     ready = [a for a in p.assets if a.status in ("ready", "outdated")]
     frames = sorted((a for a in ready if a.type == "storyboard_image"), key=lambda a: (a.ref, -a.version))
-    return ProjectSummary(id=p.id, title=p.title, genre=p.genre, status=p.status,
+    return ProjectSummary(id=p.id, title=p.title, genre=p.genre, status=p.status, language=p.language or "en",
                           logline=(p.memory or {}).get("logline", ""), thumbnail_url=frames[0].url if frames else None,
                           asset_count=len(ready), created_at=p.created_at, updated_at=p.updated_at)
 
@@ -162,6 +163,36 @@ def update_brief(project_id: str, body: Brief, db: Session = Depends(get_db), us
     db.commit()
     db.refresh(project)
     return _project_out(project)
+
+
+@router.post("/projects/{project_id}/versions", response_model=LanguageVersionOut, status_code=202)
+def create_language_version(project_id: str, body: LanguageVersionRequest, background: BackgroundTasks,
+                            db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user),
+                            settings: Settings = Depends(get_settings)):
+    """Same film, another language — without the creator retyping the idea. Keeps the original."""
+    source = _own_project(db, project_id, user)
+    if not is_supported(body.language):
+        raise HTTPException(400, detail=f"Unsupported language. Choose one of: {', '.join(LANGUAGES)}")
+    if body.language == source.language:
+        raise HTTPException(400, detail="The film is already in that language.")
+    if not source.memory:
+        raise HTTPException(409, detail="Plan the film first — then it can be made in another language.")
+    count = db.scalar(select(func.count()).select_from(Project).where(Project.user_id == user.id)) or 0
+    if count >= settings.MAX_PROJECTS_PER_USER:
+        raise HTTPException(429, detail="Project limit reached")
+    version = Project(user_id=user.id, title=source.title, genre=source.genre, language=body.language,
+                      brief={**(source.brief or {}), "language": body.language, "versionOf": source.id})
+    db.add(version)
+    db.flush()
+    for d in db.scalars(select(ProjectDocument).where(ProjectDocument.project_id == source.id)).all():
+        db.add(ProjectDocument(project_id=version.id, filename=d.filename, type=d.type, content_type=d.content_type,
+                               size=d.size, file_url=d.file_url, extracted_text=d.extracted_text,
+                               source_reference=d.source_reference))
+    db.commit()
+    job = create_job(db, background, project_id=version.id, user_id=user.id, task="translate",
+                     params={"sourceProjectId": source.id, "language": body.language})
+    db.refresh(version)
+    return LanguageVersionOut(project=_project_out(version), job=JobOut.model_validate(job))
 
 
 @router.post("/projects/{project_id}/plan", response_model=JobOut, status_code=202)

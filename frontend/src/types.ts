@@ -100,7 +100,11 @@ export interface ProjectData {
   id: string
   title: string
   genre: string
+  /** Film language code, e.g. "en", "ta" */
+  language?: string
   status: string
+  /** The saved idea: prompt, genres, language… (a language version keeps the original's prompt) */
+  brief?: Record<string, unknown>
   memory: FilmProject | null
   assets: Asset[]
 }
@@ -267,6 +271,7 @@ export interface ProjectSummary {
   title: string
   genre: string
   status: string
+  language?: string
   logline: string
   thumbnailUrl: string | null
   assetCount: number

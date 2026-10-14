@@ -443,3 +443,104 @@ def test_transcribe_with_sarvam(client, monkeypatch):
     monkeypatch.setattr(SarvamSTT, "transcribe", fake)
     r = client.post("/api/v1/transcribe", files={"audio": ("v.webm", b"abc", "audio/webm")}, data={"language": "hi"}, headers=auth())
     assert r.status_code == 200 and r.json() == {"text": "नमस्ते", "provider": "sarvam"}
+
+
+# ---------- Film language ----------
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_sarvam_plan_writes_in_film_language_whatever_the_prompt_language(monkeypatch):
+    import json as _json
+    from app.config import get_settings
+    from app.providers.sarvam import SarvamStory
+    monkeypatch.setattr(get_settings(), "SARVAM_API_KEY", "k")
+    route = respx.post("https://api.sarvam.ai/v1/chat/completions").mock(
+        return_value=Response(200, json={"choices": [{"message": {"content": '{"title": "மழை"}'}}]}))
+    await SarvamStory().plan_film({"prompt": "A love story in the monsoon", "language": "ta", "teaserSeconds": 30})
+    prompt = _json.loads(route.calls[-1].request.content)["messages"][0]["content"]
+    assert "Tamil (தமிழ், ta)" in prompt
+    assert "Do this even when" in prompt
+    route.mock(return_value=Response(200, json={"choices": [{"message": {"content": '{"value": "कहानी"}'}}]}))
+    await SarvamStory().edit({"title": "x"}, "story", "make it darker", language="hi")
+    prompt = _json.loads(route.calls[-1].request.content)["messages"][0]["content"]
+    assert "Hindi (हिन्दी, hi)" in prompt
+
+
+def test_plan_passes_project_language_to_story_model(client, monkeypatch):
+    from app.providers.mock import MockStory
+    seen = {}
+    orig = MockStory.plan_film
+
+    async def spy(self, brief):
+        seen.update(brief)
+        return await orig(self, brief)
+
+    monkeypatch.setattr(MockStory, "plan_film", spy)
+    p = client.post("/api/v1/projects", json={"genres": ["Drama"], "language": "te"}, headers=auth()).json()
+    job = client.post(f"/api/v1/projects/{p['id']}/plan", json={"prompt": "Two brothers run a ferry"}, headers=auth()).json()
+    assert client.get(f"/api/v1/jobs/{job['id']}", headers=auth()).json()["status"] == "completed"
+    assert seen["language"] == "te" and seen["prompt"] == "Two brothers run a ferry"
+
+
+def test_language_version_translates_without_retyping_and_keeps_original(client):
+    pid, job = _plan(client)
+    client.post(f"/api/v1/projects/{pid}/generate", json={"confirmCost": True}, headers=auth())
+    original = client.get(f"/api/v1/projects/{pid}", headers=auth()).json()
+
+    r = client.post(f"/api/v1/projects/{pid}/versions", json={"language": "ta"}, headers=auth())
+    assert r.status_code == 202, r.text
+    body = r.json()
+    vid = body["project"]["id"]
+    assert vid != pid and body["project"]["language"] == "ta" and body["job"]["task"] == "translate"
+    assert client.get(f"/api/v1/jobs/{body['job']['id']}", headers=auth()).json()["status"] == "completed"
+
+    version = client.get(f"/api/v1/projects/{vid}", headers=auth()).json()
+    assert version["title"] == f"{original['title']} (தமிழ்)"  # mock marks the title; Sarvam translates every field
+    assert version["brief"]["prompt"] == original["brief"]["prompt"]  # the idea carries over — no retyping
+    assert version["brief"]["language"] == "ta" and version["brief"]["versionOf"] == pid
+    assert len(version["memory"]["characters"]) == len(original["memory"]["characters"])
+    # pictures carry over (no words in them); voice lines don't
+    types = {a["type"] for a in version["assets"]}
+    assert "character_image" in types and "storyboard_image" in types and "voice" not in types
+    assert version["memory"]["shots"][0]["imageUrl"] == original["memory"]["shots"][0]["imageUrl"]
+    # the original is untouched
+    assert client.get(f"/api/v1/projects/{pid}", headers=auth()).json()["title"] == original["title"]
+    assert len(client.get("/api/v1/projects", headers=auth()).json()) == 2
+
+
+def test_language_version_rejections(client):
+    p = client.post("/api/v1/projects", json={"language": "en"}, headers=auth()).json()
+    assert client.post(f"/api/v1/projects/{p['id']}/versions", json={"language": "ta"}, headers=auth()).status_code == 409
+    pid, _ = _plan(client)
+    assert client.post(f"/api/v1/projects/{pid}/versions", json={"language": "en"}, headers=auth()).status_code == 400
+    assert client.post(f"/api/v1/projects/{pid}/versions", json={"language": "xx"}, headers=auth()).status_code == 400
+    assert client.post(f"/api/v1/projects/{pid}/versions", json={"language": "ta"}, headers=auth("other@x.io")).status_code == 404
+
+
+def test_translation_that_drops_shots_needs_review(client, monkeypatch):
+    from app.providers.base import ProviderResult
+    from app.providers.mock import MockStory
+
+    async def lossy(self, memory, language):
+        return ProviderResult({**memory, "shots": memory["shots"][:1]}, provider="mock", model="x")
+
+    monkeypatch.setattr(MockStory, "translate_film", lossy)
+    pid, _ = _plan(client)
+    body = client.post(f"/api/v1/projects/{pid}/versions", json={"language": "hi"}, headers=auth()).json()
+    done = client.get(f"/api/v1/jobs/{body['job']['id']}", headers=auth()).json()
+    assert done["status"] == "needs_review" and "number of shots" in done["error"]
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_sarvam_translate_film(monkeypatch):
+    import json as _json
+    from app.config import get_settings
+    from app.providers.sarvam import SarvamStory
+    monkeypatch.setattr(get_settings(), "SARVAM_API_KEY", "k")
+    route = respx.post("https://api.sarvam.ai/v1/chat/completions").mock(
+        return_value=Response(200, json={"choices": [{"message": {"content": '{"title": "मौन सिम्फनी"}'}}]}))
+    res = await SarvamStory().translate_film({"title": "Silent Symphony"}, "hi")
+    assert res.data["title"] == "मौन सिम्फनी"
+    prompt = _json.loads(route.calls[-1].request.content)["messages"][0]["content"]
+    assert "Hindi (हिन्दी, hi)" in prompt and "Silent Symphony" in prompt
