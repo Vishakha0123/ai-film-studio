@@ -9,7 +9,7 @@ from app.config import Settings, get_settings
 from app.db import get_db
 from app.models import AIJob, Asset, Project, ProjectDocument, User, WorkflowStep
 from app.schemas import (ApproveRequest, AssetListItem, AssetOut, Brief, CostEstimate, DocumentOut, EditRequest, FilmProject, Transcript,
-                         GenerateRequest, JobOut, LanguageVersionOut, LanguageVersionRequest, Me, PlanRequest, Preferences, ProjectCreate, ProjectOut, ProjectSummary,
+                         BulkDeleteRequest, BulkDeleteResult, GenerateRequest, JobOut, LanguageVersionOut, LanguageVersionRequest, Me, PlanRequest, Preferences, ProjectCreate, ProjectOut, ProjectSummary,
                          ProjectUpdate, RenderRequest)
 from app.providers import ProviderError, stt_provider
 from app.services import storage
@@ -124,14 +124,29 @@ def rename_project(project_id: str, body: ProjectUpdate, db: Session = Depends(g
     return _project_out(project)
 
 
-@router.delete("/projects/{project_id}", status_code=204)
-def delete_project(project_id: str, db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
-    project = _own_project(db, project_id, user)
+def _remove_project(db: Session, project: Project) -> None:
     db.query(AIJob).filter(AIJob.project_id == project.id).delete()
     db.query(WorkflowStep).filter(WorkflowStep.project_id == project.id).delete()
     db.query(ProjectDocument).filter(ProjectDocument.project_id == project.id).delete()
     db.delete(project)  # assets cascade
+
+
+@router.delete("/projects/{project_id}", status_code=204)
+def delete_project(project_id: str, db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
+    _remove_project(db, _own_project(db, project_id, user))
     db.commit()
+
+
+@router.post("/projects/bulk-delete", response_model=BulkDeleteResult)
+def delete_projects(body: BulkDeleteRequest, db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
+    """Delete several of your projects at once. Ids that aren't yours (or don't exist) are reported, not deleted."""
+    ids = list(dict.fromkeys(body.ids))
+    owned = db.scalars(select(Project).where(Project.id.in_(ids), Project.user_id == user.id)).all()
+    for project in owned:
+        _remove_project(db, project)
+    db.commit()
+    deleted = {p.id for p in owned}
+    return BulkDeleteResult(deleted=[i for i in ids if i in deleted], not_found=[i for i in ids if i not in deleted])
 
 
 @router.get("/assets", response_model=list[AssetListItem])

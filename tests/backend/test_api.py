@@ -661,3 +661,19 @@ def test_unusable_plan_says_which_fields(client, monkeypatch):
     _, job = _plan(client)
     err = client.get(f"/api/v1/jobs/{job['id']}", headers=auth()).json()["error"]
     assert "title missing" in err and "characters.0.name missing" in err
+
+
+def test_bulk_delete_projects(client):
+    a, _ = _plan(client)
+    b, _ = _plan(client)
+    c = client.post("/api/v1/projects", json={}, headers=auth()).json()["id"]
+    theirs = client.post("/api/v1/projects", json={}, headers=auth("other@x.io")).json()["id"]
+    client.post(f"/api/v1/projects/{a}/generate", json={"confirmCost": True}, headers=auth())
+
+    r = client.post("/api/v1/projects/bulk-delete", json={"ids": [a, b, theirs, "nope", a]}, headers=auth())
+    assert r.status_code == 200, r.text
+    assert r.json() == {"deleted": [a, b], "notFound": [theirs, "nope"]}
+    assert [p["id"] for p in client.get("/api/v1/projects", headers=auth()).json()] == [c]
+    assert client.get(f"/api/v1/projects/{theirs}", headers=auth("other@x.io")).status_code == 200  # not yours: untouched
+    assert client.get("/api/v1/assets", headers=auth()).json() == []  # assets went with the films
+    assert client.post("/api/v1/projects/bulk-delete", json={"ids": []}, headers=auth()).status_code == 422

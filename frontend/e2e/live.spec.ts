@@ -295,3 +295,45 @@ test('full stack: the theme song comes from the film and can be rewritten by the
   await page.goto(`/projects/${p.id}`)
   await expect(page.getByTestId('overview-lyrics')).toContainText(film.memory.lyrics.title)
 })
+
+test('full stack: select several projects and delete them together', async ({ page, request }) => {
+  await preparePage(page)
+  const email = 'bulk-user@dev.local'
+  const auth = { Authorization: `Bearer dev:${email}` }
+  const ids: string[] = []
+  for (const title of ['Film A', 'Film B', 'Film C', 'Film D']) {
+    ids.push((await (await request.post(`${API}/api/v1/projects`, { headers: auth, data: { title } })).json()).id)
+  }
+  await page.addInitScript(e => localStorage.setItem('cineai.token', `dev:${e}`), email)
+  await page.goto('/projects')
+  await expect(page.getByTestId('project-card')).toHaveCount(4)
+
+  // Select two, Esc cancels, select again, delete
+  await page.getByTestId('select-mode').click()
+  await page.getByTestId('project-card').filter({ hasText: 'Film A' }).click()
+  await page.getByTestId('project-card').filter({ hasText: 'Film C' }).click()
+  await expect(page.getByTestId('selected-count')).toHaveText('2 selected')
+  await expect(page).toHaveURL(/\/projects$/) // clicking a card selects it instead of opening it
+  await page.keyboard.press('Escape')
+  await expect(page.getByTestId('bulk-bar')).toBeHidden()
+  await page.getByTestId('select-mode').click()
+  await page.getByRole('button', { name: 'Select Film A' }).click()
+  await page.getByRole('button', { name: 'Select Film C' }).click()
+  await page.getByRole('button', { name: 'Delete 2' }).click()
+  await page.getByRole('button', { name: 'Yes, delete' }).click()
+  await expect(page.getByTestId('bulk-notice')).toHaveText('Deleted 2 films.')
+  await expect(page.getByTestId('project-card')).toHaveCount(2)
+  const left = (await (await request.get(`${API}/api/v1/projects`, { headers: auth })).json()).map((p: { title: string }) => p.title).sort()
+  expect(left).toEqual(['Film B', 'Film D'])
+
+  // Select all → Keep cancels → delete for real
+  await page.getByTestId('select-mode').click()
+  await page.getByRole('button', { name: 'Select all (2)' }).click()
+  await page.getByRole('button', { name: 'Delete 2' }).click()
+  await page.getByRole('button', { name: 'Keep' }).click()
+  await expect(page.getByTestId('project-card')).toHaveCount(2)
+  await page.getByRole('button', { name: 'Delete 2' }).click()
+  await page.getByRole('button', { name: 'Yes, delete' }).click()
+  await expect(page.getByText('No films yet')).toBeVisible()
+  expect(await (await request.get(`${API}/api/v1/projects`, { headers: auth })).json()).toHaveLength(0)
+})

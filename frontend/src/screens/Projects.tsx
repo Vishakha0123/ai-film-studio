@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { DEMO_MODE, deleteProject, listProjects, renameProject } from '../api'
+import { DEMO_MODE, deleteProject, deleteProjects, listProjects, renameProject } from '../api'
 import { useStudio } from '../studio'
 import type { ProjectSummary } from '../types'
 import { languageName } from '../lib/languages'
@@ -32,6 +32,44 @@ export default function ProjectsPage() {
   const [draftTitle, setDraftTitle] = useState('')
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
+  // Select several films and delete them together
+  const [selecting, setSelecting] = useState(false)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [confirmBulk, setConfirmBulk] = useState(false)
+  const [bulkBusy, setBulkBusy] = useState(false)
+  const [notice, setNotice] = useState<string | null>(null)
+
+  const stopSelecting = () => { setSelecting(false); setSelected(new Set()); setConfirmBulk(false) }
+  const toggle = (id: string) => {
+    setConfirmBulk(false)
+    setSelected(s => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n })
+  }
+
+  useEffect(() => {
+    if (!selecting) return
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && stopSelecting()
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [selecting])
+
+  const removeSelected = async () => {
+    const ids = [...selected]
+    setBulkBusy(true)
+    setError(null)
+    try {
+      const { deleted, notFound } = await deleteProjects(ids)
+      const gone = new Set(deleted)
+      setProjects(ps => ps?.filter(p => !gone.has(p.id)) ?? null)
+      if (current && gone.has(current.id)) newFilm()
+      setNotice(`Deleted ${deleted.length} ${deleted.length === 1 ? 'film' : 'films'}${notFound.length ? ` · ${notFound.length} already gone` : ''}.`)
+      stopSelecting()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not delete those projects.')
+      setConfirmBulk(false)
+    } finally {
+      setBulkBusy(false)
+    }
+  }
 
   const load = useCallback(() => {
     setError(null)
@@ -90,6 +128,18 @@ export default function ProjectsPage() {
               {DEMO_MODE && ' · Demo mode shows the sample film'}
             </p>
           </div>
+          <div className="flex items-center gap-2">
+          {!DEMO_MODE && (projects?.length ?? 0) > 0 && (
+            <button
+              onClick={() => (selecting ? stopSelecting() : (setSelecting(true), setNotice(null)))}
+              aria-pressed={selecting}
+              data-testid="select-mode"
+              className="px-4 py-2.5 rounded-lg text-xs font-medium border transition-all hover:opacity-80"
+              style={{ borderColor: selecting ? 'rgba(212,168,75,0.4)' : 'rgba(255,255,255,0.1)', color: selecting ? '#d4a84b' : '#d4d4d8' }}
+            >
+              {selecting ? 'Done' : 'Select'}
+            </button>
+          )}
           <button
             onClick={() => navigate('/new')}
             className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-semibold transition-all hover:opacity-90"
@@ -98,6 +148,7 @@ export default function ProjectsPage() {
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><path d="M12 5v14M5 12h14" strokeLinecap="round" /></svg>
             New Film
           </button>
+          </div>
         </div>
 
         <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl border max-w-md" style={{ backgroundColor: '#111113', borderColor: 'rgba(255,255,255,0.08)' }}>
@@ -113,6 +164,44 @@ export default function ProjectsPage() {
         </div>
 
         {error && <p role="alert" className="text-sm text-red-300">{error}</p>}
+        {notice && <p role="status" className="text-sm" style={{ color: '#10b981' }} data-testid="bulk-notice">{notice}</p>}
+
+        {selecting && (
+          <div
+            className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-3 px-4 py-3 rounded-xl border"
+            style={{ backgroundColor: 'rgba(17,17,19,0.95)', borderColor: 'rgba(212,168,75,0.25)', backdropFilter: 'blur(6px)' }}
+            data-testid="bulk-bar"
+          >
+            <div className="flex items-center gap-3 text-xs">
+              <span className="font-semibold" style={{ color: '#f4f0ea' }} data-testid="selected-count">{selected.size} selected</span>
+              <button
+                onClick={() => { setConfirmBulk(false); setSelected(visible.length && visible.every(p => selected.has(p.id)) ? new Set() : new Set(visible.map(p => p.id))) }}
+                className="text-zinc-400 hover:text-zinc-200"
+              >
+                {visible.length && visible.every(p => selected.has(p.id)) ? 'Clear all' : `Select all${query ? ' shown' : ''} (${visible.length})`}
+              </button>
+              <span className="text-zinc-700 hidden sm:inline">· Esc to cancel</span>
+            </div>
+            {confirmBulk ? (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-zinc-400">Delete {selected.size} {selected.size === 1 ? 'film' : 'films'} for good?</span>
+                <button onClick={() => void removeSelected()} disabled={bulkBusy} className="px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50" style={{ backgroundColor: 'rgba(239,68,68,0.15)', color: '#f87171' }}>
+                  {bulkBusy ? 'Deleting…' : 'Yes, delete'}
+                </button>
+                <button onClick={() => setConfirmBulk(false)} disabled={bulkBusy} className="px-3 py-1.5 rounded-lg text-xs text-zinc-400 border" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>Keep</button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setConfirmBulk(true)}
+                disabled={selected.size === 0}
+                className="px-4 py-1.5 rounded-lg text-xs font-semibold transition-all disabled:opacity-40"
+                style={{ backgroundColor: 'rgba(239,68,68,0.15)', color: '#f87171' }}
+              >
+                Delete {selected.size || ''}
+              </button>
+            )}
+          </div>
+        )}
 
         {projects && projects.length === 0 && (
           <div className="px-6 py-14 rounded-xl text-center" style={{ backgroundColor: '#111113', border: '1px dashed rgba(255,255,255,0.08)' }}>
@@ -128,19 +217,38 @@ export default function ProjectsPage() {
           {visible.map(p => {
             const status = STATUS_LABEL[p.status] ?? { label: p.status, color: '#71717a' }
             const isCurrent = current?.id === p.id
+            const isSelected = selected.has(p.id)
             return (
               <article
                 key={p.id}
                 data-testid="project-card"
-                className="rounded-xl overflow-hidden border flex flex-col transition-all"
-                style={{ backgroundColor: '#111113', borderColor: isCurrent ? 'rgba(212,168,75,0.4)' : 'rgba(255,255,255,0.07)' }}
+                data-selected={isSelected || undefined}
+                onClick={selecting ? () => toggle(p.id) : undefined}
+                className={`rounded-xl overflow-hidden border flex flex-col transition-all ${selecting ? 'cursor-pointer' : ''}`}
+                style={{ backgroundColor: '#111113', borderColor: isSelected ? '#d4a84b' : isCurrent ? 'rgba(212,168,75,0.4)' : 'rgba(255,255,255,0.07)', boxShadow: isSelected ? '0 0 0 1px rgba(212,168,75,0.4)' : undefined }}
               >
-                <button onClick={() => open(p.id)} className="relative aspect-video bg-zinc-900 text-left" aria-label={`Open ${p.title}`}>
+                <button
+                  onClick={selecting ? undefined : () => open(p.id)}
+                  className="relative aspect-video bg-zinc-900 text-left"
+                  aria-label={selecting ? `${isSelected ? 'Unselect' : 'Select'} ${p.title}` : `Open ${p.title}`}
+                >
                   <img src={p.thumbnailUrl ?? FALLBACK_STILL} alt="" className="w-full h-full object-cover" style={{ filter: 'grayscale(30%) contrast(1.1)', opacity: 0.85 }} />
                   <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(9,9,11,0.85) 0%, transparent 60%)' }} />
                   <span className="absolute top-2 left-2 text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: `${status.color}22`, color: status.color }}>
                     {status.label}
                   </span>
+                  {selecting && (
+                    <span
+                      role="checkbox"
+                      aria-checked={isSelected}
+                      aria-label={`Select ${p.title}`}
+                      data-testid="project-checkbox"
+                      className="absolute bottom-2 left-2 w-6 h-6 rounded-md flex items-center justify-center border"
+                      style={{ backgroundColor: isSelected ? '#d4a84b' : 'rgba(9,9,11,0.7)', borderColor: isSelected ? '#d4a84b' : 'rgba(255,255,255,0.4)' }}
+                    >
+                      {isSelected && <svg viewBox="0 0 24 24" fill="none" stroke="#09090b" strokeWidth="3" className="w-3.5 h-3.5"><path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" /></svg>}
+                    </span>
+                  )}
                   {isCurrent && (
                     <span className="absolute top-2 right-2 text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(212,168,75,0.15)', color: '#d4a84b' }}>
                       Open now
@@ -168,7 +276,7 @@ export default function ProjectsPage() {
                   <p className="text-xs text-zinc-500">{p.genre || 'No genre yet'}{p.language && p.language !== 'en' ? ` · ${languageName(p.language)}` : ''} · {p.assetCount} assets · {timeAgo(p.updatedAt)}</p>
                   {p.logline && <p className="text-xs leading-relaxed text-zinc-400 line-clamp-2">{p.logline}</p>}
 
-                  <div className="mt-auto pt-2 flex items-center gap-2">
+                  <div className={`mt-auto pt-2 flex items-center gap-2 ${selecting ? 'invisible' : ''}`}>
                     <button
                       onClick={() => open(p.id)}
                       disabled={busy === p.id}

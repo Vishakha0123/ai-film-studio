@@ -309,3 +309,12 @@ class LanguageVersionOut(Schema):
     """A new project holding the film in another language, and the job that's translating it."""
     project: ProjectOut
     job: JobOut
+
+
+class BulkDeleteRequest(Schema):
+    ids: list[str] = Field(min_length=1, max_length=200)
+
+
+class BulkDeleteResult(Schema):
+    deleted: list[str]
+    not_found: list[str] = []

@@ -72,6 +72,7 @@ Each line says PASS when most of the story is in that language's own script.
 | GET | `/me` | Current user |
 | POST / GET | `/projects` | Create / list projects |
 | POST / GET | `/projects/{id}/documents` | Attach source files (PDF, DOCX, TXT/MD/Fountain, images; 10 MB) / list them |
+| POST | `/projects/bulk-delete` | Delete several of your projects (`{"ids": [...]}`) → `{deleted, notFound}` |
 | DELETE | `/documents/{id}` | Remove an attached file |
 | POST | `/projects/{id}/versions` | Same film in another language (`{"language": "ta"}`): new project, translate job; original kept |
 | POST | `/transcribe` | Speech-to-text for the chat mic (multipart `audio`, `language`) |

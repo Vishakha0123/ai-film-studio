@@ -259,3 +259,11 @@ describe('lyrics come from the film', () => {
     expect(await screen.findByTestId('overview-lyrics')).toHaveTextContent('Song — Between the Rests')
   })
 })
+
+describe('bulk delete', () => {
+  it('is not offered in demo mode (the sample film can\'t be deleted)', async () => {
+    renderApp('/projects', { loggedIn: true })
+    await screen.findAllByTestId('project-card')
+    expect(screen.queryByTestId('select-mode')).toBeNull()
+  })
+})

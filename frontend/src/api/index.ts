@@ -162,6 +162,12 @@ export async function renameProject(id: string, title: string): Promise<ProjectD
   return request<ProjectData>(`/projects/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify({ title }) })
 }
 
+/** Deletes several projects at once; ids that aren't yours come back in notFound. */
+export async function deleteProjects(ids: string[]): Promise<{ deleted: string[]; notFound: string[] }> {
+  if (DEMO_MODE) throw new ApiError('The sample film can’t be deleted in demo mode.', 400)
+  return request<{ deleted: string[]; notFound: string[] }>('/projects/bulk-delete', { method: 'POST', body: JSON.stringify({ ids }) })
+}
+
 export async function deleteProject(id: string): Promise<void> {
   if (DEMO_MODE) throw new ApiError('The sample film can’t be deleted in demo mode.', 400)
   await request<void>(`/projects/${encodeURIComponent(id)}`, { method: 'DELETE' })
