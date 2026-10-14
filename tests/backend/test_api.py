@@ -621,3 +621,43 @@ def test_old_film_without_lyrics_can_get_a_song(client):
     job = client.post(f"/api/v1/projects/{pid}/transform", json={"target": "lyrics", "instruction": "Write the theme song"}, headers=auth()).json()
     assert client.get(f"/api/v1/jobs/{job['id']}", headers=auth()).json()["status"] == "completed"
     assert client.get(f"/api/v1/projects/{pid}", headers=auth()).json()["memory"]["lyrics"]["chorus"]
+
+
+def test_messy_model_json_still_makes_a_film(client, monkeypatch):
+    """Real story models write age 16 (number), null fields, numbers in Tamil digits, translated audio types."""
+    from app.providers.base import ProviderResult
+    from app.providers.mock import MockStory
+
+    async def messy(self, brief):
+        return ProviderResult({
+            "title": "ஒளியின் விதை", "genre": None, "logline": "மீரா…",
+            "characters": [{"id": 1, "name": "மீரா", "age": 16, "role": None}, {"name": "காளி", "age": "நூறு"}],
+            "scenes": [{"id": 1, "number": "௧", "location": "காடு", "characters": "மீரா, காளி", "duration": 3}],
+            "shots": [{"number": 1, "duration": 2.5, "characters": ["மீரா"], "camera": None, "description": "மரம்"}],
+            "audioTracks": [{"type": "இசை", "name": "தீம்", "volume": "80"}, {"type": "Sound Effects", "name": "காற்று"}],
+            "dialogue": [{"character": "மீரா", "text": "நான் கேட்கிறேன்", "tone": None}],
+            "lyrics": {"title": "விதை", "verse": "…", "chorus": "…"},
+        }, provider="mock", model="messy")
+
+    monkeypatch.setattr(MockStory, "plan_film", messy)
+    pid, job = _plan(client)
+    done = client.get(f"/api/v1/jobs/{job['id']}", headers=auth()).json()
+    assert done["status"] == "completed", done["error"]
+    m = client.get(f"/api/v1/projects/{pid}", headers=auth()).json()["memory"]
+    assert m["characters"][0]["age"] == "16" and m["characters"][1]["id"] == "2"
+    assert m["scenes"][0]["number"] == 1 and m["scenes"][0]["characters"] == ["மீரா", "காளி"]
+    assert m["shots"][0]["duration"] == "2.5" and m["shots"][0]["characters"] == "மீரா" and m["shots"][0]["id"] == "1"
+    assert [t["type"] for t in m["audioTracks"]] == ["music", "sfx"] and m["audioTracks"][0]["volume"] == 80
+
+
+def test_unusable_plan_says_which_fields(client, monkeypatch):
+    from app.providers.base import ProviderResult
+    from app.providers.mock import MockStory
+
+    async def broken(self, brief):
+        return ProviderResult({"characters": [{"age": "16"}]}, provider="mock", model="broken")
+
+    monkeypatch.setattr(MockStory, "plan_film", broken)
+    _, job = _plan(client)
+    err = client.get(f"/api/v1/jobs/{job['id']}", headers=auth()).json()["error"]
+    assert "title missing" in err and "characters.0.name missing" in err

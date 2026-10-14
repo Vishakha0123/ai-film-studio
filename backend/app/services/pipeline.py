@@ -47,6 +47,13 @@ def _seconds(duration: str, default: float = 2.5) -> float:
         return default
 
 
+def _problems(e: ValidationError) -> str:
+    """'2 problems: characters.0.name missing, title missing' — enough to see what the model got wrong."""
+    where = [f"{'.'.join(map(str, err['loc']))} {'missing' if err['type'] == 'missing' else 'invalid'}" for err in e.errors()[:4]]
+    log.warning("film validation failed: %s", e.errors()[:10])
+    return f"{e.error_count()} problem{'s' if e.error_count() != 1 else ''}: {', '.join(where)}"
+
+
 def validate_film(data: object) -> dict:
     """Validate provider output against the FilmProject schema and normalise ids."""
     film = FilmProject.model_validate(data)
@@ -145,7 +152,7 @@ async def task_plan(db: Session, job: AIJob, project: Project) -> dict:
     try:
         memory = validate_film(res.data)
     except ValidationError as e:
-        raise NeedsReview(f"The story model returned an incomplete plan ({e.error_count()} problems). Try again.") from e
+        raise NeedsReview(f"The story model returned an incomplete plan ({_problems(e)}). Try again.") from e
     project.memory = memory
     project.title = memory["title"][:300]
     project.genre = memory.get("genre", project.genre)[:200]
@@ -405,7 +412,7 @@ async def task_translate(db: Session, job: AIJob, project: Project) -> dict:
     try:
         memory = validate_film(data)
     except ValidationError as e:
-        raise NeedsReview(f"The translated film was incomplete ({e.error_count()} problems). Try again.") from e
+        raise NeedsReview(f"The translated film was incomplete ({_problems(e)}). Try again.") from e
 
     copied = 0
     for a in db.scalars(select(Asset).where(Asset.project_id == source.id, Asset.type.in_(VISUAL_ASSET_TYPES),

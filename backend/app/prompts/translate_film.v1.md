@@ -5,7 +5,7 @@ it were written in {output_language} (natural, cinematic, not word-for-word; use
 
 Keep exactly the same structure: the same keys, the same number of characters, scenes, shots, tracks
 and dialogue lines, in the same order, with the same "id", "number", "duration", "volume", "active",
-"type" and "camera" values. Character names stay the same people (write them in the target script).
+"type" and "camera" values (leave those in English, numbers in digits 0-9). Character names stay the same people (write them in the target script).
 Screenplay sluglines may keep "INT."/"EXT.".
 
 Return ONLY the translated JSON object.

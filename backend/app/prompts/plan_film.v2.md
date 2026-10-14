@@ -6,7 +6,9 @@ LANGUAGE: write every piece of text — title, logline, story, character descrip
 scene and shot descriptions, track names and dialogue — in {output_language}. Do this even when the
 brief's "prompt" or "sourceMaterial" is written in a different language: understand it in whatever
 language it is written, then write the film in {output_language}. Use the language's own script.
-Keep the JSON keys exactly as shown, in English. Screenplay sluglines may keep "INT."/"EXT.".
+Keep the JSON keys exactly as shown, in English, and keep these values in English too: audioTracks "type"
+(voice|music|sfx|ambience) and "active" (true/false). Write "id", "number", "volume" and durations with digits 0-9.
+Screenplay sluglines may keep "INT."/"EXT.".
 
 If the brief includes "sourceMaterial" (the creator's own story, script, lyrics or notes), build the
 film from it: keep its characters, names, events and dialogue rather than inventing new ones.

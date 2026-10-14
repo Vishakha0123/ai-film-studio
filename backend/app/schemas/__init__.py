@@ -3,7 +3,9 @@
 from datetime import datetime, timezone
 from typing import Annotated, Literal
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field
+import unicodedata
+
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, field_validator, model_validator
 from pydantic.alias_generators import to_camel
 
 
@@ -17,8 +19,29 @@ class Schema(BaseModel):
 
 # ---------- Film project memory (mirrors frontend/src/types.ts) ----------
 
-class Character(Schema):
-    id: str
+def _to_int(v: object) -> object:
+    """'௧', '१२', '3.' → 1, 12, 3 (story models write numbers in the film's script)."""
+    if isinstance(v, str):
+        digits = "".join(str(unicodedata.digit(c)) for c in v if unicodedata.digit(c, None) is not None)
+        return int(digits) if digits else 0
+    return v
+
+
+class FilmPart(Schema):
+    """Tolerant of how story models really write JSON: numbers where text is expected (age 16),
+    null for empty fields, numbers in Indian scripts. A film shouldn't fail over formatting."""
+    model_config = ConfigDict(coerce_numbers_to_str=True)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _drop_nulls(cls, data: object) -> object:
+        if isinstance(data, dict):
+            return {k: v for k, v in data.items() if v is not None}
+        return data
+
+
+class Character(FilmPart):
+    id: str = ""
     name: str
     age: str = ""
     role: str = ""
@@ -30,20 +53,29 @@ class Character(Schema):
     image_url: str | None = None
 
 
-class Scene(Schema):
-    id: str
-    number: int
-    location: str
+class Scene(FilmPart):
+    id: str = ""
+    number: int = 0
+    location: str = ""
     time: str = ""
     characters: list[str] = []
     mood: str = ""
     duration: str = ""
     description: str = ""
 
+    _number = field_validator("number", mode="before")(lambda v: _to_int(v))
 
-class Shot(Schema):
-    id: str
-    number: int
+    @field_validator("characters", mode="before")
+    @classmethod
+    def _names(cls, v: object) -> object:
+        if isinstance(v, str):  # "Meera, Kaali" → ["Meera", "Kaali"]
+            return [n.strip() for n in v.replace("،", ",").split(",") if n.strip()]
+        return v
+
+
+class Shot(FilmPart):
+    id: str = ""
+    number: int = 0
     duration: str = ""
     camera: str = ""
     movement: str = ""
@@ -54,24 +86,53 @@ class Shot(Schema):
     image_url: str | None = None
     video_url: str | None = None
 
+    _number = field_validator("number", mode="before")(lambda v: _to_int(v))
 
-class AudioTrack(Schema):
-    id: str
-    type: Literal["voice", "music", "sfx", "ambience"]
-    name: str
+    @field_validator("characters", mode="before")
+    @classmethod
+    def _names(cls, v: object) -> object:
+        return ", ".join(map(str, v)) if isinstance(v, list) else v
+
+
+AUDIO_TYPES = ("voice", "music", "sfx", "ambience")
+
+
+class AudioTrack(FilmPart):
+    id: str = ""
+    type: Literal["voice", "music", "sfx", "ambience"] = "music"
+    name: str = ""
     duration: str = ""
     volume: int = 70
     active: bool = True
     url: str | None = None
 
+    @field_validator("type", mode="before")
+    @classmethod
+    def _kind(cls, v: object) -> object:
+        """A translated or unusual type ("இசை", "Music ", "sound effect") becomes the nearest known one."""
+        s = str(v).strip().lower()
+        if s in AUDIO_TYPES:
+            return s
+        for kind, words in (("voice", ("voice", "vo", "dialog", "narrat")), ("sfx", ("sfx", "effect", "sound")),
+                            ("ambience", ("ambien", "atmos", "background"))):
+            if any(w in s for w in words):
+                return kind
+        return "music"
 
-class DialogueLine(Schema):
-    character: str
+    @field_validator("volume", mode="before")
+    @classmethod
+    def _volume(cls, v: object) -> object:
+        n = _to_int(v) if isinstance(v, str) else v
+        return max(0, min(100, int(n))) if isinstance(n, (int, float)) else 70
+
+
+class DialogueLine(FilmPart):
+    character: str = ""
     text: str
     tone: str = ""
 
 
-class Lyrics(Schema):
+class Lyrics(FilmPart):
     """The film's theme song, written in the film's language."""
     title: str = ""
     style: str = ""
@@ -81,7 +142,7 @@ class Lyrics(Schema):
     bridge: str = ""
 
 
-class FilmProject(Schema):
+class FilmProject(FilmPart):
     title: str
     genre: str = ""
     tone: str = ""
