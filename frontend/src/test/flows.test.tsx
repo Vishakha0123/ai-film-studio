@@ -245,3 +245,17 @@ describe('workspace pages (demo mode)', { timeout: 15000 }, () => {
     expect(await screen.findByTestId('screen-login')).toBeInTheDocument()
   })
 })
+
+describe('lyrics come from the film', () => {
+  it('shows the film\'s own song (title, style and sections)', async () => {
+    renderApp('/director/lyrics', { loggedIn: true })
+    expect(screen.getByTestId('song-title')).toHaveTextContent('Between the Rests')
+    expect(screen.getByText(/^Main theme ·/)).toHaveTextContent('Dark Classical')
+    expect((screen.getByLabelText('Verse lyrics') as HTMLTextAreaElement).value).toContain('Between the rests, I still remain')
+  })
+
+  it('the project page includes the song', async () => {
+    renderApp('/projects/demo', { loggedIn: true })
+    expect(await screen.findByTestId('overview-lyrics')).toHaveTextContent('Song — Between the Rests')
+  })
+})

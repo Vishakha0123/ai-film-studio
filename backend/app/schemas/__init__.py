@@ -71,6 +71,16 @@ class DialogueLine(Schema):
     tone: str = ""
 
 
+class Lyrics(Schema):
+    """The film's theme song, written in the film's language."""
+    title: str = ""
+    style: str = ""
+    verse: str = ""
+    pre_chorus: str = ""
+    chorus: str = ""
+    bridge: str = ""
+
+
 class FilmProject(Schema):
     title: str
     genre: str = ""
@@ -83,6 +93,7 @@ class FilmProject(Schema):
     shots: list[Shot] = []
     audio_tracks: list[AudioTrack] = []
     dialogue: list[DialogueLine] = []
+    lyrics: Lyrics | None = None
 
 
 # ---------- API ----------
@@ -111,7 +122,7 @@ class PlanRequest(Schema):
 
 
 class EditRequest(Schema):
-    target: Literal["story", "logline", "screenplay", "characters", "scenes", "shots", "dialogue"] = "story"
+    target: Literal["story", "logline", "screenplay", "characters", "scenes", "shots", "dialogue", "lyrics"] = "story"
     instruction: str = Field(default="", max_length=2000)
 
 

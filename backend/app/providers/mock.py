@@ -11,6 +11,15 @@ from app.providers.base import ImageProvider, ProviderResult, StoryProvider, STT
 
 SAMPLE = json.loads((Path(__file__).parent / "data" / "sample_film.json").read_text(encoding="utf-8"))
 
+SAMPLE_LYRICS = {
+    "title": "Between the Rests",
+    "style": "Dark Classical",
+    "verse": "Between the rests, I still remain\nIn the silence after rain\nEvery measure, every note\nThe words that you could never quote",
+    "preChorus": "Listen close — the score explains\nWhat the living can't contain",
+    "chorus": "I am the music in the walls\nThe echo down your hallway's halls\nPlay the final page and see\nI never left — I cannot leave",
+    "bridge": "Andante — slow, like grief descends\nFortissimo — where longing ends",
+}
+
 
 class MockStory(StoryProvider):
     async def plan_film(self, brief: dict) -> ProviderResult:
@@ -21,6 +30,7 @@ class MockStory(StoryProvider):
             {"character": "Elena", "text": "Thomas… you told me the score was finished.", "tone": "Grief"},
             {"character": "Elena", "text": "The notation changed. This isn't what I wrote.", "tone": "Horror"},
         ]
+        film["lyrics"] = copy.deepcopy(SAMPLE_LYRICS)
         return ProviderResult(film, provider="mock", model="sample-film")
 
     async def translate_film(self, memory: dict, language: str) -> ProviderResult:
@@ -32,6 +42,11 @@ class MockStory(StoryProvider):
 
     async def edit(self, memory: dict, target: str, instruction: str, *, language: str = "en") -> ProviderResult:
         value = copy.deepcopy(memory.get(target))
+        if target == "lyrics":
+            value = value or copy.deepcopy(SAMPLE_LYRICS)
+            if instruction and memory.get(target):
+                value["verse"] = f"{value.get('verse', '')}\n[Revised: {instruction}]"
+            return ProviderResult(value, provider="mock", model="echo")
         if isinstance(value, str) and instruction:
             value = f"{value}\n\n[Revised: {instruction}]"
         return ProviderResult(value, provider="mock", model="echo")

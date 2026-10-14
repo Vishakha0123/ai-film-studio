@@ -587,3 +587,37 @@ def test_extract_json_ignores_unclosed_thinking():
     assert extract_json('<think>planning…</think>{"a": 1}') == {"a": 1}
     with pytest.raises(ValueError):
         extract_json("<think>still thinking about {the plot")
+
+
+# ---------- Lyrics ----------
+
+def test_plan_writes_the_theme_song(client):
+    pid, _ = _plan(client)
+    lyrics = client.get(f"/api/v1/projects/{pid}", headers=auth()).json()["memory"]["lyrics"]
+    assert lyrics["title"] and lyrics["verse"] and lyrics["preChorus"] and lyrics["chorus"] and lyrics["bridge"]
+
+
+def test_lyrics_can_be_edited_and_travel_with_language_versions(client):
+    pid, _ = _plan(client)
+    job = client.post(f"/api/v1/projects/{pid}/improve", json={"target": "lyrics", "instruction": "Improve the rhyme"}, headers=auth()).json()
+    assert client.get(f"/api/v1/jobs/{job['id']}", headers=auth()).json()["status"] == "completed"
+    lyrics = client.get(f"/api/v1/projects/{pid}", headers=auth()).json()["memory"]["lyrics"]
+    assert "[Revised: Improve the rhyme]" in lyrics["verse"]
+    body = client.post(f"/api/v1/projects/{pid}/versions", json={"language": "gu"}, headers=auth()).json()
+    client.get(f"/api/v1/jobs/{body['job']['id']}", headers=auth())
+    version = client.get(f"/api/v1/projects/{body['project']['id']}", headers=auth()).json()
+    assert version["memory"]["lyrics"]["chorus"] == lyrics["chorus"]  # mock keeps the words; Sarvam translates them
+
+
+def test_old_film_without_lyrics_can_get_a_song(client):
+    pid, _ = _plan(client)
+    from app.db import SessionLocal
+    from app.models import Project
+    with SessionLocal() as db:
+        p = db.get(Project, pid)
+        p.memory = {k: v for k, v in p.memory.items() if k != "lyrics"}
+        db.commit()
+    assert client.get(f"/api/v1/projects/{pid}", headers=auth()).json()["memory"].get("lyrics") is None
+    job = client.post(f"/api/v1/projects/{pid}/transform", json={"target": "lyrics", "instruction": "Write the theme song"}, headers=auth()).json()
+    assert client.get(f"/api/v1/jobs/{job['id']}", headers=auth()).json()["status"] == "completed"
+    assert client.get(f"/api/v1/projects/{pid}", headers=auth()).json()["memory"]["lyrics"]["chorus"]

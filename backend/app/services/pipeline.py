@@ -159,7 +159,7 @@ EDIT_DEPENDENTS = {
     "characters": ["character_image", "storyboard_image", "video_clip", "render"],
     "shots": ["storyboard_image", "video_clip", "render"],
     "dialogue": ["voice", "render"],
-    "story": [], "logline": [], "screenplay": [], "scenes": [],
+    "story": [], "logline": [], "screenplay": [], "scenes": [], "lyrics": [],
 }
 
 

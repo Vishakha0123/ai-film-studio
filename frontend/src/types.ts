@@ -70,6 +70,16 @@ export interface DialogueLine {
   tone: string
 }
 
+/** The film's theme song, written in the film's language. */
+export interface Lyrics {
+  title: string
+  style: string
+  verse: string
+  preChorus: string
+  chorus: string
+  bridge: string
+}
+
 export interface FilmProject {
   title: string
   genre: string
@@ -82,6 +92,7 @@ export interface FilmProject {
   shots: Shot[]
   audioTracks: AudioTrack[]
   dialogue?: DialogueLine[]
+  lyrics?: Lyrics
 }
 
 export interface Asset {
@@ -251,6 +262,24 @@ SMASH CUT TO BLACK.`,
     { id: '3', number: 3, duration: '3s', camera: 'Medium', movement: 'Very slow push-in from behind', description: 'Elena plays. A shape forms in the window behind her reflection.', characters: 'Elena, Thomas', mood: 'Horror', imageId: '1478720568477-152d9b164e26' },
     { id: '4', number: 4, duration: '2.5s', camera: 'Close-up', movement: 'Static', description: 'James on phone in rain. Rain streaks across his face. Sinister calm.', characters: 'James', mood: 'Conspiracy', imageId: '1551373066-08073d2bf558' },
   ],
+  lyrics: {
+    title: 'Between the Rests',
+    style: 'Dark Classical',
+    verse: `Between the rests, I still remain
+In the silence after rain
+Every measure, every note
+The words that you could never quote`,
+    preChorus: `Listen close — the score explains
+What the living can't contain`,
+    chorus: `I am the music in the walls
+The echo down your hallway's halls
+Play the final page and see
+I never left — I cannot leave`,
+    bridge: `Andante — slow, like grief descends
+Fortissimo — where longing ends
+The key is not in major light
+The answer lives in B-flat night`,
+  },
   audioTracks: [
     { id: '1', type: 'voice', name: 'Elena — "Thomas"', duration: '0:03', volume: 85, active: true },
     { id: '2', type: 'music', name: 'Symphony Fragment (Dark)', duration: '0:10', volume: 70, active: true },

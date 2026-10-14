@@ -269,3 +269,29 @@ test('full stack: film language — English prompt, Tamil film, then Hindi and T
   await expect(page.getByTestId('overview-language')).toContainText('Telugu')
   await expect(page.getByTestId('overview-title')).toContainText('తెలుగు')
 })
+
+test('full stack: the theme song comes from the film and can be rewritten by the AI', async ({ page, request }) => {
+  await preparePage(page)
+  const email = 'lyrics-user@dev.local'
+  const auth = { Authorization: `Bearer dev:${email}` }
+  await page.addInitScript(e => localStorage.setItem('cineai.token', `dev:${e}`), email)
+  await page.goto('/director')
+  await page.getByLabel('Film language').selectOption('gu')
+  await page.getByLabel('Message the AI Director').fill('A girl who can hear trees speak')
+  await page.keyboard.press('Enter')
+  await expect(page.getByTestId('panel-story')).toBeVisible({ timeout: 20_000 })
+
+  const [p] = await (await request.get(`${API}/api/v1/projects`, { headers: auth })).json()
+  const film = await (await request.get(`${API}/api/v1/projects/${p.id}`, { headers: auth })).json()
+  expect(film.memory.lyrics.chorus).toBeTruthy()
+
+  await page.getByTestId('nav-lyrics').click()
+  await expect(page.getByTestId('song-title')).toHaveText(film.memory.lyrics.title)
+  await expect(page.getByLabel('Verse lyrics')).toHaveValue(film.memory.lyrics.verse)
+  await page.getByRole('button', { name: 'Improve Rhyme' }).click()
+  await expect(page.getByLabel('Verse lyrics')).toHaveValue(/\[Revised: Improve the rhyme/, { timeout: 15_000 })
+
+  // the project page shows the song too
+  await page.goto(`/projects/${p.id}`)
+  await expect(page.getByTestId('overview-lyrics')).toContainText(film.memory.lyrics.title)
+})

@@ -12,6 +12,7 @@ const SECTIONS: { id: string; label: string; panel: Panel }[] = [
   { id: 'characters', label: 'Characters', panel: 'characters' },
   { id: 'screenplay', label: 'Screenplay', panel: 'screenplay' },
   { id: 'dialogue', label: 'Dialogue', panel: 'dialogue' },
+  { id: 'lyrics', label: 'Lyrics', panel: 'lyrics' },
   { id: 'scenes', label: 'Scenes', panel: 'scenes' },
   { id: 'storyboard', label: 'Storyboard', panel: 'storyboard' },
 ]
@@ -167,7 +168,7 @@ export default function ProjectOverview() {
           {/* Section jump bar */}
           <nav aria-label="Project sections" className="sticky top-0 z-10 border-b backdrop-blur" style={{ backgroundColor: 'rgba(9,9,11,0.85)', borderColor: 'rgba(255,255,255,0.06)' }}>
             <div className="max-w-5xl mx-auto px-4 sm:px-6 flex gap-1 overflow-x-auto py-2">
-              {[...SECTIONS.filter(s => s.id !== 'dialogue' || (f.dialogue?.length ?? 0) > 0), ...(docs.length ? [{ id: 'files', label: 'Source files' }] : [])].map(s => (
+              {[...SECTIONS.filter(s => (s.id !== 'dialogue' || (f.dialogue?.length ?? 0) > 0) && (s.id !== 'lyrics' || !!f.lyrics)), ...(docs.length ? [{ id: 'files', label: 'Source files' }] : [])].map(s => (
                 <a key={s.id} href={`#section-${s.id}`} onClick={e => { e.preventDefault(); document.getElementById(`section-${s.id}`)?.scrollIntoView?.({ behavior: 'smooth' }) }}
                   className="px-3 py-1.5 rounded-lg text-xs text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50 whitespace-nowrap">
                   {s.label}
@@ -223,6 +224,21 @@ export default function ProjectOverview() {
                       {d.tone && <span className="text-[10px] uppercase tracking-wider text-zinc-600">{d.tone}</span>}
                     </div>
                   ))}
+                </div>
+              </Section>
+            )}
+
+            {f.lyrics && (
+              <Section id="lyrics" title={`Song — ${f.lyrics.title}`} count={f.lyrics.style} onEdit={() => openIn('lyrics')}>
+                <div className="rounded-xl p-5 sm:p-7 grid sm:grid-cols-2 gap-6" style={card}>
+                  {([['Verse', f.lyrics.verse], ['Pre-Chorus', f.lyrics.preChorus], ['Chorus', f.lyrics.chorus], ['Bridge', f.lyrics.bridge]] as const)
+                    .filter(([, text]) => text)
+                    .map(([label, text]) => (
+                      <div key={label}>
+                        <p className="text-[10px] uppercase tracking-widest text-zinc-600 mb-2">{label}</p>
+                        <p className="text-sm leading-7 italic text-zinc-300 whitespace-pre-wrap" style={{ fontFamily: 'Fraunces, Georgia, serif' }}>{text}</p>
+                      </div>
+                    ))}
                 </div>
               </Section>
             )}
