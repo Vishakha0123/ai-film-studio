@@ -63,6 +63,8 @@ interface ChatProps {
   setMessages: (fn: (m: ChatMessage[]) => ChatMessage[]) => void
   /** ms the AI "types" before replying (Figma prototype: 1600) */
   replyDelay?: number
+  /** Shown as the side panel next to a section rather than as the full Director page */
+  docked?: boolean
 }
 
 /** Director replies for a live project, written from the generated film rather than the sample. */
@@ -106,7 +108,7 @@ export function initialMessages(genres: string[] = []): ChatMessage[] {
   return [{ ...WELCOME, content: `Let's make a new ${g} film. Describe your idea — a single sentence or a detailed treatment — or attach a script, story or lyrics. I'll handle the rest.\n\nWhat's your story?` }]
 }
 
-export default function Chat({ progress, onAdvance, onGenerate, onOpenPanel, genres, messages, setMessages, replyDelay = 1600 }: ChatProps) {
+export default function Chat({ progress, onAdvance, onGenerate, onOpenPanel, genres, messages, setMessages, replyDelay = 1600, docked = false }: ChatProps) {
   const [input, setInput] = useState('')
   const [isTyping, setIsTyping] = useState(false)
   const [status, setStatus] = useState('')
@@ -242,7 +244,7 @@ export default function Chat({ progress, onAdvance, onGenerate, onOpenPanel, gen
   return (
     <div
       className="relative flex flex-col h-full"
-      data-testid="panel-chat"
+      data-testid={docked ? 'chat-dock-panel' : 'panel-chat'}
       onDragOver={e => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); setDragging(true) } }}
       onDragLeave={e => { if (e.currentTarget === e.target) setDragging(false) }}
       onDrop={e => { e.preventDefault(); setDragging(false); if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files) }}
@@ -253,7 +255,7 @@ export default function Chat({ progress, onAdvance, onGenerate, onOpenPanel, gen
         </div>
       )}
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 space-y-6">
+      <div className={`flex-1 overflow-y-auto ${docked ? 'px-3 py-4 space-y-4' : 'px-4 sm:px-6 py-6 space-y-6'}`}>
         {messages.map(msg => (
           <div key={msg.id} className={`flex gap-3 animate-fade-up ${msg.role === 'user' ? 'flex-row-reverse' : ''}`} data-role={msg.role}>
             {msg.role === 'ai' && (
@@ -314,7 +316,7 @@ export default function Chat({ progress, onAdvance, onGenerate, onOpenPanel, gen
       </div>
 
       {/* Suggestions */}
-      {messages.length === 1 && (
+      {messages.length === 1 && !docked && (
         <div className="px-4 sm:px-6 pb-3 flex flex-wrap gap-2">
           {SUGGESTIONS.map(s => (
             <button
@@ -329,7 +331,7 @@ export default function Chat({ progress, onAdvance, onGenerate, onOpenPanel, gen
       )}
 
       {/* Input */}
-      <div className="px-3 sm:px-4 pb-4">
+      <div className={docked ? 'px-2 pb-2' : 'px-3 sm:px-4 pb-4'}>
         <div className="rounded-2xl border transition-colors focus-within:border-zinc-600" style={{ backgroundColor: '#111113', borderColor: dictation.state === 'listening' ? 'rgba(239,68,68,0.45)' : 'rgba(255,255,255,0.09)' }}>
           {files.length > 0 && (
             <div className="flex flex-wrap gap-2 px-3 pt-3" data-testid="attachment-chips">
@@ -372,7 +374,7 @@ export default function Chat({ progress, onAdvance, onGenerate, onOpenPanel, gen
               onKeyDown={handleKey}
               onPaste={e => { if (e.clipboardData.files.length) { e.preventDefault(); addFiles(e.clipboardData.files) } }}
               aria-label="Message the AI Director"
-              placeholder={dictation.state === 'listening' ? 'Listening… speak your idea' : files.length ? 'Add a note about these files (optional)…' : 'Describe the film you want to create…'}
+              placeholder={dictation.state === 'listening' ? 'Listening… speak your idea' : files.length ? (docked ? 'Add a note (optional)…' : 'Add a note about these files (optional)…') : docked ? 'Ask the AI Director…' : 'Describe the film you want to create…'}
               className="flex-1 min-w-0 self-center bg-transparent text-sm text-zinc-200 placeholder-zinc-600 resize-none focus:outline-none px-1.5 py-2 leading-5 max-h-40 overflow-y-auto"
             />
 
@@ -411,7 +413,7 @@ export default function Chat({ progress, onAdvance, onGenerate, onOpenPanel, gen
         {(notice || dictation.error) && (
           <p role="alert" className="text-xs text-red-300 mt-2 px-1">{notice ?? dictation.error}</p>
         )}
-        <p className="text-center text-[10px] text-zinc-700 mt-2 hidden sm:block">Enter to send · Shift+Enter for a new line · Attach or drop PDF, Word, text or images · Mic for voice</p>
+        <p className={`text-center text-[10px] text-zinc-700 mt-2 ${docked ? 'hidden' : 'hidden sm:block'}`}>Enter to send · Shift+Enter for a new line · Attach or drop PDF, Word, text or images · Mic for voice</p>
       </div>
     </div>
   )

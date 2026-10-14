@@ -30,6 +30,14 @@ test('mobile: sidebar is a drawer and the director flow works', async ({ page })
   await expect(sidebar).toHaveAttribute('data-open', 'false')
   await expect(page.getByTestId('panel-characters')).toBeVisible()
 
+  // Chat opens as a full-screen sheet over the section and closes again
+  await expect(page.getByTestId('chat-dock')).toBeHidden()
+  await page.getByTestId('chat-toggle').click()
+  await expect(page.getByTestId('chat-dock')).toBeVisible()
+  await expect(page.getByTestId('chat-dock').getByLabel('Message the AI Director')).toBeVisible()
+  await page.getByRole('button', { name: 'Close chat' }).click()
+  await expect(page.getByTestId('chat-dock')).toBeHidden()
+
   for (const path of ['/director', '/director/storyboard', '/new', '/projects', '/projects/demo', '/assets', '/settings']) {
     await page.goto(path)
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)

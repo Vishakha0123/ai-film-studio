@@ -50,6 +50,19 @@ interface DirectorProps {
 
 export default function Director({ navigate, panel, setPanel, progress, setProgress, messages, setMessages, genres, onNewFilm, filmKey = 0, replyDelay }: DirectorProps) {
   const [menuOpen, setMenuOpen] = useState(false)
+  // Chat next to sections: open by default on wide screens (remembered), a full-screen sheet on phones.
+  const [dockOpen, setDockOpen] = useState(() => readDockPref())
+  const [mobileChat, setMobileChat] = useState(false)
+  const isWide = () => typeof window.matchMedia === 'function' && window.matchMedia('(min-width: 1024px)').matches
+  const chatShown = isWide() ? dockOpen : mobileChat
+  const toggleChat = () => {
+    if (isWide()) { setDockOpen(!dockOpen); writeDockPref(!dockOpen) }
+    else setMobileChat(!mobileChat)
+  }
+  const closeChat = () => {
+    setMobileChat(false)
+    if (isWide()) { setDockOpen(false); writeDockPref(false) }
+  }
   const film = useFilm()
   const { project } = useStudio()
   const routerNavigate = useNavigate()
@@ -131,12 +144,14 @@ export default function Director({ navigate, panel, setPanel, progress, setProgr
           <div className="flex items-center gap-2 flex-shrink-0">
             {panel !== 'chat' && (
               <button
-                onClick={() => setPanel('chat')}
-                className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-300 transition-colors px-2 sm:px-3 py-1.5 rounded-lg hover:bg-zinc-800/40"
+                onClick={toggleChat}
+                aria-label={chatShown ? 'Hide chat' : 'Show chat'}
+                aria-pressed={chatShown}
+                data-testid="chat-toggle"
+                className="flex items-center gap-1.5 text-xs transition-colors px-2 sm:px-3 py-1.5 rounded-lg hover:bg-zinc-800/40"
+                style={{ color: chatShown ? '#d4a84b' : '#71717a' }}
               >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-3.5 h-3.5">
-                  <path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
+                <ChatBubbleIcon />
                 Chat
               </button>
             )}
@@ -153,45 +168,102 @@ export default function Director({ navigate, panel, setPanel, progress, setProgr
           </div>
         </div>
 
-        {/* Panel content */}
-        <div className="flex-1 overflow-hidden">
-          {panel === 'chat' && (
-            <Chat
-              key={filmKey}
-              progress={progress}
-              onAdvance={advance}
-              onGenerate={handleGenerate}
-              onOpenPanel={setPanel}
-              genres={genres}
-              messages={messages}
-              setMessages={setMessages}
-              replyDelay={replyDelay}
-            />
-          )}
-          {needsFilm && <EmptyPanel title={PANEL_TITLES[panel]} onStart={() => setPanel('chat')} onOpenProjects={() => routerNavigate('/projects')} />}
-          {!needsFilm && panel === 'story' && <Story />}
-          {!needsFilm && panel === 'characters' && <Characters />}
-          {!needsFilm && panel === 'screenplay' && <Screenplay />}
-          {!needsFilm && panel === 'dialogue' && <Dialogue />}
-          {!needsFilm && panel === 'lyrics' && <Lyrics />}
-          {!needsFilm && panel === 'scenes' && <Scenes onGenerate={handleGenerate} />}
-          {!needsFilm && panel === 'storyboard' && <Storyboard onGenerate={handleGenerate} />}
-          {!needsFilm && panel === 'audio' && <Audio />}
-          <div className={panel === 'music' ? 'h-full' : 'hidden'}><Music active={panel === 'music'} /></div>
-        </div>
+        <div className="flex-1 flex overflow-hidden">
+          {/* Section (Story, Characters, …) with its Continue bar. Kept mounted (hidden) on the
+              Director page so the Music player keeps its state. */}
+          <div className={panel === 'chat' ? 'hidden' : 'flex-1 min-w-0 flex flex-col overflow-hidden'}>
+              <div className="flex-1 overflow-hidden">
+              {needsFilm && <EmptyPanel title={PANEL_TITLES[panel]} onStart={() => setPanel('chat')} onOpenProjects={() => routerNavigate('/projects')} />}
+              {!needsFilm && panel === 'story' && <Story />}
+              {!needsFilm && panel === 'characters' && <Characters />}
+              {!needsFilm && panel === 'screenplay' && <Screenplay />}
+              {!needsFilm && panel === 'dialogue' && <Dialogue />}
+              {!needsFilm && panel === 'lyrics' && <Lyrics />}
+              {!needsFilm && panel === 'scenes' && <Scenes onGenerate={handleGenerate} />}
+              {!needsFilm && panel === 'storyboard' && <Storyboard onGenerate={handleGenerate} />}
+              {!needsFilm && panel === 'audio' && <Audio />}
+              <div className={panel === 'music' ? 'h-full' : 'hidden'}><Music active={panel === 'music'} /></div>
+            </div>
 
-        {!needsFilm && steps.includes(panel) && (
-          <ContinueBar
-            step={steps.indexOf(panel) + 1}
-            total={steps.length}
-            prev={steps[steps.indexOf(panel) - 1]}
-            next={steps[steps.indexOf(panel) + 1]}
-            onBack={p => setPanel(p)}
-            onContinue={() => continueFrom(panel)}
-          />
-        )}
+            {!needsFilm && steps.includes(panel) && (
+              <ContinueBar
+                step={steps.indexOf(panel) + 1}
+                total={steps.length}
+                prev={steps[steps.indexOf(panel) - 1]}
+                next={steps[steps.indexOf(panel) + 1]}
+                onBack={p => setPanel(p)}
+                onContinue={() => continueFrom(panel)}
+              />
+            )}
+          </div>
+
+          {/* AI Director chat: the whole page on "Director", a side panel next to every section.
+              One instance either way, so a reply in progress survives switching sections. */}
+          <aside
+            aria-label="AI Director chat"
+            data-testid={panel === 'chat' ? undefined : 'chat-dock'}
+            className={panel === 'chat'
+              ? 'flex-1 min-w-0 flex flex-col'
+              : `${mobileChat ? 'flex fixed inset-0 z-40' : 'hidden'} lg:static lg:z-auto ${dockOpen ? 'lg:flex' : 'lg:hidden'} flex-col lg:w-[360px] xl:w-[400px] flex-shrink-0 lg:border-l`}
+            style={panel === 'chat' ? undefined : { backgroundColor: '#0b0b0d', borderColor: 'rgba(255,255,255,0.06)' }}
+          >
+            {panel !== 'chat' && (
+              <div className="flex items-center justify-between gap-2 px-4 py-2.5 border-b flex-shrink-0" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+                <span className="flex items-center gap-2 text-xs font-semibold" style={{ color: '#d4d4d8' }}>
+                  <span style={{ color: '#d4a84b' }}>◈</span> AI Director
+                </span>
+                <span className="flex items-center gap-1">
+                  <button onClick={() => { setMobileChat(false); setPanel('chat') }} aria-label="Open full chat" title="Open full chat" className="p-1.5 rounded-md text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/50">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-3.5 h-3.5"><path d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                  </button>
+                  <button onClick={closeChat} aria-label="Close chat" title="Close chat" className="p-1.5 rounded-md text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/50">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-3.5 h-3.5"><path d="M6 18L18 6M6 6l12 12" strokeLinecap="round" /></svg>
+                  </button>
+                </span>
+              </div>
+            )}
+            <div className="flex-1 min-h-0">
+              <Chat
+                key={filmKey}
+                docked={panel !== 'chat'}
+                progress={progress}
+                onAdvance={advance}
+                onGenerate={handleGenerate}
+                onOpenPanel={p => { setMobileChat(false); setPanel(p) }}
+                genres={genres}
+                messages={messages}
+                setMessages={setMessages}
+                replyDelay={replyDelay}
+              />
+            </div>
+          </aside>
+        </div>
       </div>
     </div>
+  )
+}
+
+const DOCK_KEY = 'cineai.chatDock'
+function readDockPref(): boolean {
+  try {
+    return localStorage.getItem(DOCK_KEY) !== 'closed'
+  } catch {
+    return true
+  }
+}
+function writeDockPref(open: boolean) {
+  try {
+    localStorage.setItem(DOCK_KEY, open ? 'open' : 'closed')
+  } catch {
+    /* storage unavailable — preference lasts for this visit */
+  }
+}
+
+function ChatBubbleIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-3.5 h-3.5">
+      <path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   )
 }
 

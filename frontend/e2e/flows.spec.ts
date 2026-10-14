@@ -139,3 +139,27 @@ test('Continue buttons take you section by section after the story', async ({ pa
   await expect(page).toHaveURL(/\/director$/)
   await expect(page.getByTestId('card-generate')).toBeVisible()
 })
+
+test('chat sits beside every section on desktop', async ({ page }) => {
+  await signIn(page)
+  await page.goto('/director')
+  await page.getByLabel('Message the AI Director').fill('A ghost in a lighthouse')
+  await page.keyboard.press('Enter')
+  await expect(page.getByTestId('panel-story')).toBeVisible({ timeout: 8000 })
+  const dock = page.getByTestId('chat-dock')
+  await expect(dock).toBeVisible()
+  await expect(dock).toContainText('A ghost in a lighthouse')
+  // section and chat side by side
+  const story = (await page.getByTestId('panel-story').boundingBox())!
+  const chat = (await dock.boundingBox())!
+  expect(chat.x).toBeGreaterThanOrEqual(story.x + story.width - 1)
+  await dock.getByLabel('Message the AI Director').fill('continue')
+  await page.keyboard.press('Enter')
+  await expect(page.getByTestId('panel-characters')).toBeVisible({ timeout: 8000 })
+  await page.getByRole('button', { name: 'Close chat' }).click()
+  await expect(dock).toBeHidden()
+  await page.reload()
+  await expect(page.getByTestId('chat-dock')).toBeHidden()
+  await page.getByTestId('chat-toggle').click()
+  await expect(page.getByTestId('chat-dock')).toBeVisible()
+})
