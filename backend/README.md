@@ -53,6 +53,18 @@ local test users (`google-user@dev.local`, `apple-user@dev.local`).
 | Character portraits, storyboard frames | `IMAGE_PROVIDER=openai` | `OPENAI_API_KEY` |
 | Shot video clips | `VIDEO_PROVIDER=seedance` | `ATLAS_API_KEY` (+ `SEEDANCE_MODEL`) |
 
+## Test every film language
+
+With `STORY_PROVIDER=sarvam` and `AUTH_MODE=dev`, from the repo root:
+
+```
+python scripts/test_languages.py              # a new film in each of the 10 languages
+python scripts/test_languages.py --versions   # one film, then a version in every other language
+python scripts/test_languages.py --only ta,gu # just some
+```
+
+Each line says PASS when most of the story is in that language's own script.
+
 ## API (`/api/v1`, Bearer token required)
 
 | Method | Path | Purpose |
