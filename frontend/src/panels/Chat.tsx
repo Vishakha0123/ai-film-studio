@@ -91,6 +91,15 @@ function liveResponse(stage: number, f: FilmProject): { text: string; card: Chat
   }
 }
 
+/**
+ * The AI Director's reply when a stage is finished from a section's Continue button, so the chat
+ * reads the same as if the creator had typed "continue". The last stages fall back to the wrap-up.
+ */
+export function continueReply(stage: number, f: FilmProject): { text: string; card: ChatMessage['card'] } | undefined {
+  const pick = (s: number) => (DEMO_MODE ? demoResponse(s) : liveResponse(s, f))
+  return pick(stage) ?? pick(6)
+}
+
 export function initialMessages(genres: string[] = []): ChatMessage[] {
   if (!genres.length) return [WELCOME]
   const g = genres.length === 1 ? genres[0] : `${genres.slice(0, -1).join(', ')} & ${genres[genres.length - 1]}`

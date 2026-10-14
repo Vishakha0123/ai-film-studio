@@ -123,3 +123,19 @@ test('chat input controls are vertically aligned and the textarea grows', async 
   await box.fill('line 1\nline 2\nline 3\nline 4')
   expect((await box.boundingBox())!.height).toBeGreaterThan(h1 + 20)
 })
+
+test('Continue buttons take you section by section after the story', async ({ page }) => {
+  await signIn(page)
+  await page.goto('/director')
+  await page.getByLabel('Message the AI Director').fill('A ghost in a lighthouse')
+  await page.keyboard.press('Enter')
+  await expect(page.getByTestId('panel-story')).toBeVisible({ timeout: 8000 })
+  for (const next of ['characters', 'screenplay', 'dialogue', 'lyrics', 'scenes', 'storyboard']) {
+    await page.getByTestId('continue-button').click()
+    await expect(page.getByTestId(`panel-${next}`)).toBeVisible()
+    await expect(page).toHaveURL(new RegExp(`/director/${next}$`))
+  }
+  await page.getByTestId('continue-button').click()
+  await expect(page).toHaveURL(/\/director$/)
+  await expect(page.getByTestId('card-generate')).toBeVisible()
+})

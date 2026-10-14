@@ -205,3 +205,26 @@ test('full stack: New Film keeps the first film saved and creates a second proje
   expect(projects).toHaveLength(2)
   expect(projects.map((p: { genre: string }) => p.genre)).toContain('Comedy')
 })
+
+test('full stack: Continue buttons walk the planned film and approve each step', async ({ page, request }) => {
+  await preparePage(page)
+  const email = 'continue-user@dev.local'
+  const auth = { Authorization: `Bearer dev:${email}` }
+  await page.addInitScript(e => localStorage.setItem('cineai.token', `dev:${e}`), email)
+  await page.goto('/director')
+  await page.getByLabel('Message the AI Director').fill('A dabbawala delivers a lunchbox to the wrong decade')
+  await page.keyboard.press('Enter')
+  await expect(page.getByTestId('panel-story')).toBeVisible({ timeout: 20_000 })
+  // This build has the Coming-soon sections unlocked, so Audio follows the storyboard here
+  for (const next of ['characters', 'screenplay', 'dialogue', 'lyrics', 'scenes', 'storyboard', 'audio']) {
+    await page.getByTestId('continue-button').click()
+    await expect(page.getByTestId(`panel-${next}`)).toBeVisible()
+  }
+  await expect(page.getByTestId('continue-button')).toHaveText(/Finish/)
+  await page.getByTestId('continue-button').click()
+  await expect(page.getByTestId('panel-chat')).toContainText('Everything is in place')
+
+  const [p] = await (await request.get(`${API}/api/v1/projects`, { headers: auth })).json()
+  const full = await (await request.get(`${API}/api/v1/projects/${p.id}`, { headers: auth })).json()
+  expect(full.memory.title).toBeTruthy()
+})

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { Panel, NavFn, ChatMessage } from '../types'
 import Sidebar from '../components/Sidebar'
-import Chat from '../panels/Chat'
+import Chat, { continueReply } from '../panels/Chat'
 import Story from '../panels/Story'
 import Characters from '../panels/Characters'
 import Screenplay from '../panels/Screenplay'
@@ -13,7 +13,7 @@ import Storyboard from '../panels/Storyboard'
 import Audio from '../panels/Audio'
 import Music from '../panels/Music'
 import { useFilm, useStudio } from '../studio'
-import { DEMO_MODE } from '../api'
+import { DEMO_MODE, approveStep } from '../api'
 import { isPanelLocked, isTeaserLocked } from '../features'
 import { ComingSoonButton } from '../components/LockIcon'
 
@@ -64,6 +64,32 @@ export default function Director({ navigate, panel, setPanel, progress, setProgr
   }
 
   const handleGenerate = () => navigate('generation')
+
+  /** Open stages in order (Coming-soon ones are skipped). */
+  const steps = PANEL_ORDER.filter(p => !isPanelLocked(p))
+
+  /**
+   * "Continue" at the bottom of a section: marks it done, keeps the chat in step (the AI's reply
+   * for the next stage) and opens the next section. After the last one it returns to the chat.
+   */
+  const continueFrom = (p: Panel) => {
+    const idx = PANEL_ORDER.indexOf(p)
+    const next = steps[steps.indexOf(p) + 1]
+    if (project) void approveStep(project.id, p).catch(() => undefined)
+    if (progress <= idx + 1) {
+      const reply = continueReply(idx + 1, film)
+      const label = next ? PANEL_TITLES[next] : 'finish'
+      setMessages(m => [
+        ...m,
+        { id: `continue-${p}-${Date.now()}`, role: 'user', content: next ? `Continue to ${label}` : 'Finish the storyboard' },
+        ...(reply && !m.some(x => x.card && x.card === reply.card)
+          ? [{ id: `continue-${p}-${Date.now()}-ai`, role: 'ai' as const, content: reply.text, card: reply.card }]
+          : []),
+      ])
+      setProgress(Math.max(progress, idx + 2))
+    }
+    setPanel(next ?? 'chat')
+  }
 
   return (
     <div className="flex h-full overflow-hidden" data-testid="screen-director">
@@ -153,6 +179,17 @@ export default function Director({ navigate, panel, setPanel, progress, setProgr
           {!needsFilm && panel === 'audio' && <Audio />}
           <div className={panel === 'music' ? 'h-full' : 'hidden'}><Music active={panel === 'music'} /></div>
         </div>
+
+        {!needsFilm && steps.includes(panel) && (
+          <ContinueBar
+            step={steps.indexOf(panel) + 1}
+            total={steps.length}
+            prev={steps[steps.indexOf(panel) - 1]}
+            next={steps[steps.indexOf(panel) + 1]}
+            onBack={p => setPanel(p)}
+            onContinue={() => continueFrom(panel)}
+          />
+        )}
       </div>
     </div>
   )
@@ -170,6 +207,49 @@ function EmptyPanel({ title, onStart, onOpenProjects }: { title: string; onStart
           <button onClick={onOpenProjects} className="px-4 py-2 rounded-lg text-xs font-medium border" style={{ borderColor: 'rgba(255,255,255,0.1)', color: '#d4d4d8' }}>Open a project</button>
         </div>
       </div>
+    </div>
+  )
+}
+
+/** Bottom bar on every section: where you are, back, and Continue to the next section. */
+function ContinueBar({ step, total, prev, next, onBack, onContinue }: {
+  step: number
+  total: number
+  prev?: Panel
+  next?: Panel
+  onBack: (p: Panel) => void
+  onContinue: () => void
+}) {
+  return (
+    <div
+      className="flex items-center justify-between gap-3 px-3 sm:px-5 py-3 border-t flex-shrink-0"
+      style={{ backgroundColor: '#0c0c0e', borderColor: 'rgba(255,255,255,0.06)' }}
+      data-testid="continue-bar"
+    >
+      <div className="flex items-center gap-3 min-w-0">
+        {prev ? (
+          <button onClick={() => onBack(prev)} className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors whitespace-nowrap" aria-label={`Back to ${PANEL_TITLES[prev]}`}>
+            ← <span className="hidden sm:inline">{PANEL_TITLES[prev]}</span>
+          </button>
+        ) : <span />}
+        <div className="flex items-center gap-2 min-w-0" aria-label={`Step ${step} of ${total}`}>
+          <span className="text-[11px] text-zinc-500 whitespace-nowrap" data-testid="continue-step">Step {step} of {total}</span>
+          <span className="hidden sm:flex gap-1" aria-hidden>
+            {Array.from({ length: total }, (_, i) => (
+              <span key={i} className="h-1 w-4 rounded-full" style={{ backgroundColor: i < step ? '#d4a84b' : '#27272a' }} />
+            ))}
+          </span>
+        </div>
+      </div>
+      <button
+        onClick={onContinue}
+        data-testid="continue-button"
+        className="flex items-center gap-2 px-4 sm:px-5 py-2 rounded-lg text-xs font-semibold transition-all hover:opacity-90 active:scale-[0.98] whitespace-nowrap"
+        style={{ backgroundColor: '#d4a84b', color: '#09090b' }}
+      >
+        {next ? `Continue to ${PANEL_TITLES[next]}` : 'Finish — back to Director'}
+        <span aria-hidden>→</span>
+      </button>
     </div>
   )
 }
