@@ -45,6 +45,10 @@ class Settings(BaseSettings):
     SARVAM_API_KEY: str = ""
     SARVAM_BASE_URL: str = "https://api.sarvam.ai"
     SARVAM_CHAT_MODEL: str = "sarvam-105b"
+    # Room for the reply. A full film in an Indian script uses far more tokens than in English,
+    # and the model's thinking counts too. A cut-off reply is retried once without thinking.
+    SARVAM_MAX_TOKENS: int = 16000
+    SARVAM_REASONING_EFFORT: str = "low"  # low | medium | high | max | none (no thinking)
     SARVAM_TTS_MODEL: str = "bulbul:v3"
     SARVAM_TTS_SPEAKER: str = "shubh"
     SARVAM_STT_MODEL: str = "saaras:v3"

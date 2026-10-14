@@ -544,3 +544,46 @@ async def test_sarvam_translate_film(monkeypatch):
     assert res.data["title"] == "मौन सिम्फनी"
     prompt = _json.loads(route.calls[-1].request.content)["messages"][0]["content"]
     assert "Hindi (हिन्दी, hi)" in prompt and "Silent Symphony" in prompt
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_sarvam_cut_off_reply_is_retried_without_thinking(monkeypatch):
+    """Gujarati/Tamil films are long: a reply cut off mid-thinking used to fail with 'No JSON object'."""
+    import json as _json
+    from app.config import get_settings
+    from app.providers.sarvam import SarvamStory
+    monkeypatch.setattr(get_settings(), "SARVAM_API_KEY", "k")
+    route = respx.post("https://api.sarvam.ai/v1/chat/completions").mock(side_effect=[
+        Response(200, json={"choices": [{"finish_reason": "length", "message": {"content": "<think>The user wants a Gujarati fantasy film. Let me plan the characters"}}],
+                            "usage": {"total_tokens": 16000}}),
+        Response(200, json={"choices": [{"finish_reason": "stop", "message": {"content": '{"title": "પ્રકાશનું બીજ"}'}}],
+                            "usage": {"total_tokens": 9000}}),
+    ])
+    res = await SarvamStory().plan_film({"prompt": "Fantasy film", "language": "gu", "teaserSeconds": 30})
+    assert res.data["title"] == "પ્રકાશનું બીજ"
+    first, second = (_json.loads(c.request.content) for c in route.calls)
+    assert first["max_tokens"] == 16000 and first["reasoning_effort"] == "low"
+    assert second["max_tokens"] == 32000 and second["reasoning_effort"] is None
+    assert res.usage["total_tokens"] == 25000
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_sarvam_still_too_long_gives_a_clear_message(monkeypatch):
+    from app.config import get_settings
+    from app.providers.base import ProviderError
+    from app.providers.sarvam import SarvamStory
+    monkeypatch.setattr(get_settings(), "SARVAM_API_KEY", "k")
+    cut = Response(200, json={"choices": [{"finish_reason": "length", "message": {"content": '{"title": "x", "story": "unfinish'}}]})
+    respx.post("https://api.sarvam.ai/v1/chat/completions").mock(side_effect=[cut, cut])
+    with pytest.raises(ProviderError) as e:
+        await SarvamStory().plan_film({"prompt": "x", "language": "ta"})
+    assert "too long" in str(e.value) and not e.value.transient
+
+
+def test_extract_json_ignores_unclosed_thinking():
+    from app.providers._json import extract_json
+    assert extract_json('<think>planning…</think>{"a": 1}') == {"a": 1}
+    with pytest.raises(ValueError):
+        extract_json("<think>still thinking about {the plot")

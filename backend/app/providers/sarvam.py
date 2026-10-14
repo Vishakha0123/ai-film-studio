@@ -25,33 +25,57 @@ def _raise_for(r: httpx.Response) -> None:
 
 
 class SarvamStory(StoryProvider):
-    async def _chat(self, prompt: str) -> ProviderResult:
+    async def _post(self, prompt: str, *, max_tokens: int, reasoning: str | None) -> dict:
         s = get_settings()
-        if not s.SARVAM_API_KEY:
-            raise ProviderError("SARVAM_API_KEY is not set")
-        async with httpx.AsyncClient(timeout=180) as client:
+        payload = {
+            "model": s.SARVAM_CHAT_MODEL,
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": 0.7,
+            "max_tokens": max_tokens,
+            "response_format": {"type": "json_object"},
+            "reasoning_effort": reasoning,  # None turns the model's thinking off
+        }
+        async with httpx.AsyncClient(timeout=300) as client:
             try:
                 r = await client.post(
                     f"{s.SARVAM_BASE_URL}/v1/chat/completions",
                     headers={"Authorization": f"Bearer {s.SARVAM_API_KEY}", "api-subscription-key": s.SARVAM_API_KEY},
-                    json={
-                        "model": s.SARVAM_CHAT_MODEL,
-                        "messages": [{"role": "user", "content": prompt}],
-                        "temperature": 0.7,
-                        "max_tokens": 6000,
-                        "response_format": {"type": "json_object"},
-                    },
+                    json=payload,
                 )
             except httpx.TransportError as e:
                 raise ProviderError(f"Sarvam unreachable: {e}", transient=True) from e
         _raise_for(r)
-        body = r.json()
-        content = body["choices"][0]["message"]["content"]
+        return r.json()
+
+    async def _chat(self, prompt: str) -> ProviderResult:
+        s = get_settings()
+        if not s.SARVAM_API_KEY:
+            raise ProviderError("SARVAM_API_KEY is not set")
+        effort = (s.SARVAM_REASONING_EFFORT or "").strip().lower()
+        reasoning = None if effort in ("", "none", "off") else effort
+        body = await self._post(prompt, max_tokens=s.SARVAM_MAX_TOKENS, reasoning=reasoning)
+        choice = body["choices"][0]
+        content = choice.get("message", {}).get("content") or ""
+        usage = dict(body.get("usage") or {})
         try:
             data = extract_json(content)
-        except (ValueError, json.JSONDecodeError) as e:
-            raise ProviderError(f"Sarvam returned invalid JSON: {e}", transient=True) from e
-        usage = body.get("usage", {})
+        except (ValueError, json.JSONDecodeError) as first_error:
+            if choice.get("finish_reason") != "length":
+                raise ProviderError(f"Sarvam returned invalid JSON: {first_error}", transient=True) from first_error
+            # The reply ran out of room (long film, non-Latin script, thinking). Once more: no thinking, twice the room.
+            body = await self._post(prompt, max_tokens=s.SARVAM_MAX_TOKENS * 2, reasoning=None)
+            choice = body["choices"][0]
+            content = choice.get("message", {}).get("content") or ""
+            for k, v in (body.get("usage") or {}).items():
+                if isinstance(v, int):
+                    usage[k] = usage.get(k, 0) + v
+            try:
+                data = extract_json(content)
+            except (ValueError, json.JSONDecodeError) as e:
+                if choice.get("finish_reason") == "length":
+                    raise ProviderError("The film was too long for the story model to finish in one reply. "
+                                        "Try a shorter teaser length in Settings, or try again.") from e
+                raise ProviderError(f"Sarvam returned invalid JSON: {e}", transient=True) from e
         return ProviderResult(data, provider="sarvam", model=s.SARVAM_CHAT_MODEL, usage=usage, cost=s.COST_PER_STORY_CALL)
 
     async def plan_film(self, brief: dict) -> ProviderResult:
