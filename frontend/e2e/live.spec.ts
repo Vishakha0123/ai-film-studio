@@ -337,3 +337,60 @@ test('full stack: select several projects and delete them together', async ({ pa
   await expect(page.getByText('No films yet')).toBeVisible()
   expect(await (await request.get(`${API}/api/v1/projects`, { headers: auth })).json()).toHaveLength(0)
 })
+
+test('full stack: add, edit, change appearance, regenerate and remove characters', async ({ page, request }) => {
+  await preparePage(page)
+  const email = 'cast-user@dev.local'
+  const auth = { Authorization: `Bearer dev:${email}` }
+  await page.addInitScript(e => localStorage.setItem('cineai.token', `dev:${e}`), email)
+  await page.goto('/director')
+  await page.getByLabel('Message the AI Director').fill('A detective and a clockwork elephant')
+  await page.keyboard.press('Enter')
+  await expect(page.getByTestId('panel-story')).toBeVisible({ timeout: 20_000 })
+  await page.getByTestId('nav-characters').click()
+  const panel = page.getByTestId('panel-characters')
+  const chips = panel.locator('button[aria-pressed]')
+  const start = await chips.count() - 1 // minus "Add Character"
+
+  // Add by hand
+  await panel.getByRole('button', { name: /Add Character/ }).click()
+  await page.getByPlaceholder('e.g. Sundar').fill('Sundar')
+  await page.getByPlaceholder('e.g. Temple tea boy and key-bearer').fill('Tea boy')
+  await page.getByRole('button', { name: 'Add character', exact: true }).click()
+  await expect(panel.getByText(`${start + 1} characters`)).toBeVisible()
+  await expect(panel.getByRole('button', { name: /Sundar Tea boy/ })).toHaveAttribute('aria-pressed', 'true')
+
+  // Edit the new character
+  await panel.getByRole('button', { name: 'Edit', exact: true }).click()
+  await page.getByPlaceholder('Who are they? What do they want?').fill('Fixes watches, fears nothing')
+  await page.getByRole('button', { name: 'Save' }).click()
+  await expect(panel.getByText('Fixes watches, fears nothing')).toBeVisible()
+
+  // Change appearance
+  await panel.getByRole('button', { name: 'Change Appearance' }).click()
+  await page.getByPlaceholder(/What do they look like/).fill('Barefoot, oversized khaki shirt, brass key on a string')
+  await page.getByRole('button', { name: 'Save' }).click()
+  await expect(panel.getByText('Barefoot, oversized khaki shirt')).toBeVisible()
+
+  // Regenerate (AI) this character
+  await panel.getByRole('button', { name: 'Regenerate' }).click()
+  await expect(panel.getByText(/\[Revised:/)).toBeVisible({ timeout: 15_000 })
+
+  // Let the AI write a character
+  await panel.getByRole('button', { name: /Add Character/ }).click()
+  await page.getByPlaceholder('e.g. Sundar').fill('Gajaraj')
+  await page.getByRole('button', { name: '✨ Let AI write it' }).click()
+  await expect(panel.getByText(`${start + 2} characters`)).toBeVisible({ timeout: 15_000 })
+
+  // Remove Sundar
+  await panel.getByRole('button', { name: /Sundar Tea boy/ }).click()
+  await panel.getByRole('button', { name: 'Edit', exact: true }).click()
+  await page.getByRole('button', { name: 'Remove Sundar' }).click()
+  await page.getByRole('button', { name: 'Yes, remove' }).click()
+  await expect(panel.getByText(`${start + 1} characters`)).toBeVisible()
+
+  const [p] = await (await request.get(`${API}/api/v1/projects`, { headers: auth })).json()
+  const names = (await (await request.get(`${API}/api/v1/projects/${p.id}`, { headers: auth })).json()).memory.characters.map((c: { name: string }) => c.name)
+  expect(names).not.toContain('Sundar')
+  expect(names.length).toBe(start + 1)
+})

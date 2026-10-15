@@ -677,3 +677,52 @@ def test_bulk_delete_projects(client):
     assert client.get(f"/api/v1/projects/{theirs}", headers=auth("other@x.io")).status_code == 200  # not yours: untouched
     assert client.get("/api/v1/assets", headers=auth()).json() == []  # assets went with the films
     assert client.post("/api/v1/projects/bulk-delete", json={"ids": []}, headers=auth()).status_code == 422
+
+
+# ---------- Characters ----------
+
+def test_add_edit_remove_character_by_hand(client):
+    pid, _ = _plan(client)
+    before = client.get(f"/api/v1/projects/{pid}", headers=auth()).json()["memory"]["characters"]
+    r = client.post(f"/api/v1/projects/{pid}/characters", json={"name": "Sundar", "age": "12", "role": "Tea boy", "personality": "Curious"}, headers=auth())
+    assert r.status_code == 201, r.text
+    chars = r.json()["memory"]["characters"]
+    new = chars[-1]
+    assert len(chars) == len(before) + 1 and new["name"] == "Sundar" and new["id"] == str(len(before) + 1)
+
+    client.post(f"/api/v1/projects/{pid}/generate", json={"confirmCost": True}, headers=auth())
+    first = before[0]["id"]
+    r = client.patch(f"/api/v1/projects/{pid}/characters/{first}", json={"appearance": "Silver hair, red sari"}, headers=auth())
+    assert r.status_code == 200
+    p = r.json()
+    assert next(c for c in p["memory"]["characters"] if c["id"] == first)["appearance"] == "Silver hair, red sari"
+    portrait = next(a for a in p["assets"] if a["type"] == "character_image" and a["ref"] == first)
+    assert portrait["status"] == "outdated"  # new look → portrait needs redrawing
+
+    r = client.delete(f"/api/v1/projects/{pid}/characters/{new['id']}", headers=auth())
+    assert [c["name"] for c in r.json()["memory"]["characters"]] == [c["name"] for c in before]
+
+
+def test_character_endpoints_validate(client):
+    p = client.post("/api/v1/projects", json={}, headers=auth()).json()
+    assert client.post(f"/api/v1/projects/{p['id']}/characters", json={"name": "X"}, headers=auth()).status_code == 409
+    pid, _ = _plan(client)
+    assert client.post(f"/api/v1/projects/{pid}/characters", json={"role": "no name"}, headers=auth()).status_code == 422
+    assert client.patch(f"/api/v1/projects/{pid}/characters/99", json={"name": "Y"}, headers=auth()).status_code == 404
+    assert client.patch(f"/api/v1/projects/{pid}/characters/1", json={"name": " "}, headers=auth()).status_code == 422
+    assert client.delete(f"/api/v1/projects/{pid}/characters/1", headers=auth("other@x.io")).status_code == 404
+
+
+def test_ai_adds_and_rewrites_a_character(client):
+    pid, _ = _plan(client)
+    n = len(client.get(f"/api/v1/projects/{pid}", headers=auth()).json()["memory"]["characters"])
+    job = client.post(f"/api/v1/projects/{pid}/transform", json={"target": "characters",
+                      "instruction": "Add one new character: Gajaraj, a brass clockwork elephant. Write all fields."}, headers=auth()).json()
+    assert client.get(f"/api/v1/jobs/{job['id']}", headers=auth()).json()["status"] == "completed"
+    chars = client.get(f"/api/v1/projects/{pid}", headers=auth()).json()["memory"]["characters"]
+    assert len(chars) == n + 1 and chars[-1]["name"] == "Gajaraj"
+    job = client.post(f"/api/v1/projects/{pid}/transform", json={"target": "characters",
+                      "instruction": 'Rewrite only the character with id "1" with a fresh personality.'}, headers=auth()).json()
+    client.get(f"/api/v1/jobs/{job['id']}", headers=auth())
+    chars = client.get(f"/api/v1/projects/{pid}", headers=auth()).json()["memory"]["characters"]
+    assert "[Revised:" in chars[0]["personality"] and len(chars) == n + 1

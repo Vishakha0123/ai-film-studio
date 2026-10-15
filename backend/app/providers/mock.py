@@ -42,6 +42,19 @@ class MockStory(StoryProvider):
 
     async def edit(self, memory: dict, target: str, instruction: str, *, language: str = "en") -> ProviderResult:
         value = copy.deepcopy(memory.get(target))
+        if target == "characters" and isinstance(value, list):
+            # Deterministic stand-ins for the AI: "Add one new character: …" and "Rewrite only the character with id "N" …"
+            import re
+            if instruction.startswith("Add one new character"):
+                idea = instruction.split(":", 1)[-1].split(". Write", 1)[0].strip() or "a new character"
+                value.append({"id": str(len(value) + 1), "name": idea.split(",")[0][:40].strip().title() or "New Character",
+                              "role": "Supporting", "age": "", "personality": idea, "appearance": f"Look inspired by: {idea}",
+                              "arc": "", "relationships": ""})
+            elif m := re.search(r'id "([^"]+)"', instruction):
+                for c in value:
+                    if str(c.get("id")) == m.group(1):
+                        c["personality"] = f"{c.get('personality', '')} [Revised: {instruction[:60]}]"
+            return ProviderResult(value, provider="mock", model="echo")
         if target == "lyrics":
             value = value or copy.deepcopy(SAMPLE_LYRICS)
             if instruction and memory.get(target):

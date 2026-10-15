@@ -9,14 +9,14 @@ from app.config import Settings, get_settings
 from app.db import get_db
 from app.models import AIJob, Asset, Project, ProjectDocument, User, WorkflowStep
 from app.schemas import (ApproveRequest, AssetListItem, AssetOut, Brief, CostEstimate, DocumentOut, EditRequest, FilmProject, Transcript,
-                         BulkDeleteRequest, BulkDeleteResult, GenerateRequest, JobOut, LanguageVersionOut, LanguageVersionRequest, Me, PlanRequest, Preferences, ProjectCreate, ProjectOut, ProjectSummary,
+                         BulkDeleteRequest, BulkDeleteResult, CharacterInput, GenerateRequest, JobOut, LanguageVersionOut, LanguageVersionRequest, Me, PlanRequest, Preferences, ProjectCreate, ProjectOut, ProjectSummary,
                          ProjectUpdate, RenderRequest)
 from app.providers import ProviderError, stt_provider
 from app.services import storage
 from app.services.documents import MAX_FILES_PER_PROJECT, DocumentError, validate_and_extract
 from app.services.jobs import create_job
 from app.services.languages import LANGUAGES, is_supported
-from app.services.pipeline import estimate
+from app.services.pipeline import estimate, mark_outdated, validate_film
 
 router = APIRouter()
 
@@ -208,6 +208,64 @@ def create_language_version(project_id: str, body: LanguageVersionRequest, backg
                      params={"sourceProjectId": source.id, "language": body.language})
     db.refresh(version)
     return LanguageVersionOut(project=_project_out(version), job=JobOut.model_validate(job))
+
+
+def _planned(db: Session, project_id: str, user: CurrentUser) -> Project:
+    project = _own_project(db, project_id, user)
+    if not project.memory:
+        raise HTTPException(409, detail="Plan the film first — then you can change its characters.")
+    return project
+
+
+@router.post("/projects/{project_id}/characters", response_model=ProjectOut, status_code=201)
+def add_character(project_id: str, body: CharacterInput, db: Session = Depends(get_db),
+                  user: CurrentUser = Depends(get_current_user)):
+    """Add a character written by the creator. (To have the AI write one, use the characters edit job.)"""
+    project = _planned(db, project_id, user)
+    if not (body.name or "").strip():
+        raise HTTPException(422, detail="Give the character a name.")
+    chars = list(project.memory.get("characters", []))
+    next_id = str(max([int(c["id"]) for c in chars if str(c.get("id", "")).isdigit()] + [0]) + 1)
+    chars.append({"id": next_id, **{k: (v or "").strip() for k, v in body.model_dump().items() if v is not None}})
+    project.memory = validate_film({**project.memory, "characters": chars})
+    db.commit()
+    db.refresh(project)
+    return _project_out(project)
+
+
+@router.patch("/projects/{project_id}/characters/{character_id}", response_model=ProjectOut)
+def update_character(project_id: str, character_id: str, body: CharacterInput, db: Session = Depends(get_db),
+                     user: CurrentUser = Depends(get_current_user)):
+    project = _planned(db, project_id, user)
+    chars = list(project.memory.get("characters", []))
+    idx = next((i for i, c in enumerate(chars) if str(c.get("id")) == character_id), None)
+    if idx is None:
+        raise HTTPException(404, detail="Character not found")
+    changes = {k: v.strip() for k, v in body.model_dump().items() if v is not None}
+    if "name" in changes and not changes["name"]:
+        raise HTTPException(422, detail="A character needs a name.")
+    looks_changed = "appearance" in changes and changes["appearance"] != chars[idx].get("appearance")
+    chars[idx] = {**chars[idx], **changes}
+    project.memory = validate_film({**project.memory, "characters": chars})
+    if looks_changed:  # the portrait (and frames it appears in) no longer match
+        mark_outdated(db, project.id, ["character_image"], [character_id])
+    db.commit()
+    db.refresh(project)
+    return _project_out(project)
+
+
+@router.delete("/projects/{project_id}/characters/{character_id}", response_model=ProjectOut)
+def remove_character(project_id: str, character_id: str, db: Session = Depends(get_db),
+                     user: CurrentUser = Depends(get_current_user)):
+    project = _planned(db, project_id, user)
+    chars = [c for c in project.memory.get("characters", []) if str(c.get("id")) != character_id]
+    if len(chars) == len(project.memory.get("characters", [])):
+        raise HTTPException(404, detail="Character not found")
+    project.memory = validate_film({**project.memory, "characters": chars})
+    mark_outdated(db, project.id, ["character_image"], [character_id])
+    db.commit()
+    db.refresh(project)
+    return _project_out(project)
 
 
 @router.post("/projects/{project_id}/plan", response_model=JobOut, status_code=202)

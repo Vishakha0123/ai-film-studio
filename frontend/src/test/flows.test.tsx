@@ -267,3 +267,27 @@ describe('bulk delete', () => {
     expect(screen.queryByTestId('select-mode')).toBeNull()
   })
 })
+
+describe('characters', () => {
+  it('Add Character opens a form; demo mode explains it needs the backend', async () => {
+    renderApp('/director/characters', { loggedIn: true })
+    await userEvent.click(screen.getByRole('button', { name: /Add Character/ }))
+    const form = screen.getByTestId('character-form')
+    expect(within(form).getByRole('button', { name: 'Add character' })).toBeDisabled() // needs a name
+    await userEvent.type(within(form).getByPlaceholderText('e.g. Sundar'), 'Sundar')
+    await userEvent.click(within(form).getByRole('button', { name: 'Add character' }))
+    expect(screen.getByRole('alert')).toHaveTextContent('needs the studio backend')
+  })
+
+  it('Edit and Change Appearance open the right fields', async () => {
+    renderApp('/director/characters', { loggedIn: true })
+    await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
+    expect(screen.getByText('Edit Elena Vasquez')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Remove Elena Vasquez' })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Change Appearance' }))
+    const form = screen.getByTestId('character-form')
+    expect(within(form).getAllByRole('textbox')).toHaveLength(1)
+    expect(within(form).getByText('Appearance')).toBeInTheDocument()
+  })
+})

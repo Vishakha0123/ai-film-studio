@@ -318,3 +318,14 @@ class BulkDeleteRequest(Schema):
 class BulkDeleteResult(Schema):
     deleted: list[str]
     not_found: list[str] = []
+
+
+class CharacterInput(Schema):
+    """A character the creator adds or edits by hand (anything left out keeps its current value)."""
+    name: str | None = Field(default=None, max_length=120)
+    age: str | None = Field(default=None, max_length=40)
+    role: str | None = Field(default=None, max_length=200)
+    personality: str | None = Field(default=None, max_length=2000)
+    appearance: str | None = Field(default=None, max_length=2000)
+    arc: str | None = Field(default=None, max_length=2000)
+    relationships: str | None = Field(default=None, max_length=2000)

@@ -279,3 +279,24 @@ export async function makeLanguageVersion(projectId: string, language: string, o
   assertCompleted(await waitForJob(job, j => onStage?.(j.stage || 'Queued')))
   return getProject(project.id)
 }
+
+/* ---------- Characters ---------- */
+
+export type CharacterInput = Partial<Pick<import('../types').Character, 'name' | 'age' | 'role' | 'personality' | 'appearance' | 'arc' | 'relationships'>>
+
+const NEEDS_BACKEND = 'Changing characters needs the studio backend — the demo film can’t be edited.'
+
+export async function addCharacter(projectId: string, data: CharacterInput): Promise<ProjectData> {
+  if (DEMO_MODE) throw new ApiError(NEEDS_BACKEND, 400)
+  return request<ProjectData>(`/projects/${encodeURIComponent(projectId)}/characters`, { method: 'POST', body: JSON.stringify(data) })
+}
+
+export async function updateCharacter(projectId: string, characterId: string, data: CharacterInput): Promise<ProjectData> {
+  if (DEMO_MODE) throw new ApiError(NEEDS_BACKEND, 400)
+  return request<ProjectData>(`/projects/${encodeURIComponent(projectId)}/characters/${encodeURIComponent(characterId)}`, { method: 'PATCH', body: JSON.stringify(data) })
+}
+
+export async function removeCharacter(projectId: string, characterId: string): Promise<ProjectData> {
+  if (DEMO_MODE) throw new ApiError(NEEDS_BACKEND, 400)
+  return request<ProjectData>(`/projects/${encodeURIComponent(projectId)}/characters/${encodeURIComponent(characterId)}`, { method: 'DELETE' })
+}
