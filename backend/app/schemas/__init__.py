@@ -327,6 +327,18 @@ class Preferences(Schema):
     teaser_seconds: int = Field(default=30, ge=5, le=60)
     aspect_ratio: Literal["16:9", "9:16", "1:1"] = "16:9"
     quality: Literal["draft", "final"] = "draft"
+    # Writing defaults
+    visual_style: str = Field(default="Dark Cinema", max_length=120)  # storyboard look new films start with
+    film_length: Literal["short", "medium", "long"] = "medium"      # how many scenes the AI writes
+    # Voice defaults (Sarvam Bulbul)
+    voice: str = Field(default="shubh", max_length=40)
+    voice_pace: float = Field(default=1.0, ge=0.5, le=2.0)
+
+
+class VoicePreviewRequest(Schema):
+    voice: str = Field(default="shubh", max_length=40)
+    pace: float = Field(default=1.0, ge=0.5, le=2.0)
+    language: str = Field(default="en", max_length=10)
 
 
 class Me(Schema):

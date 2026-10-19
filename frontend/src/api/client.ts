@@ -67,7 +67,8 @@ async function authHeader(): Promise<string | null> {
   return token ? `Bearer ${token}` : null
 }
 
-export async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+/** Calls the API and returns the raw response (for files like audio or a data export); errors become ApiError. */
+export async function requestRaw(path: string, init: RequestInit = {}): Promise<Response> {
   const headers = new Headers(init.headers)
   // FormData (file uploads) sets its own multipart Content-Type with the boundary.
   if (init.body && !(init.body instanceof FormData) && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
@@ -91,6 +92,11 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
     if (res.status === 401) setToken(null)
     throw new ApiError(typeof detail === 'string' ? detail : 'Request failed', res.status)
   }
+  return res
+}
+
+export async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const res = await requestRaw(path, init)
   if (res.status === 204) return undefined as T
   return (await res.json()) as T
 }

@@ -1,22 +1,25 @@
 """REST API (report section 28). Every route checks that the project belongs to the caller."""
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Header, HTTPException, UploadFile, status
+import json
+
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Header, HTTPException, Response, UploadFile, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.auth import CurrentUser, get_current_user
 from app.config import Settings, get_settings
 from app.db import get_db
-from app.models import AIJob, Asset, Project, ProjectDocument, User, WorkflowStep
+from app.models import AIJob, Asset, Project, ProjectDocument, UsageEvent, User, WorkflowStep
 from app.schemas import (ApproveRequest, AssetListItem, AssetOut, Brief, CostEstimate, DocumentOut, EditRequest, FilmProject, Transcript,
                          BulkDeleteRequest, BulkDeleteResult, CharacterInput, MemoryPatch, GenerateRequest, JobOut, LanguageVersionOut, LanguageVersionRequest, Me, PlanRequest, Preferences, ProjectCreate, ProjectOut, ProjectSummary,
-                         ProjectUpdate, RenderRequest)
-from app.providers import ProviderError, stt_provider
+                         ProjectUpdate, RenderRequest, VoicePreviewRequest)
+from app.providers import ProviderError, stt_provider, tts_provider
 from app.services import storage
 from app.services.documents import MAX_FILES_PER_PROJECT, DocumentError, validate_and_extract
 from app.services.jobs import create_job
 from app.services.languages import LANGUAGES, is_supported
 from app.services.pipeline import EDIT_DEPENDENTS, estimate, mark_outdated, validate_film
+from app.services.voices import VOICES, preview_line
 
 router = APIRouter()
 
@@ -78,10 +81,52 @@ def me(db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_us
 
 @router.patch("/me", response_model=Me)
 def update_me(body: Preferences, db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
+    if body.voice not in VOICES:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, f"Unknown voice '{body.voice}'.")
     row = db.get(User, user.id)
     row.profile = {**(row.profile or {}), "preferences": body.model_dump(by_alias=True)}
     db.commit()
     return _me(db, user)
+
+
+@router.get("/me/export")
+def export_my_data(db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
+    """Everything we keep about the creator — account, settings and every film — as one JSON file."""
+    projects = db.scalars(select(Project).where(Project.user_id == user.id).order_by(Project.created_at)).all()
+    films = []
+    for p in projects:
+        out = _project_out(p).model_dump(mode="json", by_alias=True)
+        out["documents"] = [{"filename": d.filename, "text": d.extracted_text}
+                            for d in db.scalars(select(ProjectDocument).where(ProjectDocument.project_id == p.id)).all()]
+        films.append(out)
+    data = {"account": _me(db, user).model_dump(mode="json", by_alias=True), "films": films}
+    return Response(content=json.dumps(data, ensure_ascii=False, indent=2), media_type="application/json",
+                    headers={"Content-Disposition": 'attachment; filename="cinema-ai-export.json"'})
+
+
+@router.delete("/me", status_code=204)
+def delete_my_account(db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
+    """Deletes the creator's films, files, usage history and settings. Signing in again starts a fresh account."""
+    for p in db.scalars(select(Project).where(Project.user_id == user.id)).all():
+        _remove_project(db, p)
+    db.query(UsageEvent).filter(UsageEvent.user_id == user.id).delete()
+    row = db.get(User, user.id)
+    if row:
+        db.delete(row)
+    db.commit()
+
+
+@router.post("/voice/preview")
+async def preview_voice(body: VoicePreviewRequest, user: CurrentUser = Depends(get_current_user)):
+    """A short line in the chosen voice, pace and language (WAV) so the creator can hear it before saving."""
+    if body.voice not in VOICES:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, f"Unknown voice '{body.voice}'.")
+    try:
+        res = await tts_provider().generate_voice(preview_line(body.language), language=body.language,
+                                                  speaker=body.voice, pace=body.pace)
+    except ProviderError as e:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, f"The voice service didn't answer: {e}") from e
+    return Response(content=res.data, media_type="audio/wav")
 
 
 @router.post("/projects", response_model=ProjectOut, status_code=201)

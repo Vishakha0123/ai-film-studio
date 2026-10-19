@@ -107,7 +107,8 @@ def _tone_wav(seconds: float = 1.0, freq: float = 220.0, rate: int = 16000) -> b
 
 
 class MockTTS(TTSProvider):
-    async def generate_voice(self, text: str, *, language: str = "en-IN", speaker: str | None = None) -> ProviderResult:
+    async def generate_voice(self, text: str, *, language: str = "en-IN", speaker: str | None = None,
+                             pace: float = 1.0) -> ProviderResult:
         return ProviderResult(_tone_wav(min(3.0, 0.4 + len(text) / 40)), provider="mock", model="tone")
 
 

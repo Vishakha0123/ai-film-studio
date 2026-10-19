@@ -57,5 +57,6 @@ class STTProvider(ABC):
 
 class TTSProvider(ABC):
     @abstractmethod
-    async def generate_voice(self, text: str, *, language: str = "en-IN", speaker: str | None = None) -> ProviderResult:
+    async def generate_voice(self, text: str, *, language: str = "en-IN", speaker: str | None = None,
+                             pace: float = 1.0) -> ProviderResult:
         """Return audio bytes (WAV) in `data`."""

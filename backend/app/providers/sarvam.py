@@ -24,6 +24,10 @@ def _raise_for(r: httpx.Response) -> None:
         raise ProviderError(f"Sarvam API {r.status_code}: {r.text[:300]}", transient=r.status_code in (429, 500, 502, 503, 504))
 
 
+
+# Settings → Film length: how many scenes the plan has
+SCENE_COUNTS = {"short": 3, "medium": 5, "long": 8}
+
 class SarvamStory(StoryProvider):
     async def _post(self, prompt: str, *, max_tokens: int, reasoning: str | None) -> dict:
         s = get_settings()
@@ -81,8 +85,9 @@ class SarvamStory(StoryProvider):
     async def plan_film(self, brief: dict) -> ProviderResult:
         seconds = int(brief.get("teaserSeconds") or 30)
         shot_count = max(4, min(10, round(seconds / 4)))
+        scene_count = SCENE_COUNTS.get(brief.get("filmLength") or "medium", 5)
         prompt = render(PLAN_FILM, brief=json.dumps(brief, ensure_ascii=False, indent=2),
-                        shot_count=shot_count, teaser_seconds=seconds,
+                        shot_count=shot_count, teaser_seconds=seconds, scene_count=scene_count,
                         output_language=describe(brief.get("language") or "en"))
         return await self._chat(prompt)
 
@@ -102,7 +107,8 @@ class SarvamStory(StoryProvider):
 
 
 class SarvamTTS(TTSProvider):
-    async def generate_voice(self, text: str, *, language: str = "en-IN", speaker: str | None = None) -> ProviderResult:
+    async def generate_voice(self, text: str, *, language: str = "en-IN", speaker: str | None = None,
+                             pace: float = 1.0) -> ProviderResult:
         s = get_settings()
         if not s.SARVAM_API_KEY:
             raise ProviderError("SARVAM_API_KEY is not set")
@@ -113,7 +119,8 @@ class SarvamTTS(TTSProvider):
                     f"{s.SARVAM_BASE_URL}/text-to-speech",
                     headers={"api-subscription-key": s.SARVAM_API_KEY},
                     json={"text": text[:2500], "language_code": lang, "speaker": speaker or s.SARVAM_TTS_SPEAKER,
-                          "model": s.SARVAM_TTS_MODEL, "output_audio_codec": "wav"},
+                          "model": s.SARVAM_TTS_MODEL, "output_audio_codec": "wav",
+                          "pace": max(0.5, min(2.0, pace))},
                 )
             except httpx.TransportError as e:
                 raise ProviderError(f"Sarvam unreachable: {e}", transient=True) from e

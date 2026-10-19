@@ -244,6 +244,41 @@ describe('workspace pages (demo mode)', { timeout: 15000 }, () => {
     await userEvent.click(screen.getByRole('button', { name: 'Sign out' }))
     expect(await screen.findByTestId('screen-login')).toBeInTheDocument()
   })
+
+  it('settings saves writing and voice defaults, and can reset them', async () => {
+    renderApp('/settings', { loggedIn: true })
+    await screen.findByTestId('account-email')
+    await userEvent.click(within(screen.getByTestId('style-defaults')).getByRole('button', { name: /Anime/ }))
+    await userEvent.click(within(screen.getByTestId('length-defaults')).getByRole('button', { name: /Short/ }))
+    await userEvent.selectOptions(screen.getByLabelText('Voice'), 'kavya')
+    fireEvent.change(screen.getByLabelText('Speaking speed'), { target: { value: '1.25' } })
+    expect(screen.getByText('1.25×')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Save settings' }))
+    await screen.findByText('Saved. New films use these defaults.')
+    expect(JSON.parse(localStorage.getItem('cineai.demoPreferences')!)).toMatchObject({ visualStyle: 'Anime', filmLength: 'short', voice: 'kavya', voicePace: 1.25 })
+
+    await userEvent.click(screen.getByRole('button', { name: 'Reset to defaults' }))
+    expect(within(screen.getByTestId('style-defaults')).getByRole('button', { name: /Dark Cinema/ })).toHaveAttribute('aria-pressed', 'true')
+    expect((screen.getByLabelText('Voice') as HTMLSelectElement).value).toBe('shubh')
+  })
+
+  it('voice preview explains it needs the backend in demo mode', async () => {
+    renderApp('/settings', { loggedIn: true })
+    await userEvent.click(screen.getByRole('button', { name: 'Preview voice' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Voice preview needs the studio backend')
+  })
+
+  it('deleting the account needs DELETE typed first', async () => {
+    renderApp('/settings', { loggedIn: true })
+    await userEvent.click(screen.getByRole('button', { name: 'Delete my account' }))
+    const confirm = screen.getByTestId('delete-confirm')
+    const go = within(confirm).getByRole('button', { name: 'Delete everything' })
+    expect(go).toBeDisabled()
+    await userEvent.type(screen.getByLabelText('Type DELETE to confirm'), 'DELETE')
+    expect(go).toBeEnabled()
+    await userEvent.click(within(confirm).getByRole('button', { name: 'Cancel' }))
+    expect(screen.queryByTestId('delete-confirm')).toBeNull()
+  })
 })
 
 describe('lyrics come from the film', () => {

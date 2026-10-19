@@ -323,11 +323,68 @@ def test_list_assets_filters_and_privacy(client):
 
 def test_preferences_round_trip(client):
     me = client.get("/api/v1/me", headers=auth()).json()
-    assert me["preferences"] == {"displayName": "", "language": "en", "teaserSeconds": 30, "aspectRatio": "16:9", "quality": "draft"}
-    prefs = {"displayName": "Sheerap", "language": "ta", "teaserSeconds": 45, "aspectRatio": "9:16", "quality": "final"}
+    assert me["preferences"] == {"displayName": "", "language": "en", "teaserSeconds": 30, "aspectRatio": "16:9", "quality": "draft",
+                                 "visualStyle": "Dark Cinema", "filmLength": "medium", "voice": "shubh", "voicePace": 1.0}
+    prefs = {"displayName": "Sheerap", "language": "ta", "teaserSeconds": 45, "aspectRatio": "9:16", "quality": "final",
+             "visualStyle": "Anime", "filmLength": "short", "voice": "priya", "voicePace": 1.25}
     assert client.patch("/api/v1/me", json=prefs, headers=auth()).json()["preferences"] == prefs
     assert client.get("/api/v1/me", headers=auth()).json()["preferences"] == prefs
     assert client.patch("/api/v1/me", json={**prefs, "teaserSeconds": 500}, headers=auth()).status_code == 422
+    assert client.patch("/api/v1/me", json={**prefs, "voice": "nobody"}, headers=auth()).status_code == 422
+    assert client.patch("/api/v1/me", json={**prefs, "voicePace": 3}, headers=auth()).status_code == 422
+    assert client.patch("/api/v1/me", json={**prefs, "filmLength": "epic"}, headers=auth()).status_code == 422
+
+
+def test_new_films_use_writing_defaults(client, monkeypatch):
+    from app.providers.mock import MockStory
+    seen = {}
+    original = MockStory.plan_film
+
+    async def spy(self, brief):
+        seen.update(brief)
+        return await original(self, brief)
+    monkeypatch.setattr(MockStory, "plan_film", spy)
+    me = client.get("/api/v1/me", headers=auth()).json()["preferences"]
+    client.patch("/api/v1/me", json={**me, "visualStyle": "Anime", "filmLength": "long"}, headers=auth())
+    pid, _ = _plan(client)
+    assert seen["filmLength"] == "long"
+    assert client.get(f"/api/v1/projects/{pid}", headers=auth()).json()["memory"]["visualStyle"] == "Anime"
+
+
+def test_long_films_ask_for_more_scenes():
+    from app.prompts import render
+    from app.providers.sarvam import SCENE_COUNTS
+    assert SCENE_COUNTS == {"short": 3, "medium": 5, "long": 8}
+    assert "exactly 8 scenes" in render("plan_film.v2", scene_count=8)
+
+
+def test_voice_preview(client):
+    r = client.post("/api/v1/voice/preview", json={"voice": "kavya", "pace": 1.5, "language": "ta"}, headers=auth())
+    assert r.status_code == 200 and r.headers["content-type"] == "audio/wav" and r.content[:4] == b"RIFF"
+    assert client.post("/api/v1/voice/preview", json={"voice": "nobody"}, headers=auth()).status_code == 422
+    assert client.post("/api/v1/voice/preview", json={"voice": "kavya"}).status_code == 401
+
+
+def test_export_my_data(client):
+    pid, _ = _plan(client)
+    client.post("/api/v1/projects", json={"title": "Someone else's"}, headers=auth("other@x.io"))
+    r = client.get("/api/v1/me/export", headers=auth())
+    assert r.status_code == 200 and "attachment" in r.headers["content-disposition"]
+    data = r.json()
+    assert data["account"]["preferences"]["voice"] == "shubh"
+    assert [f["id"] for f in data["films"]] == [pid]
+    assert data["films"][0]["memory"]["screenplay"]
+
+
+def test_delete_my_account(client):
+    pid, _ = _plan(client)
+    other = client.post("/api/v1/projects", json={"title": "Keep"}, headers=auth("other@x.io")).json()
+    me = client.get("/api/v1/me", headers=auth()).json()["preferences"]
+    client.patch("/api/v1/me", json={**me, "displayName": "Gone"}, headers=auth())
+    assert client.delete("/api/v1/me", headers=auth()).status_code == 204
+    assert client.get("/api/v1/projects", headers=auth()).json() == []
+    assert client.get("/api/v1/me", headers=auth()).json()["preferences"]["displayName"] == ""  # fresh account
+    assert client.get(f"/api/v1/projects/{other['id']}", headers=auth("other@x.io")).status_code == 200
 
 
 def test_timestamps_are_utc(client):

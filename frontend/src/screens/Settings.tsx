@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { AUTH_PROVIDER, DEMO_MODE, getHealth, getMe, savePreferences, signOut } from '../api'
+import { AUTH_PROVIDER, DEMO_MODE, VOICES, deleteAccount, exportMyData, getHealth, getMe, previewVoice, savePreferences, signOut } from '../api'
 import { API_BASE } from '../api/client'
 import { useStudio } from '../studio'
-import type { Health, Me, Preferences } from '../types'
+import { DEFAULT_PREFERENCES, type Health, type Me, type Preferences } from '../types'
 import { FILM_LANGUAGES } from '../lib/languages'
 
 const LANGUAGES = FILM_LANGUAGES.map(l => ({ code: l.code, label: l.code === 'en' ? l.label : `${l.label} · ${l.native}` }))
@@ -15,6 +15,23 @@ const PROVIDER_NAMES: Record<string, Record<string, string>> = {
   tts: { sarvam: 'Sarvam Bulbul', mock: 'Test tone (mock)' },
   stt: { sarvam: 'Sarvam Saaras', mock: 'Browser speech (mock server)' },
 }
+
+/** Storyboard looks (same presets as the Storyboard page) with a swatch of each. */
+const VISUAL_STYLES: { name: string; swatch: string }[] = [
+  { name: 'Dark Cinema', swatch: 'linear-gradient(135deg,#1c1917,#78350f)' },
+  { name: 'Photorealistic', swatch: 'linear-gradient(135deg,#475569,#a8a29e)' },
+  { name: 'Anime', swatch: 'linear-gradient(135deg,#ec4899,#38bdf8)' },
+  { name: '3D Render', swatch: 'linear-gradient(135deg,#6366f1,#fbbf24)' },
+  { name: 'Vintage', swatch: 'linear-gradient(135deg,#92400e,#fde68a)' },
+]
+
+const FILM_LENGTHS = [
+  { value: 'short', label: 'Short', note: '3 scenes · fastest' },
+  { value: 'medium', label: 'Medium', note: '5 scenes' },
+  { value: 'long', label: 'Long', note: '8 scenes · slower' },
+] as const
+
+const cap = (v: string) => v.charAt(0).toUpperCase() + v.slice(1)
 
 const AUTH_LABEL: Record<string, string> = {
   supabase: 'Supabase Auth',
@@ -58,6 +75,14 @@ export default function SettingsPage() {
   const [health, setHealth] = useState<Health | null | undefined>(undefined)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
+  const [preview, setPreview] = useState<{ state: 'idle' | 'loading' | 'playing' } | { state: 'error'; text: string }>({ state: 'idle' })
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const [dataMessage, setDataMessage] = useState<{ ok: boolean; text: string } | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleteText, setDeleteText] = useState('')
+  const [deleting, setDeleting] = useState(false)
+
+  useEffect(() => () => { audioRef.current?.pause() }, [])
 
   useEffect(() => {
     getMe().then(m => { setMe(m); setForm(m.preferences) }).catch(e => setMessage({ ok: false, text: e instanceof Error ? e.message : 'Could not load your account.' }))
@@ -81,6 +106,54 @@ export default function SettingsPage() {
       setMessage({ ok: false, text: err instanceof Error ? err.message : 'Could not save settings.' })
     } finally {
       setSaving(false)
+    }
+  }
+
+  const resetDefaults = () => {
+    setForm(f => ({ ...DEFAULT_PREFERENCES, displayName: f.displayName }))
+    setMessage({ ok: true, text: 'Defaults restored — press Save settings to keep them.' })
+  }
+
+  const playPreview = async () => {
+    audioRef.current?.pause()
+    setPreview({ state: 'loading' })
+    try {
+      const url = URL.createObjectURL(await previewVoice(form.voice, form.voicePace, form.language))
+      const audio = new Audio(url)
+      audioRef.current = audio
+      audio.onended = () => { setPreview({ state: 'idle' }); URL.revokeObjectURL(url) }
+      setPreview({ state: 'playing' })
+      await audio.play()
+    } catch (err) {
+      setPreview({ state: 'error', text: err instanceof Error ? err.message : 'Could not play the preview.' })
+    }
+  }
+
+  const downloadData = async () => {
+    setDataMessage(null)
+    try {
+      const url = URL.createObjectURL(await exportMyData())
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'cinema-ai-export.json'
+      a.click()
+      setTimeout(() => URL.revokeObjectURL(url), 1000)
+      setDataMessage({ ok: true, text: 'Your films and settings were downloaded.' })
+    } catch (err) {
+      setDataMessage({ ok: false, text: err instanceof Error ? err.message : 'Could not export your data.' })
+    }
+  }
+
+  const removeAccount = async () => {
+    setDeleting(true)
+    setDataMessage(null)
+    try {
+      await deleteAccount()
+      newFilm()
+      navigate('/login')
+    } catch (err) {
+      setDataMessage({ ok: false, text: err instanceof Error ? err.message : 'Could not delete your account.' })
+      setDeleting(false)
     }
   }
 
@@ -110,7 +183,7 @@ export default function SettingsPage() {
           </button>
         </Section>
 
-        <form onSubmit={save}>
+        <form onSubmit={save} className="space-y-6">
           <Section eyebrow="Defaults for new films" title="Creative defaults">
             <label className="block">
               <span className="block text-xs text-zinc-600 mb-2">Display name</span>
@@ -136,6 +209,84 @@ export default function SettingsPage() {
               </select>
             </label>
 
+            <div>
+              <p className="text-xs text-zinc-600 mb-2">Visual style</p>
+              <div className="flex flex-wrap gap-2" data-testid="style-defaults">
+                {VISUAL_STYLES.map(st => (
+                  <Chip key={st.name} active={form.visualStyle === st.name} onClick={() => update('visualStyle', st.name)}>
+                    <span className="inline-flex items-center gap-2">
+                      <span aria-hidden className="w-3 h-3 rounded-full" style={{ background: st.swatch }} />
+                      {st.name}
+                    </span>
+                  </Chip>
+                ))}
+              </div>
+              <p className="text-[11px] text-zinc-700 mt-2">The storyboard look every new film starts with. You can still change it per film.</p>
+            </div>
+
+            <div>
+              <p className="text-xs text-zinc-600 mb-2">Film length</p>
+              <div className="flex flex-wrap gap-2" data-testid="length-defaults">
+                {FILM_LENGTHS.map(l => (
+                  <Chip key={l.value} active={form.filmLength === l.value} onClick={() => update('filmLength', l.value)}>
+                    {l.label} <span className="opacity-60">· {l.note}</span>
+                  </Chip>
+                ))}
+              </div>
+              <p className="text-[11px] text-zinc-700 mt-2">How many scenes the AI writes. Shorter films come back faster.</p>
+            </div>
+          </Section>
+
+          <Section eyebrow="Voice" title="Character voice">
+            <div className="grid sm:grid-cols-2 gap-4">
+              <label className="block">
+                <span className="block text-xs text-zinc-600 mb-2">Voice</span>
+                <select
+                  id="voice"
+                  value={form.voice}
+                  onChange={e => { update('voice', e.target.value); setPreview({ state: 'idle' }) }}
+                  className="w-full px-4 py-2.5 rounded-lg border border-zinc-800 bg-zinc-900 text-zinc-200 text-sm focus:outline-none focus:border-zinc-600 cursor-pointer"
+                >
+                  {VOICES.map(v => <option key={v} value={v}>{cap(v)}</option>)}
+                </select>
+              </label>
+              <div>
+                <div className="flex items-baseline justify-between mb-2">
+                  <label htmlFor="voice-pace" className="text-xs text-zinc-600">Speaking speed</label>
+                  <span className="text-xs font-semibold" style={{ color: '#d4a84b', fontVariantNumeric: 'tabular-nums' }}>{form.voicePace.toFixed(2)}×</span>
+                </div>
+                <input
+                  id="voice-pace"
+                  type="range"
+                  min={0.5}
+                  max={2}
+                  step={0.05}
+                  value={form.voicePace}
+                  onChange={e => update('voicePace', Number(e.target.value))}
+                  className="w-full accent-[#d4a84b] cursor-pointer mt-2"
+                />
+                <div className="flex justify-between text-[10px] text-zinc-700 mt-1"><span>Slow</span><span>Normal</span><span>Fast</span></div>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={() => (preview.state === 'playing' ? (audioRef.current?.pause(), setPreview({ state: 'idle' })) : void playPreview())}
+                disabled={preview.state === 'loading'}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium border transition-all disabled:opacity-60"
+                style={{ borderColor: 'rgba(212,168,75,0.3)', color: '#d4a84b', backgroundColor: 'rgba(212,168,75,0.06)' }}
+              >
+                {preview.state === 'playing'
+                  ? <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5"><rect x="6" y="5" width="4" height="14" rx="1" /><rect x="14" y="5" width="4" height="14" rx="1" /></svg>
+                  : <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5"><path d="M8 5v14l11-7z" /></svg>}
+                {preview.state === 'loading' ? 'Loading…' : preview.state === 'playing' ? 'Stop' : 'Preview voice'}
+              </button>
+              <span className="text-[11px] text-zinc-700">Spoken in the story language above.</span>
+              {preview.state === 'error' && <p role="alert" className="w-full text-xs text-red-300">{preview.text}</p>}
+            </div>
+          </Section>
+
+          <Section eyebrow="Teaser · coming soon" title="Teaser defaults">
             <div>
               <div className="flex items-baseline justify-between mb-2">
                 <label htmlFor="teaser-length" className="text-xs text-zinc-600">Teaser length</label>
@@ -170,17 +321,59 @@ export default function SettingsPage() {
                 <Chip active={form.quality === 'final'} onClick={() => update('quality', 'final')}>Final · full quality</Chip>
               </div>
             </div>
-
-            <div className="flex flex-wrap items-center gap-3 pt-2">
-              <button type="submit" disabled={saving} className="px-5 py-2.5 rounded-lg text-xs font-semibold transition-all hover:opacity-90 disabled:opacity-60" style={{ backgroundColor: '#d4a84b', color: '#09090b' }}>
-                {saving ? 'Saving…' : 'Save settings'}
-              </button>
-              {message && (
-                <p role={message.ok ? 'status' : 'alert'} className={`text-xs ${message.ok ? 'text-emerald-400' : 'text-red-300'}`}>{message.text}</p>
-              )}
-            </div>
           </Section>
+
+          <div className="sticky bottom-0 -mx-1 px-1 py-3 flex flex-wrap items-center gap-3" style={{ background: 'linear-gradient(to top, #0a0a0b 70%, transparent)' }}>
+            <button type="submit" disabled={saving} className="px-5 py-2.5 rounded-lg text-xs font-semibold transition-all hover:opacity-90 disabled:opacity-60" style={{ backgroundColor: '#d4a84b', color: '#09090b' }}>
+              {saving ? 'Saving…' : 'Save settings'}
+            </button>
+            <button type="button" onClick={resetDefaults} className="px-4 py-2.5 rounded-lg text-xs font-medium border transition-all hover:text-zinc-200" style={{ borderColor: 'rgba(255,255,255,0.08)', color: '#a1a1aa' }}>
+              Reset to defaults
+            </button>
+            {message && (
+              <p role={message.ok ? 'status' : 'alert'} className={`text-xs ${message.ok ? 'text-emerald-400' : 'text-red-300'}`}>{message.text}</p>
+            )}
+          </div>
         </form>
+
+        <Section eyebrow="Your data" title="Your films & account">
+          <div className="flex flex-wrap items-center gap-3">
+            <button type="button" onClick={() => void downloadData()} className="px-4 py-2 rounded-lg text-xs font-medium border transition-all hover:opacity-80" style={{ borderColor: 'rgba(255,255,255,0.1)', color: '#d4d4d8' }}>
+              Export all my films
+            </button>
+            <span className="text-[11px] text-zinc-700">One JSON file with your settings and every film's story, characters, script and dialogue.</span>
+          </div>
+
+          <div className="pt-4 border-t" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
+            {!confirmDelete ? (
+              <button type="button" onClick={() => setConfirmDelete(true)} className="px-4 py-2 rounded-lg text-xs font-medium border transition-all hover:bg-red-500/10" style={{ borderColor: 'rgba(239,68,68,0.3)', color: '#fca5a5' }}>
+                Delete my account
+              </button>
+            ) : (
+              <div className="space-y-3 p-4 rounded-lg" style={{ backgroundColor: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.25)' }} data-testid="delete-confirm">
+                <p className="text-xs text-red-200">This permanently deletes all your films, characters, uploaded files and settings. It can't be undone. Export first if you want a copy.</p>
+                <label className="block">
+                  <span className="block text-xs text-zinc-500 mb-2">Type <b className="text-zinc-200">DELETE</b> to confirm</span>
+                  <input
+                    value={deleteText}
+                    onChange={e => setDeleteText(e.target.value)}
+                    aria-label="Type DELETE to confirm"
+                    className="w-full sm:w-60 px-3 py-2 rounded-lg border border-zinc-800 bg-zinc-900 text-zinc-200 text-sm focus:outline-none focus:border-red-400/50"
+                  />
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" disabled={deleteText !== 'DELETE' || deleting} onClick={() => void removeAccount()} className="px-4 py-2 rounded-lg text-xs font-semibold transition-all disabled:opacity-40" style={{ backgroundColor: '#dc2626', color: '#fff' }}>
+                    {deleting ? 'Deleting…' : 'Delete everything'}
+                  </button>
+                  <button type="button" onClick={() => { setConfirmDelete(false); setDeleteText('') }} className="px-4 py-2 rounded-lg text-xs font-medium text-zinc-400 hover:text-zinc-200">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+          {dataMessage && <p role={dataMessage.ok ? 'status' : 'alert'} className={`text-xs ${dataMessage.ok ? 'text-emerald-400' : 'text-red-300'}`}>{dataMessage.text}</p>}
+        </Section>
 
         <Section eyebrow="Studio connection" title={DEMO_MODE ? 'Demo mode' : health ? 'Connected' : health === null ? 'Backend unreachable' : 'Checking…'}>
           {DEMO_MODE ? (
@@ -207,7 +400,9 @@ export default function SettingsPage() {
                   })}
                 </ul>
               )}
-              <p className="text-xs text-zinc-600">Providers and keys are configured on the server in <code className="text-zinc-400">backend/.env</code>.</p>
+              <p className="text-xs text-zinc-600">
+                <span className="text-zinc-400">Live</span> uses the real AI service. <span className="text-zinc-400">Mock</span> is a free stand-in for testing — add that provider's key in <code className="text-zinc-400">backend/.env</code> and restart the backend to make it live.
+              </p>
             </>
           )}
         </Section>

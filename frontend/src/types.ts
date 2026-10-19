@@ -324,9 +324,20 @@ export interface Preferences {
   teaserSeconds: number
   aspectRatio: '16:9' | '9:16' | '1:1'
   quality: 'draft' | 'final'
+  /** Storyboard look every new film starts with */
+  visualStyle: string
+  /** How many scenes the AI writes: short 3 · medium 5 · long 8 */
+  filmLength: 'short' | 'medium' | 'long'
+  /** Sarvam Bulbul speaker for character voices */
+  voice: string
+  /** Speaking speed, 0.5–2 */
+  voicePace: number
 }
 
-export const DEFAULT_PREFERENCES: Preferences = { displayName: '', language: 'en', teaserSeconds: 30, aspectRatio: '16:9', quality: 'draft' }
+export const DEFAULT_PREFERENCES: Preferences = {
+  displayName: '', language: 'en', teaserSeconds: 30, aspectRatio: '16:9', quality: 'draft',
+  visualStyle: 'Dark Cinema', filmLength: 'medium', voice: 'shubh', voicePace: 1,
+}
 
 export interface Me {
   id: string

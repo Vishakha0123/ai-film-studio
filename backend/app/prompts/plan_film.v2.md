@@ -30,6 +30,7 @@ Return ONLY a JSON object with exactly these keys (camelCase):
                                         // CHARACTER names in caps on their own line, (parentheticals), CUT TO:
   "scenes": [ {"id": "1", "number": 1, "location": "INT. STUDY", "time": "NIGHT",
                "characters": [string], "mood": string, "duration": "3s", "description": string} ],
+                                        // exactly {scene_count} scenes, numbered 1..{scene_count}
   "shots": [                            // {shot_count} shots; durations add up to about {teaser_seconds}s
     {"id": "1", "number": 1, "duration": "2.5s", "camera": "Wide|Medium|Close-up|...",
      "movement": string, "description": string,   // visual description for image/video generation

@@ -1,4 +1,4 @@
-import { AUTH_PROVIDER, DEMO_MODE, delay, getSupabase, request, setToken, ApiError } from './client'
+import { AUTH_PROVIDER, DEMO_MODE, delay, getSupabase, request, requestRaw, setToken, ApiError } from './client'
 import { FILM_PROJECT } from '../types'
 import type { CostEstimate, Job, ProjectData } from '../types'
 
@@ -222,6 +222,39 @@ export async function savePreferences(prefs: Preferences): Promise<Me> {
     return { id: 'demo', email: 'director@cinema.ai', preferences: prefs }
   }
   return request<Me>('/me', { method: 'PATCH', body: JSON.stringify(prefs) })
+}
+
+/* ---------- Voice & your data ---------- */
+
+/** Bulbul v3 voices (same list as backend/app/services/voices.py). */
+export const VOICES = [
+  'shubh', 'aditya', 'ritu', 'priya', 'neha', 'rahul', 'pooja', 'rohan', 'simran', 'kavya', 'amit', 'dev',
+  'ishita', 'shreya', 'ratan', 'varun', 'manan', 'sumit', 'roopa', 'kabir', 'aayan', 'ashutosh', 'advait',
+  'anand', 'tanya', 'tarun', 'sunny', 'mani', 'gokul', 'vijay', 'shruti', 'suhani', 'mohit', 'kavitha',
+  'rehan', 'soham', 'rupali',
+] as const
+
+/** A short line spoken in the chosen voice, pace and language (WAV). */
+export async function previewVoice(voice: string, pace: number, language: string): Promise<Blob> {
+  if (DEMO_MODE) throw new ApiError('Voice preview needs the studio backend.', 400)
+  const res = await requestRaw('/voice/preview', { method: 'POST', body: JSON.stringify({ voice, pace, language }) })
+  return res.blob()
+}
+
+/** Account, settings and every film as one JSON file. */
+export async function exportMyData(): Promise<Blob> {
+  if (DEMO_MODE) {
+    const me = await getMe()
+    return new Blob([JSON.stringify({ account: me, films: [demoProject()] }, null, 2)], { type: 'application/json' })
+  }
+  return (await requestRaw('/me/export')).blob()
+}
+
+/** Deletes the creator's films, files and settings, then signs them out. */
+export async function deleteAccount(): Promise<void> {
+  if (DEMO_MODE) throw new ApiError('There is no account to delete in demo mode.', 400)
+  await request<void>('/me', { method: 'DELETE' })
+  await signOut()
 }
 
 export async function getHealth(): Promise<Health | null> {

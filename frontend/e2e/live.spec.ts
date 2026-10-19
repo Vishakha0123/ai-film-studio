@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { preparePage } from './helpers'
+import { readFileSync } from 'node:fs'
 
 const API = 'http://localhost:8010'
 
@@ -485,4 +486,54 @@ test('full stack: dialogue per scene — "give me the second scene dialogue" add
   const d = (await (await request.get(`${API}/api/v1/projects/${p.id}`, { headers: auth })).json()).memory.dialogue
   expect(d.filter((l: { scene?: number }) => l.scene === 3)).toHaveLength(1)
   expect(d.length).toBeGreaterThan(1) // the other scenes' lines are still there
+})
+
+test('full stack: settings — writing & voice defaults shape new films, voice preview, export and delete account', async ({ page, request }) => {
+  await preparePage(page)
+  const email = 'settings-user@dev.local'
+  const auth = { Authorization: `Bearer dev:${email}` }
+  await page.addInitScript(e => localStorage.setItem('cineai.token', `dev:${e}`), email)
+  await page.goto('/settings')
+  await expect(page.getByTestId('account-email')).toHaveText(email)
+
+  // Writing + voice defaults are saved to the account
+  await page.getByTestId('style-defaults').getByRole('button', { name: /Anime/ }).click()
+  await page.getByTestId('length-defaults').getByRole('button', { name: /Short/ }).click()
+  await page.getByRole('combobox', { name: 'Voice', exact: true }).selectOption('kavya')
+  await page.getByRole('button', { name: 'Save settings' }).click()
+  await expect(page.getByText('Saved. New films use these defaults.')).toBeVisible()
+  const me = await (await request.get(`${API}/api/v1/me`, { headers: auth })).json()
+  expect(me.preferences).toMatchObject({ visualStyle: 'Anime', filmLength: 'short', voice: 'kavya' })
+
+  // Preview plays audio from the backend (no error shown)
+  const preview = page.waitForResponse(r => r.url().endsWith('/voice/preview'))
+  await page.getByRole('button', { name: 'Preview voice' }).click()
+  const res = await preview
+  expect(res.status()).toBe(200)
+  expect(res.headers()['content-type']).toBe('audio/wav')
+  await expect(page.getByRole('alert')).toHaveCount(0)
+
+  // A new film starts in the chosen look
+  await page.getByTestId('nav-chat').click()
+  await page.getByLabel('Message the AI Director').fill('Two rival chefs share one food truck in Goa')
+  await page.keyboard.press('Enter')
+  await expect(page.getByTestId('panel-story')).toBeVisible({ timeout: 20_000 })
+  const [p] = await (await request.get(`${API}/api/v1/projects`, { headers: auth })).json()
+  expect((await (await request.get(`${API}/api/v1/projects/${p.id}`, { headers: auth })).json()).memory.visualStyle).toBe('Anime')
+
+  // Export downloads every film
+  await page.getByTestId('nav-settings').click()
+  const download = page.waitForEvent('download')
+  await page.getByRole('button', { name: 'Export all my films' }).click()
+  const file = await download
+  expect(file.suggestedFilename()).toBe('cinema-ai-export.json')
+  const data = JSON.parse(readFileSync(await file.path(), 'utf8'))
+  expect(data.films.map((f: { id: string }) => f.id)).toEqual([p.id])
+
+  // Delete account → signed out, films gone
+  await page.getByRole('button', { name: 'Delete my account' }).click()
+  await page.getByLabel('Type DELETE to confirm').fill('DELETE')
+  await page.getByRole('button', { name: 'Delete everything' }).click()
+  await expect(page.getByTestId('screen-login')).toBeVisible()
+  expect(await (await request.get(`${API}/api/v1/projects`, { headers: auth })).json()).toEqual([])
 })

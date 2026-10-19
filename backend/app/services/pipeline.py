@@ -22,10 +22,10 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.db import SessionLocal
-from app.models import AIJob, Asset, Project, ProjectDocument, UsageEvent
+from app.models import AIJob, Asset, Project, ProjectDocument, UsageEvent, User
 from app.providers import ProviderError, image_provider, story_provider, tts_provider, video_provider
 from app.providers.base import ProviderResult
-from app.schemas import FilmProject
+from app.schemas import FilmProject, Preferences
 from app.services import storage
 
 log = logging.getLogger("cineai.pipeline")
@@ -40,6 +40,12 @@ STYLE_PROMPTS = {
     "3d render": "stylised 3D render, Pixar-like lighting, soft global illumination, detailed materials",
     "vintage": "vintage film still, 1970s colour stock, warm faded tones, film grain, soft halation",
 }
+
+
+def user_preferences(db: Session, user_id: str) -> Preferences:
+    """The creator's saved Settings (defaults when they never saved any)."""
+    row = db.get(User, user_id)
+    return Preferences.model_validate(((row.profile if row else None) or {}).get("preferences", {}))
 
 
 def style_prompt(project) -> str:
@@ -150,6 +156,8 @@ async def task_plan(db: Session, job: AIJob, project: Project) -> dict:
     set_progress(db, job, "Understanding the brief", 10)
     brief = dict(project.brief or {})
     brief["language"] = brief.get("language") or project.language or "en"  # film language, not the prompt's
+    prefs = user_preferences(db, project.user_id)
+    brief.setdefault("filmLength", prefs.film_length)  # Settings → Film length decides the scene count
     if job.params.get("prompt"):
         brief["prompt"] = job.params["prompt"]
     docs = db.scalars(select(ProjectDocument).where(ProjectDocument.project_id == project.id)
@@ -169,6 +177,8 @@ async def task_plan(db: Session, job: AIJob, project: Project) -> dict:
         memory = validate_film(res.data)
     except ValidationError as e:
         raise NeedsReview(f"The story model returned an incomplete plan ({_problems(e)}). Try again.") from e
+    if prefs.visual_style and not memory.get("visualStyle"):
+        memory["visualStyle"] = prefs.visual_style  # Settings → Visual style is where every new film starts
     project.memory = memory
     project.title = memory["title"][:300]
     project.genre = memory.get("genre", project.genre)[:200]
@@ -351,7 +361,9 @@ async def _video_clip(db, job, project, shot: dict, frame: Asset, quality: str, 
 
 
 async def _voice(db, job, project, i: int, line: dict) -> Asset:
-    res = await with_retry(lambda: tts_provider().generate_voice(line["text"], language=project.language), job, db)
+    prefs = user_preferences(db, project.user_id)
+    res = await with_retry(lambda: tts_provider().generate_voice(line["text"], language=project.language,
+                                                                 speaker=prefs.voice or None, pace=prefs.voice_pace), job, db)
     record_usage(db, job, res)
     return await store_asset(db, project, "voice", str(i), res, data=res.data, ext="wav",
                              meta={"character": line.get("character"), "text": line["text"]})
