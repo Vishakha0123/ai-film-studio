@@ -323,7 +323,7 @@ export default function SettingsPage() {
             </div>
           </Section>
 
-          <div className="sticky bottom-0 -mx-1 px-1 py-3 flex flex-wrap items-center gap-3" style={{ background: 'linear-gradient(to top, #0a0a0b 70%, transparent)' }}>
+          <div className="flex flex-wrap items-center gap-3" data-testid="settings-actions">
             <button type="submit" disabled={saving} className="px-5 py-2.5 rounded-lg text-xs font-semibold transition-all hover:opacity-90 disabled:opacity-60" style={{ backgroundColor: '#d4a84b', color: '#09090b' }}>
               {saving ? 'Saving…' : 'Save settings'}
             </button>
