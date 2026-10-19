@@ -304,9 +304,9 @@ describe('screenplay, dialogue and storyboard controls', () => {
 
   it('dialogue: Edit opens the line, Direct the AI says what it applies to', async () => {
     renderApp('/director/dialogue', { loggedIn: true })
-    expect(screen.getByText(/applies to every line/)).toBeInTheDocument()
+    expect(screen.getByText(/applies to scene 2/)).toBeInTheDocument()
     await userEvent.click(screen.getByTestId('dialogue-2'))
-    expect(screen.getByText(/applies to line 2/)).toBeInTheDocument()
+    expect(screen.getByText(/applies to the selected line/)).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
     expect(screen.getByLabelText('Line')).toHaveValue("I hear it differently every time I play it. Like it's trying to tell me something I'm not ready to hear.")
     await userEvent.click(screen.getByRole('button', { name: 'Make it scarier' }))
@@ -336,5 +336,19 @@ describe('screenplay, dialogue and storyboard controls', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
     await userEvent.click(within(screen.getByTestId('shot-1')).getByRole('button', { name: 'Edit' }))
     expect(screen.getByLabelText('Shot description')).toBeInTheDocument()
+  })
+})
+
+describe('dialogue per scene', () => {
+  it('has a tab per scene with line counts; each tab shows only its lines', async () => {
+    renderApp('/director/dialogue', { loggedIn: true })
+    const tabs = within(screen.getByTestId('scene-tabs')).getAllByRole('tab')
+    expect(tabs).toHaveLength(4)
+    expect(screen.getByRole('tab', { name: /Scene 2 · 3 lines/ })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getAllByTestId(/^dialogue-\d+$/)).toHaveLength(3)
+    await userEvent.click(screen.getByRole('tab', { name: /Scene 3/ }))
+    expect(screen.queryAllByTestId(/^dialogue-\d+$/)).toHaveLength(0)
+    expect(screen.getByTestId('no-lines')).toBeInTheDocument()
+    expect(screen.getByText(/applies to scene 3/)).toBeInTheDocument()
   })
 })

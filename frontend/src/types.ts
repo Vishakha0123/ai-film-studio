@@ -68,6 +68,8 @@ export interface DialogueLine {
   character: string
   text: string
   tone: string
+  /** Number of the scene this line belongs to */
+  scene?: number | null
 }
 
 /** The film's theme song, written in the film's language. */

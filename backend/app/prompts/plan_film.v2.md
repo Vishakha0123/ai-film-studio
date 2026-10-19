@@ -37,7 +37,7 @@ Return ONLY a JSON object with exactly these keys (camelCase):
   ],
   "audioTracks": [ {"id": "1", "type": "voice|music|sfx|ambience", "name": string,
                     "duration": "0:10", "volume": 0-100, "active": true} ],
-  "dialogue": [ {"character": string, "text": string, "tone": string} ],  // 2-4 key spoken lines
+  "dialogue": [ {"character": string, "text": string, "tone": string, "scene": number} ],  // 1-3 key spoken lines per scene; "scene" = that scene's number
   "lyrics": {                           // the film's theme song — also in {output_language}, singable, rhyming where natural
     "title": string, "style": string,   // e.g. "Dark Classical", "Folk Lullaby"
     "verse": string,                    // 4 lines separated by \n

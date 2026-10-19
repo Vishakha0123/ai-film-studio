@@ -863,3 +863,48 @@ async def test_sarvam_edits_skip_thinking_but_planning_keeps_it(monkeypatch):
     assert _json.loads(route.calls[-1].request.content)["reasoning_effort"] is None
     await SarvamStory().plan_film({"prompt": "x"})
     assert _json.loads(route.calls[-1].request.content)["reasoning_effort"] == "low"
+
+
+# ---------- Dialogue per scene ----------
+
+def test_dialogue_reply_for_one_scene_in_other_shapes_is_accepted_and_merged(client, monkeypatch):
+    """The real failure: "give me the second scene dialogue" → the model answered {"scene": 2, "lines": [...]}."""
+    from app.providers.base import ProviderResult
+    from app.providers.mock import MockStory
+    pid, _ = _plan(client)
+    before = client.get(f"/api/v1/projects/{pid}", headers=auth()).json()["memory"]["dialogue"]
+
+    async def scene_two(self, memory, target, instruction, **kw):
+        return ProviderResult({"scene": "2", "lines": [{"speaker": "Pooja", "line": "Who moved my ring light?", "emotion": "Angry"},
+                                                       "Bhoot-ji: I prefer the dark."]}, provider="mock", model="x")
+
+    monkeypatch.setattr(MockStory, "edit", scene_two)
+    job = client.post(f"/api/v1/projects/{pid}/improve", json={"target": "dialogue", "instruction": "give me the second scene dialogue"}, headers=auth()).json()
+    done = client.get(f"/api/v1/jobs/{job['id']}", headers=auth()).json()
+    assert done["status"] == "completed", done["error"]
+    d = client.get(f"/api/v1/projects/{pid}", headers=auth()).json()["memory"]["dialogue"]
+    assert [l["text"] for l in d[: len(before)]] == [l["text"] for l in before]  # nothing lost
+    assert d[-2:] == [{"character": "Pooja", "text": "Who moved my ring light?", "tone": "Angry", "scene": 2},
+                      {"character": "Bhoot-ji", "text": "I prefer the dark.", "tone": "", "scene": 2}]
+
+
+def test_generate_lines_for_a_scene(client):
+    pid, _ = _plan(client)
+    job = client.post(f"/api/v1/projects/{pid}/continue", json={"target": "dialogue", "instruction": "Write 3 new dialogue lines for scene 3."}, headers=auth()).json()
+    client.get(f"/api/v1/jobs/{job['id']}", headers=auth())
+    d = client.get(f"/api/v1/projects/{pid}", headers=auth()).json()["memory"]["dialogue"]
+    assert d[-1]["scene"] == 3
+
+
+def test_bad_reply_error_names_the_fields(client, monkeypatch):
+    from app.providers.base import ProviderResult
+    from app.providers.mock import MockStory
+
+    async def bad(self, memory, target, instruction, **kw):
+        return ProviderResult([{"character": "X"}], provider="mock", model="x")
+
+    monkeypatch.setattr(MockStory, "edit", bad)
+    pid, _ = _plan(client)
+    job = client.post(f"/api/v1/projects/{pid}/improve", json={"target": "dialogue", "instruction": "x"}, headers=auth()).json()
+    err = client.get(f"/api/v1/jobs/{job['id']}", headers=auth()).json()["error"]
+    assert "dialogue.0.text missing" in err

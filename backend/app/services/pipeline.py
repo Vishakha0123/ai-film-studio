@@ -187,6 +187,54 @@ EDIT_DEPENDENTS = {
 }
 
 
+LIST_TARGETS = {"dialogue", "characters", "scenes", "shots"}
+
+
+def _unwrap(data: object, target: str) -> tuple[object, bool]:
+    """Models sometimes wrap the answer: {"dialogue": [...]}, {"scene": 2, "lines": [...]} or a lone item.
+
+    Returns the list and whether the reply was explicitly for one scene only.
+    """
+    if target in LIST_TARGETS and isinstance(data, dict):
+        if isinstance(data.get(target), list):
+            return data[target], False
+        lists = [v for v in data.values() if isinstance(v, list)]
+        if len(lists) == 1:
+            scene = data.get("scene") or data.get("sceneNumber")
+            def labelled(it: object) -> object:
+                if not scene:
+                    return it
+                if isinstance(it, str):  # "Bhoot-ji: I prefer the dark."
+                    who, sep, said = it.partition(":")
+                    it = {"character": who.strip(), "text": said.strip()} if sep and len(who) < 40 else {"text": it.strip()}
+                return {**it, "scene": it.get("scene", scene)} if isinstance(it, dict) else it
+            items = [labelled(it) for it in lists[0]]
+            return items, bool(scene)
+        return [data], False
+    return data, False
+
+
+def _scene_of(line: object) -> int | None:
+    if not isinstance(line, dict) or line.get("scene") in (None, ""):
+        return None
+    digits = "".join(c for c in str(line["scene"]) if c.isdigit())
+    return int(digits) if digits else None
+
+
+def _merge_dialogue(before: list, reply: object, scene_only: bool) -> object:
+    """A reply that covers only some scenes (e.g. "give me scene 2's dialogue") must not wipe the others."""
+    if not isinstance(reply, list) or not before:
+        return reply
+    scenes = {_scene_of(d) for d in reply}
+    if not scenes or None in scenes:
+        return reply  # an unlabelled list is the model's whole new dialogue
+    covered = {_scene_of(line) for line in before} <= scenes
+    if covered and not scene_only:
+        return reply  # it rewrote every scene that had lines
+    kept = [line for line in before if _scene_of(line) not in scenes]
+    return sorted(kept + reply, key=lambda d: _scene_of(d) or 0)  # stable: order kept within a scene
+
+
 def edit_context(memory: dict, target: str, value: object) -> dict:
     """What the story model needs to rewrite one part: the film's essentials plus the part itself.
 
@@ -198,6 +246,8 @@ def edit_context(memory: dict, target: str, value: object) -> dict:
         ctx["story"] = memory["story"][:1500]
     if target != "characters":
         ctx["characters"] = [{k: c.get(k, "") for k in ("id", "name", "role", "personality")} for c in memory.get("characters", [])]
+    if target == "dialogue":
+        ctx["scenes"] = [{k: s.get(k, "") for k in ("number", "location", "description", "characters")} for s in memory.get("scenes", [])]
     ctx[target] = value
     return ctx
 
@@ -235,12 +285,15 @@ async def task_edit(db: Session, job: AIJob, project: Project) -> dict:
     res = await with_retry(lambda: story_provider().edit(ctx, target, instruction, language=project.language or "en"), job, db)
     log.info("edit %s (%s) took %.1fs", target, "scoped" if splice else "whole", time.monotonic() - started)
     record_usage(db, job, res)
+    data, scene_only = _unwrap(res.data, target)
+    if target == "dialogue" and not splice:
+        data = _merge_dialogue(current or [], data, scene_only)
     memory = dict(project.memory)
-    memory[target] = splice(res.data) if splice else res.data
+    memory[target] = splice(data) if splice else data
     try:
         project.memory = validate_film(memory)
     except ValidationError as e:
-        raise NeedsReview(f"The revision didn't match the {target} format. Try rephrasing the instruction.") from e
+        raise NeedsReview(f"The AI's reply didn't fit the {target} format ({_problems(e)}). Try again, or say it differently.") from e
     outdated = mark_outdated(db, project.id, EDIT_DEPENDENTS.get(target, []))
     db.commit()
     return {"target": target, "outdatedAssets": outdated}

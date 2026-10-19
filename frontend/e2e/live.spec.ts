@@ -463,3 +463,26 @@ test('full stack: screenplay, dialogue and storyboard buttons all work', async (
   expect(m.shots[0].camera).toBe('Aerial')
   expect(m.shots[0].movement).toBe('Crane up')
 })
+
+test('full stack: dialogue per scene — "give me the second scene dialogue" adds scene 2 lines and keeps scene 1', async ({ page, request }) => {
+  await preparePage(page)
+  const email = 'scenes-user@dev.local'
+  const auth = { Authorization: `Bearer dev:${email}` }
+  await page.addInitScript(e => localStorage.setItem('cineai.token', `dev:${e}`), email)
+  await page.goto('/director')
+  await page.getByLabel('Message the AI Director').fill('A city girl and a meddling ghost run a Himalayan homestay')
+  await page.keyboard.press('Enter')
+  await expect(page.getByTestId('panel-story')).toBeVisible({ timeout: 20_000 })
+  await page.getByTestId('nav-dialogue').click()
+  const tabs = page.getByTestId('scene-tabs')
+  await expect(tabs.getByRole('tab')).not.toHaveCount(0)
+  // Write lines for scene 3 from its own tab
+  await tabs.getByRole('tab', { name: /Scene 3/ }).click()
+  await page.getByTestId('panel-dialogue').getByRole('button', { name: 'Generate More' }).first().click()
+  await expect(tabs.getByRole('tab', { name: /Scene 3 · 1 line/ })).toBeVisible({ timeout: 15_000 })
+  await expect(page.locator('[data-scene="3"]')).toHaveCount(1)
+  const [p] = await (await request.get(`${API}/api/v1/projects`, { headers: auth })).json()
+  const d = (await (await request.get(`${API}/api/v1/projects/${p.id}`, { headers: auth })).json()).memory.dialogue
+  expect(d.filter((l: { scene?: number }) => l.scene === 3)).toHaveLength(1)
+  expect(d.length).toBeGreaterThan(1) // the other scenes' lines are still there
+})

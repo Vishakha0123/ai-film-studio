@@ -1,13 +1,13 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useFilm } from '../studio'
 import { useFilmEdit } from '../lib/useFilmEdit'
 import type { DialogueLine } from '../types'
 
 // Shown in demo mode (the sample film has no stored dialogue lines).
 const SAMPLE: DialogueLine[] = [
-  { character: 'Elena', text: 'Thomas… you told me the score was finished. You told me you were finished.', tone: 'Grief' },
-  { character: 'Elena', text: "I hear it differently every time I play it. Like it's trying to tell me something I'm not ready to hear.", tone: 'Fear' },
-  { character: 'Elena', text: "The notation changed. I know what I wrote. This — this isn't what I wrote.", tone: 'Horror' },
+  { character: 'Elena', text: 'Thomas… you told me the score was finished. You told me you were finished.', tone: 'Grief', scene: 2 },
+  { character: 'Elena', text: "I hear it differently every time I play it. Like it's trying to tell me something I'm not ready to hear.", tone: 'Fear', scene: 2 },
+  { character: 'Elena', text: "The notation changed. I know what I wrote. This — this isn't what I wrote.", tone: 'Horror', scene: 2 },
 ]
 
 const COMMANDS = ['Make it emotional', 'Make it scarier', 'Make it quieter', 'Add subtext', 'Make it ambiguous']
@@ -18,20 +18,43 @@ export default function Dialogue() {
   const film = useFilm()
   const live = !!film.dialogue && film.dialogue.length > 0
   const lines: DialogueLine[] = live ? film.dialogue! : SAMPLE
-  const scene = live ? film.scenes.find(sc => sc.characters.length > 0) ?? film.scenes[0] : undefined
+  const scenes = [...film.scenes].sort((a, b) => a.number - b.number)
+  const firstScene = scenes[0]?.number ?? 1
+  const sceneOf = (l: DialogueLine) => l.scene ?? firstScene // lines from before scenes were tracked sit in the first
+  const [current, setCurrent] = useState<number>(() => (lines.find(l => l.scene)?.scene ?? firstScene))
+  const scene = scenes.find(sc => sc.number === current)
+  const visible = lines.map((l, i) => ({ l, i })).filter(({ l }) => sceneOf(l) === current)
+  const countIn = (n: number) => lines.filter(l => sceneOf(l) === n).length
   const { working, error, ai, save } = useFilmEdit()
   const [selected, setSelected] = useState<number | null>(null)
   const [editing, setEditing] = useState<number | null>(null)
   const [draft, setDraft] = useState<DialogueLine>({ character: '', text: '', tone: '' })
   const [command, setCommand] = useState('')
   const [used, setUsed] = useState<number[]>([])
-  const firstName = lines[0]?.character || 'the lead'
+  const firstName = (visible[0]?.l ?? lines[0])?.character || scene?.characters[0] || 'the lead'
+
+  // After an AI change, jump to the scene that gained lines (e.g. "give me scene 2's dialogue" asked from scene 1).
+  const countsBefore = useRef<Record<number, number> | null>(null)
+  const snapshot = () => { countsBefore.current = Object.fromEntries(scenes.map(sc => [sc.number, countIn(sc.number)])) }
+  useEffect(() => {
+    const before = countsBefore.current
+    if (!before) return
+    countsBefore.current = null
+    const grew = scenes.find(sc => countIn(sc.number) > (before[sc.number] ?? 0) && sc.number !== current)
+    if (grew && countIn(current) <= (before[current] ?? 0)) setCurrent(grew.number)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [film.dialogue])
+
+  const switchScene = (n: number) => { setCurrent(n); setSelected(null); setEditing(null) }
+  const where = scene ? `scene ${scene.number} (${scene.location}: ${scene.description})` : `scene ${current}`
 
   const describe = (i: number) => `${lines[i].character}: "${clean(lines[i].text)}"`
 
-  const generateMore = () =>
-    ai('Writing more lines…', 'dialogue', 'continue',
-      "Add 3 more dialogue lines that fit the story and its characters, in the film's language. Keep the existing lines exactly as they are.")
+  const generateMore = () => {
+    snapshot()
+    return ai(`Writing lines for scene ${current}…`, 'dialogue', 'continue',
+      `Write 3 new dialogue lines for ${where}, spoken by the characters in it, in the film's language. Give each new line "scene": ${current}. Keep all the existing lines exactly as they are.`)
+  }
 
   const alternatives = (i: number) =>
     ai('Writing alternatives…', 'dialogue', 'continue',
@@ -49,7 +72,7 @@ export default function Dialogue() {
   }
 
   const saveEdit = async (i: number) => {
-    const next = lines.map((l, j) => (j === i ? { ...draft, text: draft.text.trim() } : l))
+    const next = lines.map((l, j) => (j === i ? { ...l, ...draft, text: draft.text.trim() } : l))
     if (await save('Saving…', { dialogue: next })) setEditing(null)
   }
 
@@ -58,7 +81,8 @@ export default function Dialogue() {
     if (!cmd) return
     const ok = selected !== null
       ? await ai('Applying…', 'dialogue', 'improve', `Rewrite this line: ${cmd}. Keep who says it.`, { item: String(selected + 1) })
-      : await ai('Applying…', 'dialogue', 'improve', `${cmd}. Apply this to all the dialogue lines, keeping who says each one.`)
+      : (snapshot(), await ai('Applying…', 'dialogue', 'improve',
+          `${cmd}\n(The creator is looking at ${where}. Unless they name another scene, this is about that scene's lines; lines for a scene carry "scene": its number. Keep every other scene's lines exactly as they are.)`))
     if (ok) setCommand('')
   }
 
@@ -68,16 +92,36 @@ export default function Dialogue() {
         <div>
           <p className="text-xs font-semibold tracking-widest uppercase mb-2" style={{ color: '#d4a84b' }}>Dialogue Workspace</p>
           <h2 className="text-3xl font-light mb-1" style={{ fontFamily: 'Fraunces, Georgia, serif', color: '#f4f0ea' }}>
-            {scene ? `Scene ${scene.number} — ${scene.location}` : 'Scene 2 — Study Interior'}
+            {scene ? `Scene ${scene.number} — ${scene.location}` : `Scene ${current}`}
           </h2>
-          <p className="text-sm text-zinc-500">{scene ? `${scene.description} · Mood: ${scene.mood}` : 'Elena discovers the changed notation · Mood: Unsettling'}</p>
+          {scene && <p className="text-sm text-zinc-500">{scene.description} · Mood: {scene.mood}</p>}
         </div>
+
+        {/* One tab per scene, with how many lines it has */}
+        {scenes.length > 1 && (
+          <div role="tablist" aria-label="Scenes" className="flex gap-2 overflow-x-auto pb-1" data-testid="scene-tabs">
+            {scenes.map(sc => (
+              <button
+                key={sc.number}
+                role="tab"
+                aria-selected={sc.number === current}
+                onClick={() => switchScene(sc.number)}
+                className="flex-shrink-0 px-3 py-2 rounded-lg text-xs font-medium border transition-all"
+                style={sc.number === current
+                  ? { backgroundColor: 'rgba(212,168,75,0.12)', borderColor: 'rgba(212,168,75,0.4)', color: '#d4a84b' }
+                  : { backgroundColor: 'transparent', borderColor: 'rgba(255,255,255,0.08)', color: '#a1a1aa' }}
+              >
+                Scene {sc.number} <span className="text-zinc-600">· {countIn(sc.number)} {countIn(sc.number) === 1 ? 'line' : 'lines'}</span>
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Context card */}
         <div className="px-4 py-4 rounded-xl" style={{ backgroundColor: '#111113', border: '1px solid rgba(255,255,255,0.06)' }}>
           <p className="text-[10px] font-semibold tracking-widest uppercase mb-2" style={{ color: '#52525b' }}>Scene Context</p>
           <p className="text-sm leading-relaxed" style={{ color: '#a1a1aa' }}>
-            {scene ? film.logline : "Elena is alone in the study late at night. She has been playing Thomas's unfinished symphony for hours. She notices the notation has changed — something she did not write. This is the first moment she speaks aloud in the film."}
+            {live ? film.logline : "Elena is alone in the study late at night. She has been playing Thomas's unfinished symphony for hours. She notices the notation has changed — something she did not write. This is the first moment she speaks aloud in the film."}
           </p>
         </div>
 
@@ -93,13 +137,17 @@ export default function Dialogue() {
           {error && <p role="alert" className="text-xs text-red-300 mb-3">{error}</p>}
 
           <div className="space-y-3">
-            {lines.map((s, i) => {
+            {visible.length === 0 && (
+              <p className="text-sm text-zinc-500 px-1" data-testid="no-lines">No lines in this scene yet — click <span style={{ color: '#d4a84b' }}>Generate More</span> to write some.</p>
+            )}
+            {visible.map(({ l: s, i }) => {
               const isUsed = used.includes(i)
               const isSel = selected === i
               return (
                 <div
                   key={i}
                   data-testid={`dialogue-${i + 1}`}
+                  data-scene={sceneOf(s)}
                   className="px-5 py-4 rounded-xl border transition-all cursor-pointer"
                   style={{
                     borderColor: isSel ? 'rgba(212,168,75,0.4)' : isUsed ? 'rgba(16,185,129,0.3)' : 'rgba(255,255,255,0.07)',
@@ -165,7 +213,7 @@ export default function Dialogue() {
         {/* Command input */}
         <div>
           <p className="text-xs text-zinc-600 mb-3">
-            Direct the AI {selected !== null ? <span style={{ color: '#d4a84b' }}>— applies to line {selected + 1} ({lines[selected]?.character})</span> : <span>— applies to every line (select one to change just that)</span>}
+            Direct the AI {selected !== null ? <span style={{ color: '#d4a84b' }}>— applies to the selected line ({lines[selected]?.character})</span> : <span>— applies to scene {current} (select a line to change just that; name another scene to write for it)</span>}
           </p>
           <div className="flex flex-wrap gap-2 mb-3">
             {COMMANDS.map(cmd => (

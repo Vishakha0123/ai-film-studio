@@ -61,7 +61,9 @@ class MockStory(StoryProvider):
             key = "text" if target == "dialogue" else "description"
             if instruction.lower().startswith(("add", "write")) and target == "dialogue":
                 who = value[0]["character"] if value else "Narrator"
-                value.append({"character": who, "text": f"[New line: {instruction[:50]}]", "tone": "New"})
+                scene = re.search(r"scene (\d+)", instruction)
+                value.append({"character": who, "text": f"[New line: {instruction[:50]}]", "tone": "New",
+                              **({"scene": int(scene.group(1))} if scene else {})})
             else:
                 m = re.search(r'(?:line |id ")(\d+)', instruction)
                 for i, item in enumerate(value):

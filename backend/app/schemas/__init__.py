@@ -130,6 +130,32 @@ class DialogueLine(FilmPart):
     character: str = ""
     text: str
     tone: str = ""
+    scene: int | None = None  # the scene this line belongs to (number)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _shapes(cls, data: object) -> object:
+        """Story models write lines in several shapes: "Pooja: Why?!", or speaker/line/dialogue keys."""
+        if isinstance(data, str):
+            who, sep, said = data.partition(":")
+            return {"character": who.strip(), "text": said.strip()} if sep and len(who) < 40 else {"text": data.strip()}
+        if isinstance(data, dict):
+            d = dict(data)
+            for alias in ("speaker", "name", "char", "role"):
+                if not d.get("character") and d.get(alias):
+                    d["character"] = d.pop(alias)
+            for alias in ("line", "dialogue", "content", "quote"):
+                if not d.get("text") and isinstance(d.get(alias), str):
+                    d["text"] = d.pop(alias)
+            for alias in ("emotion", "mood", "delivery"):
+                if not d.get("tone") and d.get(alias):
+                    d["tone"] = d.pop(alias)
+            if not d.get("scene") and d.get("sceneNumber"):
+                d["scene"] = d.pop("sceneNumber")
+            return d
+        return data
+
+    _scene = field_validator("scene", mode="before")(lambda v: _to_int(v) or None if v not in (None, "") else None)
 
 
 class Lyrics(FilmPart):
