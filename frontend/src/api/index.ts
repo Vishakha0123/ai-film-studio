@@ -83,9 +83,17 @@ export async function planProject(id: string): Promise<Job> {
 
 export type EditAction = 'continue' | 'complete' | 'improve' | 'transform'
 
-export async function editProject(id: string, action: EditAction, target: string, instruction: string): Promise<Job> {
+/** Narrows an edit so the AI reads and rewrites only what changes — much faster. */
+export interface EditScope {
+  /** A selected passage of a text field (e.g. part of the screenplay) */
+  passage?: string
+  /** One item of a list field: its id, or its 1-based position */
+  item?: string
+}
+
+export async function editProject(id: string, action: EditAction, target: string, instruction: string, scope: EditScope = {}): Promise<Job> {
   if (DEMO_MODE) return demoJob('edit')
-  return request<Job>(`/projects/${encodeURIComponent(id)}/${action}`, { method: 'POST', body: JSON.stringify({ target, instruction }) })
+  return request<Job>(`/projects/${encodeURIComponent(id)}/${action}`, { method: 'POST', body: JSON.stringify({ target, instruction, ...scope }) })
 }
 
 export async function estimateCost(id: string, quality: 'draft' | 'final' = 'draft'): Promise<CostEstimate> {
@@ -118,8 +126,10 @@ const FINISHED = new Set(['completed', 'failed', 'cancelled', 'needs_review'])
 export async function waitForJob(job: Job, onUpdate?: (j: Job) => void, opts: { intervalMs?: number; signal?: AbortSignal } = {}): Promise<Job> {
   let current = job
   onUpdate?.(current)
+  let polls = 0
   while (!FINISHED.has(current.status)) {
-    await delay(opts.intervalMs ?? 1500)
+    // Check quickly at first (short edits finish in a few seconds), then ease off for long jobs.
+    await delay(opts.intervalMs ?? (polls++ < 6 ? 500 : 1500))
     if (opts.signal?.aborted) throw new DOMException('Aborted', 'AbortError')
     current = await getJob(current.id)
     onUpdate?.(current)

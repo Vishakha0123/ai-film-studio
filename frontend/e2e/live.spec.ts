@@ -434,7 +434,7 @@ test('full stack: screenplay, dialogue and storyboard buttons all work', async (
   await page.getByTestId('dialogue-1').click()
   await dl.getByRole('button', { name: 'Make it scarier' }).click()
   await dl.getByRole('button', { name: 'Apply' }).click()
-  await expect(page.getByTestId('dialogue-1')).toContainText('[Revised: Rewrite only line 1', { timeout: 15_000 })
+  await expect(page.getByTestId('dialogue-1')).toContainText('[Revised: Rewrite this line: Make it scarier', { timeout: 15_000 })
   await page.getByTestId('dialogue-2').click()
   await page.getByTestId('dialogue-2').getByRole('button', { name: 'Edit' }).click()
   await page.getByLabel('Line').fill('Who is standing behind me?')

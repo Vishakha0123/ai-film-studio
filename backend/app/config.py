@@ -48,7 +48,9 @@ class Settings(BaseSettings):
     # Room for the reply. A full film in an Indian script uses far more tokens than in English,
     # and the model's thinking counts too. A cut-off reply is retried once without thinking.
     SARVAM_MAX_TOKENS: int = 16000
-    SARVAM_REASONING_EFFORT: str = "low"  # low | medium | high | max | none (no thinking)
+    SARVAM_REASONING_EFFORT: str = "low"  # planning a whole film: low | medium | high | max | none (no thinking)
+    # Edits and translations are small, well-specified rewrites: thinking only adds waiting time.
+    SARVAM_EDIT_REASONING_EFFORT: str = "none"
     SARVAM_TTS_MODEL: str = "bulbul:v3"
     SARVAM_TTS_SPEAKER: str = "shubh"
     SARVAM_STT_MODEL: str = "saaras:v3"

@@ -792,3 +792,74 @@ def test_ai_actions_on_dialogue_and_shots(client):
     client.get(f"/api/v1/jobs/{job['id']}", headers=auth())
     shots = client.get(f"/api/v1/projects/{pid}", headers=auth()).json()["memory"]["shots"]
     assert "[Revised:" in shots[1]["description"] and "[Revised:" not in shots[0]["description"]
+
+
+# ---------- Speed: scoped edits, small context, no thinking for edits ----------
+
+def _spy_edit(monkeypatch):
+    from app.providers.mock import MockStory
+    seen = {}
+    orig = MockStory.edit
+
+    async def spy(self, memory, target, instruction, **kw):
+        seen.update(memory=memory, target=target, instruction=instruction)
+        return await orig(self, memory, target, instruction, **kw)
+
+    monkeypatch.setattr(MockStory, "edit", spy)
+    return seen
+
+
+def test_selected_passage_edit_sends_and_changes_only_that_passage(client, monkeypatch):
+    seen = _spy_edit(monkeypatch)
+    pid, _ = _plan(client)
+    script = client.get(f"/api/v1/projects/{pid}", headers=auth()).json()["memory"]["screenplay"]
+    passage = script.split("\n\n")[2]
+    job = client.post(f"/api/v1/projects/{pid}/improve", json={"target": "screenplay", "instruction": "Shorten it.", "passage": passage}, headers=auth()).json()
+    assert client.get(f"/api/v1/jobs/{job['id']}", headers=auth()).json()["status"] == "completed"
+    assert seen["memory"]["screenplay"] == passage  # the model saw only the passage, not the whole script
+    new = client.get(f"/api/v1/projects/{pid}", headers=auth()).json()["memory"]["screenplay"]
+    assert new.count("[Revised:") == 1 and new.startswith(script.split(passage)[0])  # everything before it untouched
+
+
+def test_single_item_edit_sends_one_item_and_splices_it_back(client, monkeypatch):
+    seen = _spy_edit(monkeypatch)
+    pid, _ = _plan(client)
+    before = client.get(f"/api/v1/projects/{pid}", headers=auth()).json()["memory"]["shots"]
+    job = client.post(f"/api/v1/projects/{pid}/transform", json={"target": "shots", "instruction": "Rewrite this shot.", "item": before[1]["id"]}, headers=auth()).json()
+    client.get(f"/api/v1/jobs/{job['id']}", headers=auth())
+    assert len(seen["memory"]["shots"]) == 1
+    after = client.get(f"/api/v1/projects/{pid}", headers=auth()).json()["memory"]["shots"]
+    assert len(after) == len(before) and "[Revised:" in after[1]["description"]
+    assert [s["description"] for i, s in enumerate(after) if i != 1] == [s["description"] for i, s in enumerate(before) if i != 1]
+    # "Add alternatives" for one line → new items land right after it
+    d = client.get(f"/api/v1/projects/{pid}", headers=auth()).json()["memory"]["dialogue"]
+    job = client.post(f"/api/v1/projects/{pid}/continue", json={"target": "dialogue", "instruction": "Add 1 alternative of this line.", "item": "1"}, headers=auth()).json()
+    client.get(f"/api/v1/jobs/{job['id']}", headers=auth())
+    d2 = client.get(f"/api/v1/projects/{pid}", headers=auth()).json()["memory"]["dialogue"]
+    assert len(d2) == len(d) + 1 and d2[0] == d[0] and d2[2:] == d[1:] and "[New line" in d2[1]["text"]
+
+
+def test_edit_context_leaves_out_the_screenplay_unless_editing_it(client, monkeypatch):
+    seen = _spy_edit(monkeypatch)
+    pid, _ = _plan(client)
+    job = client.post(f"/api/v1/projects/{pid}/improve", json={"target": "dialogue", "instruction": "Make it scarier."}, headers=auth()).json()
+    client.get(f"/api/v1/jobs/{job['id']}", headers=auth())
+    assert "screenplay" not in seen["memory"] and "shots" not in seen["memory"]
+    assert seen["memory"]["characters"] and seen["memory"]["title"]
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_sarvam_edits_skip_thinking_but_planning_keeps_it(monkeypatch):
+    import json as _json
+    from app.config import get_settings
+    from app.providers.sarvam import SarvamStory
+    monkeypatch.setattr(get_settings(), "SARVAM_API_KEY", "k")
+    route = respx.post("https://api.sarvam.ai/v1/chat/completions").mock(
+        return_value=Response(200, json={"choices": [{"message": {"content": '{"value": "x", "title": "t"}'}}]}))
+    await SarvamStory().edit({"story": "a"}, "story", "shorter")
+    assert _json.loads(route.calls[-1].request.content)["reasoning_effort"] is None
+    await SarvamStory().translate_film({"title": "a"}, "ta")
+    assert _json.loads(route.calls[-1].request.content)["reasoning_effort"] is None
+    await SarvamStory().plan_film({"prompt": "x"})
+    assert _json.loads(route.calls[-1].request.content)["reasoning_effort"] == "low"

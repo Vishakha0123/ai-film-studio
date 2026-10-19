@@ -35,7 +35,7 @@ export default function Dialogue() {
 
   const alternatives = (i: number) =>
     ai('Writing alternatives…', 'dialogue', 'continue',
-      `Add 2 alternative versions of line ${i + 1} (${describe(i)}) right after it, same character, different wording. Keep the other lines exactly as they are.`)
+      'Add 2 alternative versions of this line right after it: same character, different wording.', { item: String(i + 1) })
 
   const useLine = async (i: number) => {
     const ok = await ai('Adding the line to the screenplay…', 'screenplay', 'improve',
@@ -56,10 +56,10 @@ export default function Dialogue() {
   const apply = async () => {
     const cmd = command.trim()
     if (!cmd) return
-    const instruction = selected !== null
-      ? `Rewrite only line ${selected + 1} (${describe(selected)}): ${cmd}. Keep the other lines exactly as they are.`
-      : `${cmd}. Apply this to all the dialogue lines, keeping who says each one.`
-    if (await ai('Applying…', 'dialogue', 'improve', instruction)) setCommand('')
+    const ok = selected !== null
+      ? await ai('Applying…', 'dialogue', 'improve', `Rewrite this line: ${cmd}. Keep who says it.`, { item: String(selected + 1) })
+      : await ai('Applying…', 'dialogue', 'improve', `${cmd}. Apply this to all the dialogue lines, keeping who says each one.`)
+    if (ok) setCommand('')
   }
 
   return (

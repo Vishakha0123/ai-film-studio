@@ -186,6 +186,9 @@ class PlanRequest(Schema):
 class EditRequest(Schema):
     target: Literal["story", "logline", "screenplay", "characters", "scenes", "shots", "dialogue", "lyrics"] = "story"
     instruction: str = Field(default="", max_length=2000)
+    # Narrow the edit so the model reads and writes only what changes (much faster):
+    passage: str | None = Field(default=None, max_length=20000)  # text fields: the selected passage
+    item: str | None = Field(default=None, max_length=40)        # list fields: the item's id, or its 1-based position
 
 
 class ApproveRequest(Schema):

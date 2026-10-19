@@ -45,8 +45,8 @@ export default function Characters() {
     }
   }
 
-  const aiEdit = async (instruction: string) => {
-    assertCompleted(await waitForJob(await editProject(project!.id, 'transform', 'characters', instruction)))
+  const aiEdit = async (instruction: string, item?: string) => {
+    assertCompleted(await waitForJob(await editProject(project!.id, 'transform', 'characters', instruction, item ? { item } : {})))
     return refreshProject()
   }
 
@@ -73,7 +73,8 @@ export default function Characters() {
 
   const regenerate = (c: Character) => run(`Rewriting ${c.name}…`, async () => {
     await aiEdit(
-      `Rewrite only the character with id "${c.id}" (${c.name}): give a fresh personality, appearance, arc and relationships that fit the story. Keep the name, role and id. Keep every other character exactly as it is.`,
+      `Rewrite this character (id "${c.id}", ${c.name}): give a fresh personality, appearance, arc and relationships that fit the story. Keep the name, role and id.`,
+      c.id,
     )
   })
 

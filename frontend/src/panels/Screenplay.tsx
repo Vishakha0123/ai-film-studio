@@ -55,7 +55,7 @@ export default function Screenplay() {
     const capture = () => {
       const sel = window.getSelection?.()
       const text = sel?.toString().trim() ?? ''
-      if (text && sel?.anchorNode && textRef.current?.contains(sel.anchorNode)) setSelection(text.slice(0, 2000))
+      if (text && sel?.anchorNode && textRef.current?.contains(sel.anchorNode)) setSelection(text.replace(/\u00a0/g, '').slice(0, 4000))
     }
     document.addEventListener('selectionchange', capture)
     return () => document.removeEventListener('selectionchange', capture)
@@ -64,10 +64,8 @@ export default function Screenplay() {
   const run = async (name: string) => {
     const req = AI_ACTIONS[name]
     setActiveAction(name)
-    const scoped = selection
-      ? `Apply this only to the following passage and keep everything else in the screenplay exactly as it is.\nPassage:\n"""${selection}"""\nChange: ${req.instruction}`
-      : req.instruction
-    const ok = await ai(`${name}…`, 'screenplay', req.action, scoped)
+    // A selection is sent as the passage: the AI rewrites only that part (much faster than the whole script).
+    const ok = await ai(`${name}…`, 'screenplay', req.action, req.instruction, selection ? { passage: selection } : {})
     if (ok) {
       setDraft(d => d + 1)
       setSelection('')

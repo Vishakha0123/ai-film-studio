@@ -47,11 +47,11 @@ class SarvamStory(StoryProvider):
         _raise_for(r)
         return r.json()
 
-    async def _chat(self, prompt: str) -> ProviderResult:
+    async def _chat(self, prompt: str, *, effort_setting: str | None = None) -> ProviderResult:
         s = get_settings()
         if not s.SARVAM_API_KEY:
             raise ProviderError("SARVAM_API_KEY is not set")
-        effort = (s.SARVAM_REASONING_EFFORT or "").strip().lower()
+        effort = (s.SARVAM_REASONING_EFFORT if effort_setting is None else effort_setting or "").strip().lower()
         reasoning = None if effort in ("", "none", "off") else effort
         body = await self._post(prompt, max_tokens=s.SARVAM_MAX_TOKENS, reasoning=reasoning)
         choice = body["choices"][0]
@@ -89,7 +89,7 @@ class SarvamStory(StoryProvider):
     async def edit(self, memory: dict, target: str, instruction: str, *, language: str = "en") -> ProviderResult:
         prompt = render(EDIT, target=target, instruction=instruction, output_language=describe(language),
                         memory=json.dumps(memory, ensure_ascii=False)[:12000])
-        res = await self._chat(prompt)
+        res = await self._chat(prompt, effort_setting=get_settings().SARVAM_EDIT_REASONING_EFFORT)
         if not isinstance(res.data, dict) or "value" not in res.data:
             raise ProviderError("Sarvam edit reply had no 'value'", transient=True)
         res.data = res.data["value"]
@@ -97,8 +97,8 @@ class SarvamStory(StoryProvider):
 
     async def translate_film(self, memory: dict, language: str) -> ProviderResult:
         prompt = render(TRANSLATE_FILM, output_language=describe(language),
-                        memory=json.dumps(memory, ensure_ascii=False, indent=1))
-        return await self._chat(prompt)
+                        memory=json.dumps(memory, ensure_ascii=False))
+        return await self._chat(prompt, effort_setting=get_settings().SARVAM_EDIT_REASONING_EFFORT)
 
 
 class SarvamTTS(TTSProvider):

@@ -11,6 +11,7 @@ import logging
 import shutil
 import subprocess
 import tempfile
+import time
 from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import TypeVar
@@ -159,7 +160,9 @@ async def task_plan(db: Session, job: AIJob, project: Project) -> dict:
         brief.setdefault("prompt", "Turn the attached source material into a teaser.")
     if not brief.get("prompt"):
         raise NeedsReview("Add a film idea to the brief before planning.")
+    started = time.monotonic()
     res = await with_retry(lambda: story_provider().plan_film(brief), job, db)
+    log.info("plan took %.1fs", time.monotonic() - started)
     record_usage(db, job, res)
     set_progress(db, job, "Writing story, characters and screenplay", 70)
     try:
@@ -184,15 +187,56 @@ EDIT_DEPENDENTS = {
 }
 
 
+def edit_context(memory: dict, target: str, value: object) -> dict:
+    """What the story model needs to rewrite one part: the film's essentials plus the part itself.
+
+    The full film (above all the screenplay) can be many thousands of tokens; sending only this keeps
+    each edit fast without losing names, tone or story.
+    """
+    ctx = {k: memory.get(k) for k in ("title", "genre", "tone", "logline") if memory.get(k)}
+    if target != "story" and memory.get("story"):
+        ctx["story"] = memory["story"][:1500]
+    if target != "characters":
+        ctx["characters"] = [{k: c.get(k, "") for k in ("id", "name", "role", "personality")} for c in memory.get("characters", [])]
+    ctx[target] = value
+    return ctx
+
+
+def _find_item(items: list, ref: str) -> int | None:
+    for i, it in enumerate(items):
+        if isinstance(it, dict) and str(it.get("id", "")) == ref:
+            return i
+    return int(ref) - 1 if ref.isdigit() and 0 < int(ref) <= len(items) else None
+
+
 async def task_edit(db: Session, job: AIJob, project: Project) -> dict:
     target, instruction = job.params["target"], job.params.get("instruction", "")
+    passage, item = job.params.get("passage"), job.params.get("item")
     if not project.memory:
         raise NeedsReview("Plan the film before editing it.")
+    current = project.memory.get(target)
     set_progress(db, job, f"Revising {target}", 30)
-    res = await with_retry(lambda: story_provider().edit(project.memory, target, instruction, language=project.language or "en"), job, db)
+
+    # Scope: a selected passage of a text field, or one item of a list — the model writes only that.
+    value, splice = current, None
+    if passage and isinstance(current, str) and passage in current:
+        value = passage
+        instruction = f"{instruction}\n(The \"{target}\" value below is only the selected passage: return just that passage, changed.)"
+        splice = lambda new: current.replace(passage, new if isinstance(new, str) else str(new), 1)  # noqa: E731
+    elif passage:  # the selection didn't match the stored text exactly: edit the whole field, pointing at it
+        instruction = f"{instruction}\nApply this only to this passage and keep the rest exactly as it is:\n\"\"\"{passage[:2000]}\"\"\""
+    elif item and isinstance(current, list) and (idx := _find_item(current, item)) is not None:
+        value = [current[idx]]
+        instruction = f"{instruction}\n(The \"{target}\" list below holds only the item to change: return a list with that item changed, plus any new items the instruction asks for right after it.)"
+        splice = lambda new: current[:idx] + (new if isinstance(new, list) else [new]) + current[idx + 1:]  # noqa: E731
+
+    started = time.monotonic()
+    ctx = edit_context(project.memory, target, value)
+    res = await with_retry(lambda: story_provider().edit(ctx, target, instruction, language=project.language or "en"), job, db)
+    log.info("edit %s (%s) took %.1fs", target, "scoped" if splice else "whole", time.monotonic() - started)
     record_usage(db, job, res)
     memory = dict(project.memory)
-    memory[target] = res.data
+    memory[target] = splice(res.data) if splice else res.data
     try:
         project.memory = validate_film(memory)
     except ValidationError as e:

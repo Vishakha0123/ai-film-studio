@@ -316,7 +316,9 @@ def _edit(action: str):
         instruction = body.instruction or {"continue": "Continue it naturally.", "complete": "Fill in anything missing.",
                                            "improve": "Improve the writing, emotion and pacing."}.get(action, "")
         return create_job(db, background, project_id=project.id, user_id=user.id, task="edit",
-                          params={"target": body.target, "instruction": instruction, "action": action},
+                          params={"target": body.target, "instruction": instruction, "action": action,
+                                  **({"passage": body.passage} if body.passage else {}),
+                                  **({"item": body.item} if body.item else {})},
                           idempotency_key=idempotency_key)
     handler.__name__ = f"edit_{action}"
     return handler

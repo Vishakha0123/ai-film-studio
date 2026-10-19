@@ -109,7 +109,7 @@ export default function Storyboard({ onGenerate }: { onGenerate: () => void }) {
               onSelect={() => setSelected(selected === shot.id ? null : shot.id)}
               onSave={(patch, label) => updateShot(shot, patch, label)}
               onRegenerate={() => ai(`Rewriting shot ${shot.number}…`, 'shots', 'transform',
-                `Rewrite only the shot with id "${shot.id}" (shot ${shot.number}): a fresh, more striking description, camera, movement and mood that fit the story. Keep its number and duration, and keep every other shot exactly as it is.`)}
+                'Rewrite this shot: a fresh, more striking description, camera, movement and mood that fit the story. Keep its id, number and duration.', { item: shot.id })}
             />
           ))}
         </div>

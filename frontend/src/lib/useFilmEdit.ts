@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { DEMO_MODE, assertCompleted, editProject, patchMemory, waitForJob, type EditAction, type MemoryPatch } from '../api'
+import { DEMO_MODE, assertCompleted, editProject, patchMemory, waitForJob, type EditAction, type EditScope, type MemoryPatch } from '../api'
 import { useStudio } from '../studio'
 
 export const NEEDS_BACKEND = 'This needs the studio backend — the demo film can’t be changed.'
@@ -35,9 +35,9 @@ export function useFilmEdit() {
   }
 
   /** Ask the story model to change one part of the film (it keeps the film's language). */
-  const ai = (label: string, target: EditTarget, action: EditAction, instruction: string) =>
+  const ai = (label: string, target: EditTarget, action: EditAction, instruction: string, scope: EditScope = {}) =>
     run(label, async () => {
-      assertCompleted(await waitForJob(await editProject(project!.id, action, target, instruction)))
+      assertCompleted(await waitForJob(await editProject(project!.id, action, target, instruction, scope)))
       await refreshProject()
     })
 
