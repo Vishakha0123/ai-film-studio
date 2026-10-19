@@ -155,6 +155,7 @@ class FilmProject(FilmPart):
     audio_tracks: list[AudioTrack] = []
     dialogue: list[DialogueLine] = []
     lyrics: Lyrics | None = None
+    visual_style: str = ""  # Storyboard look: Photorealistic, Dark Cinema, Anime, 3D Render, Vintage or the creator's own words
 
 
 # ---------- API ----------
@@ -329,3 +330,19 @@ class CharacterInput(Schema):
     appearance: str | None = Field(default=None, max_length=2000)
     arc: str | None = Field(default=None, max_length=2000)
     relationships: str | None = Field(default=None, max_length=2000)
+
+
+MEMORY_FIELDS = ("story", "logline", "screenplay", "scenes", "shots", "dialogue", "lyrics", "visualStyle", "tone")
+
+
+class MemoryPatch(Schema):
+    """The creator's own edits to parts of the film (anything left out stays as it is)."""
+    story: str | None = Field(default=None, max_length=20000)
+    logline: str | None = Field(default=None, max_length=1000)
+    screenplay: str | None = Field(default=None, max_length=60000)
+    tone: str | None = Field(default=None, max_length=300)
+    visual_style: str | None = Field(default=None, max_length=300)
+    scenes: list[dict] | None = None
+    shots: list[dict] | None = None
+    dialogue: list[dict] | None = None
+    lyrics: dict | None = None

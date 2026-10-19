@@ -32,6 +32,19 @@ T = TypeVar("T")
 
 ASPECT_SIZES = {"16:9": "1536x1024", "9:16": "1024x1536", "1:1": "1024x1024"}
 VISUAL_STYLE = "cinematic film still, dark cinema look, desaturated palette with warm amber practical light, 35mm, shallow depth of field"
+STYLE_PROMPTS = {
+    "photorealistic": "photorealistic film still, natural light and colour, 35mm, shallow depth of field",
+    "dark cinema": VISUAL_STYLE,
+    "anime": "anime style key frame, clean line art, cel shading, vivid colours, painted background",
+    "3d render": "stylised 3D render, Pixar-like lighting, soft global illumination, detailed materials",
+    "vintage": "vintage film still, 1970s colour stock, warm faded tones, film grain, soft halation",
+}
+
+
+def style_prompt(project) -> str:
+    """The storyboard look the creator picked (or their own words for Custom); Dark Cinema by default."""
+    chosen = ((project.memory or {}).get("visualStyle") or "").strip()
+    return STYLE_PROMPTS.get(chosen.lower(), chosen or VISUAL_STYLE)
 
 
 class NeedsReview(Exception):
@@ -166,7 +179,8 @@ EDIT_DEPENDENTS = {
     "characters": ["character_image", "storyboard_image", "video_clip", "render"],
     "shots": ["storyboard_image", "video_clip", "render"],
     "dialogue": ["voice", "render"],
-    "story": [], "logline": [], "screenplay": [], "scenes": [], "lyrics": [],
+    "story": [], "logline": [], "screenplay": [], "scenes": [], "lyrics": [], "tone": [],
+    "visualStyle": ["character_image", "storyboard_image", "video_clip", "render"],
 }
 
 
@@ -200,7 +214,7 @@ def estimate(memory: dict, quality: str) -> dict:
 
 
 async def _character_image(db, job, project, char: dict, size: str) -> Asset:
-    prompt = f"Character portrait of {char['name']}, {char.get('age', '')} years old, {char.get('role', '')}. {char.get('appearance', '')}. {VISUAL_STYLE}"
+    prompt = f"Character portrait of {char['name']}, {char.get('age', '')} years old, {char.get('role', '')}. {char.get('appearance', '')}. {style_prompt(project)}"
     res = await with_retry(lambda: image_provider().generate_image(prompt, size="1024x1024"), job, db)
     record_usage(db, job, res)
     return await store_asset(db, project, "character_image", char["id"], res, data=res.data, ext=_image_ext(res.data),
@@ -219,7 +233,7 @@ async def _storyboard_image(db, job, project, shot: dict, size: str) -> Asset:
             if a.url.endswith(".png"):
                 refs.append(await storage.download(a.url))
     looks = "; ".join(f"{c['name']}: {c.get('appearance', '')}" for c in chars)
-    prompt = f"Storyboard frame, shot {shot['number']}: {shot.get('camera', '')} shot, {shot.get('movement', '')}. {shot.get('description', '')} Mood: {shot.get('mood', '')}. {looks}. {VISUAL_STYLE}"
+    prompt = f"Storyboard frame, shot {shot['number']}: {shot.get('camera', '')} shot, {shot.get('movement', '')}. {shot.get('description', '')} Mood: {shot.get('mood', '')}. {looks}. {style_prompt(project)}"
     res = await with_retry(lambda: image_provider().generate_image(prompt, size=size, references=refs or None), job, db)
     record_usage(db, job, res)
     return await store_asset(db, project, "storyboard_image", str(shot["number"]), res, data=res.data,

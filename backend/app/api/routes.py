@@ -9,14 +9,14 @@ from app.config import Settings, get_settings
 from app.db import get_db
 from app.models import AIJob, Asset, Project, ProjectDocument, User, WorkflowStep
 from app.schemas import (ApproveRequest, AssetListItem, AssetOut, Brief, CostEstimate, DocumentOut, EditRequest, FilmProject, Transcript,
-                         BulkDeleteRequest, BulkDeleteResult, CharacterInput, GenerateRequest, JobOut, LanguageVersionOut, LanguageVersionRequest, Me, PlanRequest, Preferences, ProjectCreate, ProjectOut, ProjectSummary,
+                         BulkDeleteRequest, BulkDeleteResult, CharacterInput, MemoryPatch, GenerateRequest, JobOut, LanguageVersionOut, LanguageVersionRequest, Me, PlanRequest, Preferences, ProjectCreate, ProjectOut, ProjectSummary,
                          ProjectUpdate, RenderRequest)
 from app.providers import ProviderError, stt_provider
 from app.services import storage
 from app.services.documents import MAX_FILES_PER_PROJECT, DocumentError, validate_and_extract
 from app.services.jobs import create_job
 from app.services.languages import LANGUAGES, is_supported
-from app.services.pipeline import estimate, mark_outdated, validate_film
+from app.services.pipeline import EDIT_DEPENDENTS, estimate, mark_outdated, validate_film
 
 router = APIRouter()
 
@@ -215,6 +215,39 @@ def _planned(db: Session, project_id: str, user: CurrentUser) -> Project:
     if not project.memory:
         raise HTTPException(409, detail="Plan the film first — then you can change its characters.")
     return project
+
+
+@router.patch("/projects/{project_id}/memory", response_model=ProjectOut)
+def patch_memory(project_id: str, body: MemoryPatch, db: Session = Depends(get_db),
+                 user: CurrentUser = Depends(get_current_user)):
+    """Save the creator's own edits (a dialogue line, a shot's camera, the visual style…) without the AI.
+
+    Pictures that no longer match are marked outdated: a changed shot only its own frame, a new visual
+    style every picture.
+    """
+    project = _planned(db, project_id, user)
+    changes = body.model_dump(by_alias=True, exclude_none=True)
+    if not changes:
+        raise HTTPException(422, detail="Nothing to change.")
+    before = project.memory
+    try:
+        project.memory = validate_film({**before, **changes})
+    except ValueError as e:
+        raise HTTPException(422, detail=f"That change doesn't fit the film's format: {e}") from e
+    for key in changes:
+        if key == "shots":
+            old = {str(s.get("number")): s for s in before.get("shots", [])}
+            changed = [str(s["number"]) for s in project.memory["shots"]
+                       if {k: v for k, v in old.get(str(s["number"]), {}).items() if k not in ("imageUrl", "videoUrl")}
+                       != {k: v for k, v in s.items() if k not in ("imageUrl", "videoUrl")}]
+            if changed:
+                mark_outdated(db, project.id, ["storyboard_image", "video_clip"], changed)
+                mark_outdated(db, project.id, ["render"])
+        elif before.get(key) != project.memory.get(key):
+            mark_outdated(db, project.id, EDIT_DEPENDENTS.get(key, []))
+    db.commit()
+    db.refresh(project)
+    return _project_out(project)
 
 
 @router.post("/projects/{project_id}/characters", response_model=ProjectOut, status_code=201)

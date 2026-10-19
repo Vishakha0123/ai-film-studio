@@ -300,3 +300,13 @@ export async function removeCharacter(projectId: string, characterId: string): P
   if (DEMO_MODE) throw new ApiError(NEEDS_BACKEND, 400)
   return request<ProjectData>(`/projects/${encodeURIComponent(projectId)}/characters/${encodeURIComponent(characterId)}`, { method: 'DELETE' })
 }
+
+/* ---------- Hand edits ---------- */
+
+export type MemoryPatch = Partial<Pick<import('../types').FilmProject, 'story' | 'logline' | 'screenplay' | 'tone' | 'visualStyle' | 'scenes' | 'shots' | 'dialogue' | 'lyrics'>>
+
+/** Saves the creator's own edits to parts of the film; pictures that no longer match are marked outdated. */
+export async function patchMemory(projectId: string, patch: MemoryPatch): Promise<ProjectData> {
+  if (DEMO_MODE) throw new ApiError('Saving changes needs the studio backend — the demo film can’t be edited.', 400)
+  return request<ProjectData>(`/projects/${encodeURIComponent(projectId)}/memory`, { method: 'PATCH', body: JSON.stringify(patch) })
+}

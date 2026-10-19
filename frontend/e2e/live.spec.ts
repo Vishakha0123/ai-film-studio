@@ -394,3 +394,72 @@ test('full stack: add, edit, change appearance, regenerate and remove characters
   expect(names).not.toContain('Sundar')
   expect(names.length).toBe(start + 1)
 })
+
+test('full stack: screenplay, dialogue and storyboard buttons all work', async ({ page, request }) => {
+  test.setTimeout(150_000)
+  await preparePage(page)
+  const email = 'actions-user@dev.local'
+  const auth = { Authorization: `Bearer dev:${email}` }
+  await page.addInitScript(e => localStorage.setItem('cineai.token', `dev:${e}`), email)
+  await page.goto('/director')
+  await page.getByLabel('Message the AI Director').fill('A teacher meets her double in a Himalayan school')
+  await page.keyboard.press('Enter')
+  await expect(page.getByTestId('panel-story')).toBeVisible({ timeout: 20_000 })
+  const memory = async () => {
+    const [p] = await (await request.get(`${API}/api/v1/projects`, { headers: auth })).json()
+    return (await (await request.get(`${API}/api/v1/projects/${p.id}`, { headers: auth })).json()).memory
+  }
+
+  // Screenplay: an action and the Continue button change the script
+  await page.getByTestId('nav-screenplay').click()
+  const sp = page.getByTestId('panel-screenplay')
+  await sp.getByRole('button', { name: 'Make Cinematic' }).click()
+  await expect(sp.getByText(/\[Revised: .*more cinematic/)).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByTestId('screenplay-draft')).toHaveText('Draft 2')
+  await sp.getByRole('button', { name: /Continue Screenplay/ }).click()
+  await expect(page.getByTestId('screenplay-draft')).toHaveText('Draft 3', { timeout: 15_000 })
+  // Selecting text scopes the next action to it
+  await sp.locator('[data-kind="heading"]').first().selectText()
+  await expect(page.getByTestId('screenplay-selection')).toBeVisible()
+  await sp.getByRole('button', { name: 'Shorten' }).click()
+  await expect(page.getByTestId('screenplay-draft')).toHaveText('Draft 4', { timeout: 15_000 })
+  await expect(page.getByTestId('screenplay-selection')).toBeHidden()
+
+  // Dialogue: Generate More, Apply to one line, Edit, Use This
+  await page.getByTestId('nav-dialogue').click()
+  const dl = page.getByTestId('panel-dialogue')
+  const before = (await memory()).dialogue.length
+  await dl.getByRole('button', { name: 'Generate More' }).first().click()
+  await expect(dl.locator('[data-testid^="dialogue-"]')).toHaveCount(before + 1, { timeout: 15_000 })
+  await page.getByTestId('dialogue-1').click()
+  await dl.getByRole('button', { name: 'Make it scarier' }).click()
+  await dl.getByRole('button', { name: 'Apply' }).click()
+  await expect(page.getByTestId('dialogue-1')).toContainText('[Revised: Rewrite only line 1', { timeout: 15_000 })
+  await page.getByTestId('dialogue-2').click()
+  await page.getByTestId('dialogue-2').getByRole('button', { name: 'Edit' }).click()
+  await page.getByLabel('Line').fill('Who is standing behind me?')
+  await page.getByRole('button', { name: 'Save' }).click()
+  await expect(page.getByTestId('dialogue-2')).toContainText('Who is standing behind me?')
+  await page.getByTestId('dialogue-2').getByRole('button', { name: 'Use This' }).click() // still selected after saving
+  await expect(page.getByTestId('dialogue-2')).toContainText('Used ✓', { timeout: 15_000 })
+  expect((await memory()).dialogue[1].text).toBe('Who is standing behind me?')
+
+  // Storyboard: style saved, camera changed, shot regenerated
+  await page.getByTestId('nav-storyboard').click()
+  const sb = page.getByTestId('panel-storyboard')
+  await sb.getByRole('button', { name: 'Anime' }).click()
+  await expect.poll(async () => (await memory()).visualStyle, { timeout: 10_000 }).toBe('Anime')
+  await expect(sb.getByTestId('shot-image').first()).toHaveCSS('filter', /saturate\(1\.9\)/)
+  await page.getByTestId('shot-1').click()
+  await page.getByTestId('shot-1').getByRole('button', { name: 'Change Camera' }).click()
+  await page.getByLabel('Camera').selectOption('Aerial')
+  await page.getByLabel('Movement').selectOption('Crane up')
+  await page.getByTestId('shot-1').getByRole('button', { name: 'Save' }).click()
+  await expect(page.getByTestId('shot-1')).toContainText('Aerial')
+  await page.getByTestId('shot-2').click()
+  await page.getByTestId('shot-2').getByRole('button', { name: 'Regenerate' }).click()
+  await expect(page.getByTestId('shot-2')).toContainText('[Revised:', { timeout: 15_000 })
+  const m = await memory()
+  expect(m.shots[0].camera).toBe('Aerial')
+  expect(m.shots[0].movement).toBe('Crane up')
+})

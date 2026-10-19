@@ -726,3 +726,69 @@ def test_ai_adds_and_rewrites_a_character(client):
     client.get(f"/api/v1/jobs/{job['id']}", headers=auth())
     chars = client.get(f"/api/v1/projects/{pid}", headers=auth()).json()["memory"]["characters"]
     assert "[Revised:" in chars[0]["personality"] and len(chars) == n + 1
+
+
+# ---------- Hand edits, visual style, AI actions on screenplay / dialogue / shots ----------
+
+def test_patch_memory_saves_edits_and_marks_only_changed_frames(client):
+    pid, _ = _plan(client)
+    client.post(f"/api/v1/projects/{pid}/generate", json={"confirmCost": True}, headers=auth())
+    m = client.get(f"/api/v1/projects/{pid}", headers=auth()).json()["memory"]
+    shots = m["shots"]
+    shots[1] = {**shots[1], "camera": "Close-up", "movement": "Dolly in"}
+    r = client.patch(f"/api/v1/projects/{pid}/memory", json={"shots": shots,
+                     "dialogue": [{"character": "Elena", "text": "Who's there?", "tone": "Fear"}]}, headers=auth())
+    assert r.status_code == 200, r.text
+    p = r.json()
+    assert p["memory"]["shots"][1]["camera"] == "Close-up" and p["memory"]["dialogue"][0]["text"] == "Who's there?"
+    frames = {a["ref"]: a["status"] for a in p["assets"] if a["type"] == "storyboard_image"}
+    assert frames[str(shots[1]["number"])] == "outdated"
+    assert all(s == "ready" for ref, s in frames.items() if ref != str(shots[1]["number"]))
+
+
+def test_visual_style_is_saved_used_in_prompts_and_redraws_pictures(client, monkeypatch):
+    pid, _ = _plan(client)
+    client.post(f"/api/v1/projects/{pid}/generate", json={"confirmCost": True}, headers=auth())
+    p = client.patch(f"/api/v1/projects/{pid}/memory", json={"visualStyle": "Anime"}, headers=auth()).json()
+    assert p["memory"]["visualStyle"] == "Anime"
+    assert {a["status"] for a in p["assets"] if a["type"] in ("storyboard_image", "character_image")} == {"outdated"}
+
+    from app.providers.mock import MockImage
+    prompts = []
+    orig = MockImage.generate_image
+
+    async def spy(self, prompt, **kw):
+        prompts.append(prompt)
+        return await orig(self, prompt, **kw)
+
+    monkeypatch.setattr(MockImage, "generate_image", spy)
+    client.post(f"/api/v1/projects/{pid}/generate", json={"confirmCost": True}, headers=auth())
+    assert prompts and all("anime style" in pr for pr in prompts)
+    client.patch(f"/api/v1/projects/{pid}/memory", json={"visualStyle": "watercolour, soft pastel"}, headers=auth())
+    from app.db import SessionLocal
+    from app.models import Project
+    from app.services.pipeline import style_prompt
+    with SessionLocal() as db:
+        assert style_prompt(db.get(Project, pid)) == "watercolour, soft pastel"  # Custom = the creator's words
+
+
+def test_patch_memory_validation(client):
+    pid, _ = _plan(client)
+    assert client.patch(f"/api/v1/projects/{pid}/memory", json={}, headers=auth()).status_code == 422
+    assert client.patch(f"/api/v1/projects/{pid}/memory", json={"title": "x"}, headers=auth()).status_code == 422
+    p = client.post("/api/v1/projects", json={}, headers=auth()).json()
+    assert client.patch(f"/api/v1/projects/{p['id']}/memory", json={"story": "x"}, headers=auth()).status_code == 409
+
+
+def test_ai_actions_on_dialogue_and_shots(client):
+    pid, _ = _plan(client)
+    n = len(client.get(f"/api/v1/projects/{pid}", headers=auth()).json()["memory"]["dialogue"])
+    for instruction in ("Add 2 more dialogue lines.", "Rewrite only line 1: make it scarier."):
+        job = client.post(f"/api/v1/projects/{pid}/improve", json={"target": "dialogue", "instruction": instruction}, headers=auth()).json()
+        assert client.get(f"/api/v1/jobs/{job['id']}", headers=auth()).json()["status"] == "completed"
+    d = client.get(f"/api/v1/projects/{pid}", headers=auth()).json()["memory"]["dialogue"]
+    assert len(d) == n + 1 and "[Revised:" in d[0]["text"] and "[Revised:" not in d[1]["text"]
+    job = client.post(f"/api/v1/projects/{pid}/transform", json={"target": "shots", "instruction": 'Rewrite only the shot with id "2".'}, headers=auth()).json()
+    client.get(f"/api/v1/jobs/{job['id']}", headers=auth())
+    shots = client.get(f"/api/v1/projects/{pid}", headers=auth()).json()["memory"]["shots"]
+    assert "[Revised:" in shots[1]["description"] and "[Revised:" not in shots[0]["description"]

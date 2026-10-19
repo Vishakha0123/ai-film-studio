@@ -1,25 +1,66 @@
 import { useState } from 'react'
 import { useFilm } from '../studio'
+import { useFilmEdit } from '../lib/useFilmEdit'
+import type { DialogueLine } from '../types'
 
-const SUGGESTIONS = [
-  { id: '1', character: 'Elena', text: '"Thomas… you told me the score was finished. You told me you were finished."', tone: 'Grief' },
-  { id: '2', character: 'Elena', text: '"I hear it differently every time I play it. Like it\'s trying to tell me something I\'m not ready to hear."', tone: 'Fear' },
-  { id: '3', character: 'Elena', text: '"The notation changed. I know what I wrote. This — this isn\'t what I wrote."', tone: 'Horror' },
+// Shown in demo mode (the sample film has no stored dialogue lines).
+const SAMPLE: DialogueLine[] = [
+  { character: 'Elena', text: 'Thomas… you told me the score was finished. You told me you were finished.', tone: 'Grief' },
+  { character: 'Elena', text: "I hear it differently every time I play it. Like it's trying to tell me something I'm not ready to hear.", tone: 'Fear' },
+  { character: 'Elena', text: "The notation changed. I know what I wrote. This — this isn't what I wrote.", tone: 'Horror' },
 ]
 
 const COMMANDS = ['Make it emotional', 'Make it scarier', 'Make it quieter', 'Add subtext', 'Make it ambiguous']
 
+const clean = (t: string) => t.replace(/^"|"$/g, '')
+
 export default function Dialogue() {
   const film = useFilm()
-  // Live projects carry their own key lines; the design's sample lines are used otherwise.
-  const live = film.dialogue && film.dialogue.length > 0
-  const suggestions = live
-    ? film.dialogue!.map((d, i) => ({ id: String(i + 1), character: d.character, text: `"${d.text.replace(/^"|"$/g, '')}"`, tone: d.tone }))
-    : SUGGESTIONS
+  const live = !!film.dialogue && film.dialogue.length > 0
+  const lines: DialogueLine[] = live ? film.dialogue! : SAMPLE
   const scene = live ? film.scenes.find(sc => sc.characters.length > 0) ?? film.scenes[0] : undefined
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const { working, error, ai, save } = useFilmEdit()
+  const [selected, setSelected] = useState<number | null>(null)
+  const [editing, setEditing] = useState<number | null>(null)
+  const [draft, setDraft] = useState<DialogueLine>({ character: '', text: '', tone: '' })
   const [command, setCommand] = useState('')
-  const [accepted, setAccepted] = useState<string[]>([])
+  const [used, setUsed] = useState<number[]>([])
+  const firstName = lines[0]?.character || 'the lead'
+
+  const describe = (i: number) => `${lines[i].character}: "${clean(lines[i].text)}"`
+
+  const generateMore = () =>
+    ai('Writing more lines…', 'dialogue', 'continue',
+      "Add 3 more dialogue lines that fit the story and its characters, in the film's language. Keep the existing lines exactly as they are.")
+
+  const alternatives = (i: number) =>
+    ai('Writing alternatives…', 'dialogue', 'continue',
+      `Add 2 alternative versions of line ${i + 1} (${describe(i)}) right after it, same character, different wording. Keep the other lines exactly as they are.`)
+
+  const useLine = async (i: number) => {
+    const ok = await ai('Adding the line to the screenplay…', 'screenplay', 'improve',
+      `Work this dialogue line into the screenplay where it fits best, as ${lines[i].character}'s line in proper screenplay format, keeping everything else as it is: ${describe(i)}`)
+    if (ok) setUsed(u => (u.includes(i) ? u : [...u, i]))
+  }
+
+  const startEdit = (i: number) => {
+    setEditing(i)
+    setDraft({ character: lines[i].character, text: clean(lines[i].text), tone: lines[i].tone })
+  }
+
+  const saveEdit = async (i: number) => {
+    const next = lines.map((l, j) => (j === i ? { ...draft, text: draft.text.trim() } : l))
+    if (await save('Saving…', { dialogue: next })) setEditing(null)
+  }
+
+  const apply = async () => {
+    const cmd = command.trim()
+    if (!cmd) return
+    const instruction = selected !== null
+      ? `Rewrite only line ${selected + 1} (${describe(selected)}): ${cmd}. Keep the other lines exactly as they are.`
+      : `${cmd}. Apply this to all the dialogue lines, keeping who says each one.`
+    if (await ai('Applying…', 'dialogue', 'improve', instruction)) setCommand('')
+  }
 
   return (
     <div className="h-full overflow-y-auto px-4 sm:px-6 py-8" data-testid="panel-dialogue">
@@ -44,46 +85,73 @@ export default function Dialogue() {
         <div>
           <div className="flex items-center justify-between mb-4">
             <p className="text-sm font-medium" style={{ color: '#d4d4d8' }}>AI Dialogue Suggestions</p>
-            <button className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors">Generate More</button>
+            <button onClick={() => void generateMore()} disabled={!!working} className="text-xs transition-colors disabled:opacity-50" style={{ color: '#d4a84b' }}>
+              Generate More
+            </button>
           </div>
+          {working && <p className="text-xs mb-3" style={{ color: '#d4a84b' }} data-testid="dialogue-working">{working}</p>}
+          {error && <p role="alert" className="text-xs text-red-300 mb-3">{error}</p>}
 
           <div className="space-y-3">
-            {suggestions.map(s => {
-              const isAccepted = accepted.includes(s.id)
+            {lines.map((s, i) => {
+              const isUsed = used.includes(i)
+              const isSel = selected === i
               return (
                 <div
-                  key={s.id}
-                  data-testid={`dialogue-${s.id}`}
+                  key={i}
+                  data-testid={`dialogue-${i + 1}`}
                   className="px-5 py-4 rounded-xl border transition-all cursor-pointer"
                   style={{
-                    borderColor: selectedId === s.id ? 'rgba(212,168,75,0.4)' : isAccepted ? 'rgba(16,185,129,0.3)' : 'rgba(255,255,255,0.07)',
-                    backgroundColor: selectedId === s.id ? 'rgba(212,168,75,0.05)' : isAccepted ? 'rgba(16,185,129,0.04)' : '#111113',
+                    borderColor: isSel ? 'rgba(212,168,75,0.4)' : isUsed ? 'rgba(16,185,129,0.3)' : 'rgba(255,255,255,0.07)',
+                    backgroundColor: isSel ? 'rgba(212,168,75,0.05)' : isUsed ? 'rgba(16,185,129,0.04)' : '#111113',
                   }}
-                  onClick={() => setSelectedId(s.id === selectedId ? null : s.id)}
+                  onClick={() => editing === null && setSelected(isSel ? null : i)}
                 >
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-semibold" style={{ color: '#d4a84b' }}>{s.character}</span>
-                      <span className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: '#1a1a1e', color: '#71717a' }}>{s.tone}</span>
+                      {s.tone && <span className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: '#1a1a1e', color: '#71717a' }}>{s.tone}</span>}
                     </div>
-                    {isAccepted && <span className="text-[10px] font-medium" style={{ color: '#10b981' }}>Used ✓</span>}
+                    {isUsed && <span className="text-[10px] font-medium" style={{ color: '#10b981' }}>Used ✓</span>}
                   </div>
 
-                  <p className="text-sm italic leading-relaxed" style={{ color: '#d4d4d8', fontFamily: 'Fraunces, Georgia, serif' }}>{s.text}</p>
+                  {editing === i ? (
+                    <div className="space-y-2" onClick={e => e.stopPropagation()}>
+                      <textarea
+                        aria-label="Line"
+                        value={draft.text}
+                        onChange={e => setDraft(d => ({ ...d, text: e.target.value }))}
+                        rows={3}
+                        className="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-sm text-zinc-200 focus:outline-none focus:border-zinc-600"
+                      />
+                      <div className="flex gap-2">
+                        <input aria-label="Character" value={draft.character} onChange={e => setDraft(d => ({ ...d, character: e.target.value }))} className="flex-1 px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-xs text-zinc-200 focus:outline-none" />
+                        <input aria-label="Tone" value={draft.tone} onChange={e => setDraft(d => ({ ...d, tone: e.target.value }))} className="flex-1 px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-xs text-zinc-200 focus:outline-none" />
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={() => void saveEdit(i)} disabled={!!working || !draft.text.trim()} className="px-4 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-40" style={{ backgroundColor: '#d4a84b', color: '#09090b' }}>Save</button>
+                        <button onClick={() => setEditing(null)} className="px-4 py-1.5 rounded-lg text-xs text-zinc-400">Cancel</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm italic leading-relaxed" style={{ color: '#d4d4d8', fontFamily: 'Fraunces, Georgia, serif' }}>“{clean(s.text)}”</p>
+                  )}
 
-                  {selectedId === s.id && (
+                  {isSel && editing !== i && (
                     <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
                       <button
-                        onClick={e => { e.stopPropagation(); setAccepted(a => (a.includes(s.id) ? a : [...a, s.id])) }}
-                        className="px-4 py-1.5 rounded-lg text-xs font-medium transition-all"
+                        onClick={e => { e.stopPropagation(); void useLine(i) }}
+                        disabled={!!working}
+                        className="px-4 py-1.5 rounded-lg text-xs font-medium transition-all disabled:opacity-50"
                         style={{ backgroundColor: 'rgba(16,185,129,0.12)', color: '#10b981', border: '1px solid rgba(16,185,129,0.25)' }}
+                        title="Adds this line to the screenplay"
                       >
                         Use This
                       </button>
-                      <button onClick={e => e.stopPropagation()} className="px-4 py-1.5 rounded-lg text-xs font-medium border transition-all" style={{ borderColor: 'rgba(255,255,255,0.08)', color: '#71717a' }}>
+                      <button onClick={e => { e.stopPropagation(); startEdit(i) }} className="px-4 py-1.5 rounded-lg text-xs font-medium border transition-all hover:text-zinc-200" style={{ borderColor: 'rgba(255,255,255,0.08)', color: '#a1a1aa' }}>
                         Edit
                       </button>
-                      <button onClick={e => e.stopPropagation()} className="px-4 py-1.5 rounded-lg text-xs font-medium border transition-all" style={{ borderColor: 'rgba(255,255,255,0.08)', color: '#71717a' }}>
+                      <button onClick={e => { e.stopPropagation(); void alternatives(i) }} disabled={!!working} className="px-4 py-1.5 rounded-lg text-xs font-medium border transition-all hover:text-zinc-200 disabled:opacity-50" style={{ borderColor: 'rgba(255,255,255,0.08)', color: '#a1a1aa' }}>
                         Generate More
                       </button>
                     </div>
@@ -96,7 +164,9 @@ export default function Dialogue() {
 
         {/* Command input */}
         <div>
-          <p className="text-xs text-zinc-600 mb-3">Direct the AI</p>
+          <p className="text-xs text-zinc-600 mb-3">
+            Direct the AI {selected !== null ? <span style={{ color: '#d4a84b' }}>— applies to line {selected + 1} ({lines[selected]?.character})</span> : <span>— applies to every line (select one to change just that)</span>}
+          </p>
           <div className="flex flex-wrap gap-2 mb-3">
             {COMMANDS.map(cmd => (
               <button
@@ -105,7 +175,7 @@ export default function Dialogue() {
                 className="text-xs px-3 py-1.5 rounded-full border transition-all"
                 style={{
                   borderColor: command === cmd ? 'rgba(212,168,75,0.4)' : 'rgba(255,255,255,0.07)',
-                  color: command === cmd ? '#d4a84b' : '#71717a',
+                  color: command === cmd ? '#d4a84b' : '#a1a1aa',
                   backgroundColor: command === cmd ? 'rgba(212,168,75,0.07)' : 'transparent',
                 }}
               >
@@ -113,19 +183,19 @@ export default function Dialogue() {
               </button>
             ))}
           </div>
-          <div className="flex items-center gap-3 px-4 py-3 rounded-xl border" style={{ backgroundColor: '#111113', borderColor: 'rgba(255,255,255,0.08)' }}>
+          <form onSubmit={e => { e.preventDefault(); void apply() }} className="flex items-center gap-3 px-4 py-3 rounded-xl border" style={{ backgroundColor: '#111113', borderColor: 'rgba(255,255,255,0.08)' }}>
             <input
               type="text"
               aria-label="Direct the AI"
-              placeholder='Try "Make Elena sound more desperate" or "Add a pause for effect"'
+              placeholder={`Try "Make ${firstName} sound more desperate" or "Add a pause for effect"`}
               value={command}
               onChange={e => setCommand(e.target.value)}
               className="flex-1 min-w-0 bg-transparent text-sm text-zinc-300 placeholder-zinc-600 focus:outline-none"
             />
-            <button className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all" style={{ backgroundColor: '#d4a84b', color: '#09090b' }}>
+            <button type="submit" disabled={!command.trim() || !!working} className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all disabled:opacity-40" style={{ backgroundColor: '#d4a84b', color: '#09090b' }}>
               Apply
             </button>
-          </div>
+          </form>
         </div>
       </div>
     </div>

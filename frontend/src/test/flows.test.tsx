@@ -130,12 +130,12 @@ describe('panels', { timeout: 15000 }, () => {
     expect(row).toHaveAttribute('data-active', 'false')
   })
 
-  it('dialogue suggestion can be used', async () => {
+  it('dialogue suggestion actions explain they need the backend in demo mode', async () => {
     await unlockAll()
     await userEvent.click(screen.getByTestId('nav-dialogue'))
     await userEvent.click(screen.getByTestId('dialogue-1'))
     await userEvent.click(screen.getByRole('button', { name: 'Use This' }))
-    expect(screen.getByText('Used ✓')).toBeInTheDocument()
+    expect(screen.getByRole('alert')).toHaveTextContent('needs the studio backend')
   })
 })
 
@@ -289,5 +289,52 @@ describe('characters', () => {
     const form = screen.getByTestId('character-form')
     expect(within(form).getAllByRole('textbox')).toHaveLength(1)
     expect(within(form).getByText('Appearance')).toBeInTheDocument()
+  })
+})
+
+describe('screenplay, dialogue and storyboard controls', () => {
+  it('screenplay actions run (demo explains it needs the backend) and the page count is real', async () => {
+    renderApp('/director/screenplay', { loggedIn: true })
+    expect(screen.getByText(/^\d+ pages?$/)).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Make Cinematic' }))
+    expect(screen.getByRole('alert')).toHaveTextContent('needs the studio backend')
+    await userEvent.click(screen.getByRole('button', { name: /Continue Screenplay/ }))
+    expect(screen.getByRole('alert')).toHaveTextContent('needs the studio backend')
+  })
+
+  it('dialogue: Edit opens the line, Direct the AI says what it applies to', async () => {
+    renderApp('/director/dialogue', { loggedIn: true })
+    expect(screen.getByText(/applies to every line/)).toBeInTheDocument()
+    await userEvent.click(screen.getByTestId('dialogue-2'))
+    expect(screen.getByText(/applies to line 2/)).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
+    expect(screen.getByLabelText('Line')).toHaveValue("I hear it differently every time I play it. Like it's trying to tell me something I'm not ready to hear.")
+    await userEvent.click(screen.getByRole('button', { name: 'Make it scarier' }))
+    expect(screen.getByLabelText('Direct the AI')).toHaveValue('Make it scarier')
+  })
+
+  it('storyboard: each visual style changes how the frames look', async () => {
+    renderApp('/director/storyboard', { loggedIn: true })
+    const img = () => screen.getAllByTestId('shot-image')[0] as HTMLImageElement
+    const before = img().style.filter
+    await userEvent.click(screen.getByRole('button', { name: 'Anime' }))
+    expect(screen.getByRole('button', { name: 'Anime' })).toHaveAttribute('aria-pressed', 'true')
+    expect(img().style.filter).not.toBe(before)
+    expect(img().style.filter).toContain('saturate(1.9)')
+    await userEvent.click(screen.getByRole('button', { name: 'Vintage' }))
+    expect(img().style.filter).toContain('sepia')
+    await userEvent.click(screen.getByRole('button', { name: 'Custom' }))
+    expect(screen.getByLabelText('Describe your style')).toBeInTheDocument()
+  })
+
+  it('storyboard: shot Edit and Change Camera open their forms', async () => {
+    renderApp('/director/storyboard', { loggedIn: true })
+    await userEvent.click(screen.getByTestId('shot-1'))
+    await userEvent.click(within(screen.getByTestId('shot-1')).getByRole('button', { name: 'Change Camera' }))
+    expect(screen.getByLabelText('Camera')).toBeInTheDocument()
+    expect(screen.getByLabelText('Movement')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    await userEvent.click(within(screen.getByTestId('shot-1')).getByRole('button', { name: 'Edit' }))
+    expect(screen.getByLabelText('Shot description')).toBeInTheDocument()
   })
 })

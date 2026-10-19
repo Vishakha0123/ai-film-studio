@@ -72,6 +72,7 @@ Each line says PASS when most of the story is in that language's own script.
 | GET | `/me` | Current user |
 | POST / GET | `/projects` | Create / list projects |
 | POST / GET | `/projects/{id}/documents` | Attach source files (PDF, DOCX, TXT/MD/Fountain, images; 10 MB) / list them |
+| PATCH | `/projects/{id}/memory` | Save hand edits (dialogue, shots, visual style, screenplay…); only pictures that no longer match are marked outdated |
 | POST / PATCH / DELETE | `/projects/{id}/characters[/{characterId}]` | Add, edit or remove a character by hand (a new appearance marks its portrait outdated) |
 | POST | `/projects/bulk-delete` | Delete several of your projects (`{"ids": [...]}`) → `{deleted, notFound}` |
 | DELETE | `/documents/{id}` | Remove an attached file |

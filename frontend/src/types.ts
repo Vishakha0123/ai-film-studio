@@ -93,6 +93,8 @@ export interface FilmProject {
   audioTracks: AudioTrack[]
   dialogue?: DialogueLine[]
   lyrics?: Lyrics
+  /** Storyboard look picked by the creator (Dark Cinema by default) */
+  visualStyle?: string
 }
 
 export interface Asset {

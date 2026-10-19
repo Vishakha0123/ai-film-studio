@@ -55,6 +55,19 @@ class MockStory(StoryProvider):
                     if str(c.get("id")) == m.group(1):
                         c["personality"] = f"{c.get('personality', '')} [Revised: {instruction[:60]}]"
             return ProviderResult(value, provider="mock", model="echo")
+        if target in ("dialogue", "shots") and isinstance(value, list):
+            # Stand-ins for the AI: "Add N more…" appends; a targeted rewrite ("line 2", 'id "3"') marks that item.
+            import re
+            key = "text" if target == "dialogue" else "description"
+            if instruction.lower().startswith(("add", "write")) and target == "dialogue":
+                who = value[0]["character"] if value else "Narrator"
+                value.append({"character": who, "text": f"[New line: {instruction[:50]}]", "tone": "New"})
+            else:
+                m = re.search(r'(?:line |id ")(\d+)', instruction)
+                for i, item in enumerate(value):
+                    if not m or str(i + 1) == m.group(1) or str(item.get("id")) == m.group(1):
+                        item[key] = f"{item.get(key, '')} [Revised: {instruction[:50]}]"
+            return ProviderResult(value, provider="mock", model="echo")
         if target == "lyrics":
             value = value or copy.deepcopy(SAMPLE_LYRICS)
             if instruction and memory.get(target):

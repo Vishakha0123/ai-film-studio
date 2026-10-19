@@ -1,7 +1,19 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useFilm } from '../studio'
+import { useFilmEdit } from '../lib/useFilmEdit'
+import type { EditAction } from '../api'
 
-const AI_ACTIONS = ['Continue', 'Rewrite', 'Add Scene', 'Add Dialogue', 'Improve', 'Shorten', 'Expand', 'Make Cinematic']
+/** What each AI action asks the story model to do (it keeps the film's language and format). */
+const AI_ACTIONS: Record<string, { action: EditAction; instruction: string }> = {
+  Continue: { action: 'continue', instruction: 'Continue the screenplay with the next scene, in proper screenplay format.' },
+  Rewrite: { action: 'transform', instruction: 'Rewrite with fresh wording, keeping the same events, characters and format.' },
+  'Add Scene': { action: 'continue', instruction: 'Add one new scene that fits the story where it belongs, in proper screenplay format.' },
+  'Add Dialogue': { action: 'improve', instruction: 'Add dialogue where the characters would naturally speak, with character names in caps and parentheticals where useful.' },
+  Improve: { action: 'improve', instruction: 'Improve the writing: sharper action lines, stronger dialogue, better pacing. Keep the events.' },
+  Shorten: { action: 'improve', instruction: 'Make it shorter and tighter, keeping every important beat.' },
+  Expand: { action: 'improve', instruction: 'Expand it with more detail in the action lines and a little more dialogue.' },
+  'Make Cinematic': { action: 'improve', instruction: 'Make it more cinematic: vivid visual action lines, camera-aware moments, mood and sound cues.' },
+}
 
 export type LineKind = 'title' | 'heading' | 'transition' | 'character' | 'parenthetical' | 'blank' | 'action'
 
@@ -28,24 +40,56 @@ export const LINE_STYLES: Record<LineKind, React.CSSProperties> = {
 }
 
 export default function Screenplay() {
-  const [activeAction, setActiveAction] = useState<string | null>(null)
   const film = useFilm()
   const lines = film.screenplay.split('\n')
+  const { working, error, ai } = useFilmEdit()
+  const [activeAction, setActiveAction] = useState<string | null>(null)
+  const [draft, setDraft] = useState(1)
+  const [selection, setSelection] = useState('')
+  const textRef = useRef<HTMLDivElement>(null)
+  const pages = Math.max(1, Math.round(lines.length / 55))
+
+  // Text selected inside the screenplay narrows the next action to that passage.
+  // (mouse, keyboard or touch — any selection change inside the script counts; clicking a button keeps it)
+  useEffect(() => {
+    const capture = () => {
+      const sel = window.getSelection?.()
+      const text = sel?.toString().trim() ?? ''
+      if (text && sel?.anchorNode && textRef.current?.contains(sel.anchorNode)) setSelection(text.slice(0, 2000))
+    }
+    document.addEventListener('selectionchange', capture)
+    return () => document.removeEventListener('selectionchange', capture)
+  }, [])
+
+  const run = async (name: string) => {
+    const req = AI_ACTIONS[name]
+    setActiveAction(name)
+    const scoped = selection
+      ? `Apply this only to the following passage and keep everything else in the screenplay exactly as it is.\nPassage:\n"""${selection}"""\nChange: ${req.instruction}`
+      : req.instruction
+    const ok = await ai(`${name}…`, 'screenplay', req.action, scoped)
+    if (ok) {
+      setDraft(d => d + 1)
+      setSelection('')
+    }
+    setActiveAction(null)
+  }
 
   return (
     <div className="h-full flex flex-col overflow-hidden" data-testid="panel-screenplay">
       {/* Toolbar */}
       <div className="flex items-center gap-2 px-4 sm:px-6 py-3 border-b flex-shrink-0 overflow-x-auto sm:flex-wrap" style={{ borderColor: 'rgba(255,255,255,0.06)', backgroundColor: '#0e0e10' }}>
         <span className="text-xs text-zinc-600 mr-1 flex-shrink-0">AI Actions:</span>
-        {AI_ACTIONS.map(a => (
+        {Object.keys(AI_ACTIONS).map(a => (
           <button
             key={a}
-            onClick={() => setActiveAction(activeAction === a ? null : a)}
-            className="px-3 py-1.5 rounded-lg text-xs font-medium border transition-all flex-shrink-0 whitespace-nowrap"
+            onClick={() => void run(a)}
+            disabled={!!working}
+            className="px-3 py-1.5 rounded-lg text-xs font-medium border transition-all flex-shrink-0 whitespace-nowrap hover:text-zinc-200 disabled:opacity-50"
             style={
               activeAction === a
                 ? { backgroundColor: 'rgba(212,168,75,0.12)', borderColor: 'rgba(212,168,75,0.3)', color: '#d4a84b' }
-                : { backgroundColor: 'transparent', borderColor: 'rgba(255,255,255,0.07)', color: '#71717a' }
+                : { backgroundColor: 'transparent', borderColor: 'rgba(255,255,255,0.07)', color: '#a1a1aa' }
             }
           >
             {a}
@@ -64,12 +108,27 @@ export default function Screenplay() {
               </h2>
             </div>
             <div className="text-right">
-              <p className="text-xs text-zinc-600">12 pages</p>
-              <p className="text-xs text-zinc-700">Draft 1</p>
+              <p className="text-xs text-zinc-600">{pages} {pages === 1 ? 'page' : 'pages'}</p>
+              <p className="text-xs text-zinc-700" data-testid="screenplay-draft">Draft {draft}</p>
             </div>
           </div>
 
-          <div className="screenplay-text px-5 sm:px-8 py-8 rounded-xl" style={{ backgroundColor: '#111113', border: '1px solid rgba(255,255,255,0.06)', lineHeight: '1.8' }}>
+          {selection && (
+            <div className="mb-3 flex items-start gap-3 px-4 py-3 rounded-xl text-xs" style={{ backgroundColor: 'rgba(212,168,75,0.06)', border: '1px solid rgba(212,168,75,0.25)' }} data-testid="screenplay-selection">
+              <span className="flex-1 min-w-0 text-zinc-300">
+                <span style={{ color: '#d4a84b' }}>Selected:</span> “{selection.length > 140 ? `${selection.slice(0, 140)}…` : selection}” — the next AI action changes only this part.
+              </span>
+              <button onClick={() => setSelection('')} aria-label="Clear selection" className="text-zinc-500 hover:text-zinc-200">✕</button>
+            </div>
+          )}
+          {working && <p className="mb-3 text-xs" style={{ color: '#d4a84b' }} data-testid="screenplay-working">{working}</p>}
+          {error && <p role="alert" className="mb-3 text-xs text-red-300">{error}</p>}
+
+          <div
+            ref={textRef}
+            className="screenplay-text px-5 sm:px-8 py-8 rounded-xl transition-opacity"
+            style={{ backgroundColor: '#111113', border: '1px solid rgba(255,255,255,0.06)', lineHeight: '1.8', opacity: working ? 0.5 : 1 }}
+          >
             {lines.map((line, i) => (
               <div
                 key={i}
@@ -84,7 +143,9 @@ export default function Screenplay() {
 
           <div className="mt-4 flex flex-wrap items-center gap-2">
             <button
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium border transition-all"
+              onClick={() => void run('Continue')}
+              disabled={!!working}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium border transition-all disabled:opacity-50"
               style={{ borderColor: 'rgba(212,168,75,0.3)', color: '#d4a84b', backgroundColor: 'rgba(212,168,75,0.06)' }}
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><path d="M12 5v14M5 12h14" strokeLinecap="round" /></svg>
