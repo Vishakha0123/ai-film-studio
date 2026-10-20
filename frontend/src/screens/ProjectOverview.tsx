@@ -4,7 +4,7 @@ import { getProject, listDocuments, makeLanguageVersion } from '../api'
 import { FILM_LANGUAGES, languageLabel, languageName } from '../lib/languages'
 import { useStudio } from '../studio'
 import { classifyLine, LINE_STYLES } from '../panels/Screenplay'
-import { filmSeconds, photoUrl } from '../types'
+import { characterPhoto, filmSeconds, photoUrl } from '../types'
 import type { Panel, ProjectData, ProjectDocument } from '../types'
 
 const SECTIONS: { id: string; label: string; panel: Panel }[] = [
@@ -191,7 +191,7 @@ export default function ProjectOverview() {
                 {f.characters.map(c => (
                   <article key={c.id} className="rounded-xl overflow-hidden" style={card} data-testid="overview-character">
                     <div className="aspect-[4/3] bg-zinc-900">
-                      <img src={photoUrl(c, 480, 360)} alt={c.name} className="w-full h-full object-cover" style={{ filter: 'grayscale(20%) contrast(1.05)' }} />
+                      <img src={characterPhoto(c, 480, 360)} alt={c.name} className="w-full h-full object-cover" style={{ filter: 'grayscale(20%) contrast(1.05)' }} />
                     </div>
                     <div className="p-4 space-y-2">
                       <div>

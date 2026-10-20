@@ -24,7 +24,9 @@ Return ONLY a JSON object with exactly these keys (camelCase):
   "logline": string,                    // one sentence
   "story": string,                      // 3 short paragraphs separated by \n\n
   "characters": [                       // 2-4 main characters
-    {"id": "1", "name": string, "age": string, "role": string, "personality": string,
+    {"id": "1", "name": string, "age": string,   // age in digits, e.g. "8", "16", "34", "70"
+     "gender": "female" | "male",       // always in English
+     "role": string, "personality": string,
      "appearance": string,              // concrete visual description for image generation
      "arc": string, "relationships": string}
   ],

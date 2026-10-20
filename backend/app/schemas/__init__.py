@@ -40,15 +40,31 @@ class FilmPart(Schema):
         return data
 
 
+_FEMALE = {"f", "female", "woman", "girl", "she", "her", "lady", "feminine", "महिला", "स्त्री", "लड़की", "பெண்"}
+_MALE = {"m", "male", "man", "boy", "he", "him", "masculine", "पुरुष", "लड़का", "ஆண்"}
+
+
+def normalize_gender(value: object) -> str:
+    """'Female', 'girl', 'F', 'महिला' → 'female'; 'Male', 'boy' → 'male'; anything else → '' (not set)."""
+    v = str(value or "").strip().lower()
+    return "female" if v in _FEMALE else "male" if v in _MALE else ""
+
+
 class Character(FilmPart):
     id: str = ""
     name: str
     age: str = ""
+    gender: str = ""  # "female" | "male" | "" — picks the drawn portrait (with the age) until one is generated
     role: str = ""
     personality: str = ""
     appearance: str = ""
     arc: str = ""
     relationships: str = ""
+
+    @field_validator("gender", mode="before")
+    @classmethod
+    def _gender(cls, v: object) -> str:
+        return normalize_gender(v)
     image_id: str = ""  # Unsplash fallback id used by the design
     image_url: str | None = None
 
@@ -384,6 +400,7 @@ class CharacterInput(Schema):
     """A character the creator adds or edits by hand (anything left out keeps its current value)."""
     name: str | None = Field(default=None, max_length=120)
     age: str | None = Field(default=None, max_length=40)
+    gender: str | None = Field(default=None, max_length=20)
     role: str | None = Field(default=None, max_length=200)
     personality: str | None = Field(default=None, max_length=2000)
     appearance: str | None = Field(default=None, max_length=2000)

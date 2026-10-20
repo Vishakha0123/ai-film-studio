@@ -1,3 +1,4 @@
+import { portraitUrl } from './lib/portraits'
 export type Screen = 'landing' | 'login' | 'onboarding' | 'director' | 'generation' | 'teaser' | 'export'
 export type Panel = 'chat' | 'story' | 'characters' | 'screenplay' | 'dialogue' | 'lyrics' | 'scenes' | 'storyboard' | 'audio' | 'music'
 export type NavFn = (s: Screen) => void
@@ -23,6 +24,8 @@ export interface Character {
   appearance: string
   arc: string
   relationships: string
+  /** "female" or "male" — picks the portrait (with the age) until a generated one exists */
+  gender?: string
   imageId: string
   /** Generated portrait (backend asset), falls back to imageId photo */
   imageUrl?: string
@@ -147,6 +150,15 @@ export interface CostEstimate {
   estimatedCost: number
   currency: string
   requiresConfirmation: boolean
+}
+
+/**
+ * A character's picture: the generated portrait if there is one, the sample film's photo, otherwise an
+ * illustrated portrait drawn for their age and gender (girl/boy, teen, young, adult, senior).
+ */
+export function characterPhoto(c: Character, w: number, h: number): string {
+  if (c.imageUrl || c.imageId) return photoUrl(c, w, h)
+  return portraitUrl(c)
 }
 
 /** Photo for a character/shot: generated asset if present, otherwise the design's Unsplash still. */

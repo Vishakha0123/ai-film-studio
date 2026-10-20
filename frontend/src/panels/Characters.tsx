@@ -1,16 +1,18 @@
 import { useState } from 'react'
 import DirectAI from '../components/DirectAI'
-import { photoUrl } from '../types'
+import { characterPhoto } from '../types'
+import { AGE_BAND_LABEL, ageBand, genderOf, portraitUrl } from '../lib/portraits'
 import { useFilm, useStudio } from '../studio'
 import type { Character } from '../types'
 import { DEMO_MODE, addCharacter, assertCompleted, editProject, removeCharacter, updateCharacter, waitForJob, type CharacterInput } from '../api'
 
 type Mode = { kind: 'view' } | { kind: 'add' } | { kind: 'edit'; field?: 'appearance' }
 
-const FIELDS: { key: keyof CharacterInput; label: string; long?: boolean; placeholder: string }[] = [
+const FIELDS: { key: keyof CharacterInput; label: string; long?: boolean; placeholder: string; options?: [string, string][] }[] = [
   { key: 'name', label: 'Name', placeholder: 'e.g. Sundar' },
   { key: 'role', label: 'Role', placeholder: 'e.g. Temple tea boy and key-bearer' },
   { key: 'age', label: 'Age', placeholder: 'e.g. 12' },
+  { key: 'gender', label: 'Girl / Boy', placeholder: '', options: [['', 'Not set (guess from the description)'], ['female', 'Girl / Woman'], ['male', 'Boy / Man']] },
   { key: 'personality', label: 'Personality', long: true, placeholder: 'Who are they? What do they want?' },
   { key: 'appearance', label: 'Appearance', long: true, placeholder: 'What do they look like? (used to draw the portrait)' },
   { key: 'arc', label: 'Character Arc', long: true, placeholder: 'How do they change through the film?' },
@@ -109,7 +111,7 @@ export default function Characters() {
                 backgroundColor: selected === c.id && mode.kind !== 'add' ? 'rgba(212,168,75,0.07)' : 'rgba(255,255,255,0.02)',
               }}
             >
-              <img src={photoUrl(c, 64, 64)} alt={c.name} className="w-10 h-10 rounded-full object-cover flex-shrink-0" style={{ filter: 'grayscale(30%) contrast(1.1)' }} />
+              <img src={characterPhoto(c, 64, 64)} alt={c.name} className="w-10 h-10 rounded-full object-cover flex-shrink-0" style={{ filter: 'grayscale(30%) contrast(1.1)' }} />
               <div className="text-left">
                 <p className="text-sm font-medium" style={{ color: selected === c.id ? '#f4f0ea' : '#a1a1aa' }}>{c.name}</p>
                 <p className="text-xs" style={{ color: selected === c.id ? '#d4a84b' : '#52525b' }}>{c.role}</p>
@@ -202,15 +204,34 @@ function CharacterForm({ title, hint, initial, only, busy, onCancel, submit, sec
       style={{ backgroundColor: '#111113', border: '1px solid rgba(212,168,75,0.2)' }}
       data-testid="character-form"
     >
-      <div>
-        <h3 className="text-base font-medium" style={{ color: '#f4f0ea' }}>{title}</h3>
-        {hint && <p className="text-xs text-zinc-500 mt-1">{hint}</p>}
+      <div className="flex items-start gap-4">
+        {(fields.some(f => f.key === 'age' || f.key === 'gender')) && !initial?.imageUrl && (
+          <img
+            src={portraitUrl({ ...initial, name: data.name || initial?.name || 'New character', age: data.age, gender: data.gender })}
+            alt="Portrait preview"
+            data-testid="portrait-preview"
+            className="w-16 h-20 rounded-lg object-cover flex-shrink-0"
+          />
+        )}
+        <div>
+          <h3 className="text-base font-medium" style={{ color: '#f4f0ea' }}>{title}</h3>
+          {hint && <p className="text-xs text-zinc-500 mt-1">{hint}</p>}
+          {(fields.some(f => f.key === 'age')) && (
+            <p className="text-[11px] text-zinc-600 mt-1" data-testid="portrait-band">
+              Portrait: {AGE_BAND_LABEL[ageBand(data.age)]} · {genderOf({ ...initial, name: data.name || initial?.name || 'New character', gender: data.gender }) === 'female' ? 'girl / woman' : 'boy / man'} — set by the age and Girl / Boy fields
+            </p>
+          )}
+        </div>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {fields.map(f => (
           <label key={f.key} className={f.long ? 'sm:col-span-2 block' : 'block'}>
             <span className="text-[10px] font-semibold tracking-widest uppercase text-zinc-500">{f.label}</span>
-            {f.long ? (
+            {f.options ? (
+              <select value={data[f.key] ?? ''} onChange={e => setData(d => ({ ...d, [f.key]: e.target.value }))} className={`${inputCls} mt-1 cursor-pointer`} aria-label={f.label}>
+                {f.options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              </select>
+            ) : f.long ? (
               <textarea rows={3} value={data[f.key] ?? ''} placeholder={f.placeholder} onChange={e => setData(d => ({ ...d, [f.key]: e.target.value }))} className={`${inputCls} mt-1 resize-y`} />
             ) : (
               <input value={data[f.key] ?? ''} placeholder={f.placeholder} onChange={e => setData(d => ({ ...d, [f.key]: e.target.value }))} className={`${inputCls} mt-1`} />
@@ -263,7 +284,7 @@ function CharacterDetail({ char, busy, onEdit, onRegenerate, onAppearance }: {
       {/* Portrait */}
       <div className="md:col-span-1">
         <div className="aspect-[3/4] max-w-xs md:max-w-none mx-auto rounded-xl overflow-hidden relative" style={{ backgroundColor: '#111113' }}>
-          <img src={photoUrl(char, 400, 533)} alt={char.name} className="w-full h-full object-cover" style={{ filter: 'grayscale(20%) contrast(1.1)' }} />
+          <img src={characterPhoto(char, 400, 533)} alt={char.name} className="w-full h-full object-cover" style={{ filter: 'grayscale(20%) contrast(1.1)' }} />
           <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(9,9,11,0.8) 0%, transparent 50%)' }} />
           <div className="absolute bottom-0 left-0 right-0 p-4">
             <p className="text-sm font-semibold" style={{ color: '#f4f0ea' }}>{char.name}</p>

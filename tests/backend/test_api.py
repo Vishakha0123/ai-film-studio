@@ -1078,3 +1078,34 @@ def test_project_jobs_lists_newest_first_and_filters_active(client):
     assert [j["id"] for j in jobs] == [job["id"]] and jobs[0]["task"] == "plan"
     assert client.get(f"/api/v1/projects/{pid}/jobs", params={"active": "true"}, headers=auth()).json() == []
     assert client.get(f"/api/v1/projects/{pid}/jobs", headers=auth("other@x.io")).status_code == 404
+
+
+def test_characters_have_a_gender_for_their_portrait(client):
+    from app.schemas import Character, normalize_gender
+    assert [normalize_gender(v) for v in ("Female", "girl", "F", "महिला", "Male", "boy", "", "robot")] == \
+        ["female", "female", "female", "female", "male", "male", "", ""]
+    assert Character.model_validate({"name": "Asha", "age": 8, "gender": "Girl"}).gender == "female"
+    pid, _ = _plan(client)
+    chars = client.get(f"/api/v1/projects/{pid}", headers=auth()).json()["memory"]["characters"]
+    assert {c["name"]: c["gender"] for c in chars}["Elena Vasquez"] == "female"
+    # set by hand: added and edited characters keep it
+    p = client.post(f"/api/v1/projects/{pid}/characters", json={"name": "Chotu", "age": "9", "gender": "male"}, headers=auth()).json()
+    chotu = p["memory"]["characters"][-1]
+    assert chotu["gender"] == "male" and chotu["age"] == "9"
+    p = client.patch(f"/api/v1/projects/{pid}/characters/{chotu['id']}", json={"gender": "female"}, headers=auth()).json()
+    assert p["memory"]["characters"][-1]["gender"] == "female"
+
+
+def test_portrait_prompt_says_girl_or_boy_and_age(client, monkeypatch):
+    from app.providers.mock import MockImage
+    prompts = []
+    original = MockImage.generate_image
+
+    async def spy(self, prompt, **kw):
+        prompts.append(prompt)
+        return await original(self, prompt, **kw)
+    monkeypatch.setattr(MockImage, "generate_image", spy)
+    pid, _ = _plan(client)
+    client.post(f"/api/v1/projects/{pid}/generate", json={"quality": "draft", "confirmCost": True}, headers=auth())
+    elena = next(p for p in prompts if p.startswith("Character portrait of Elena"))
+    assert "a woman or girl" in elena and "32 years old" in elena

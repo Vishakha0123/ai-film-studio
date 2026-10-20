@@ -324,10 +324,11 @@ def update_character(project_id: str, character_id: str, body: CharacterInput, d
     changes = {k: v.strip() for k, v in body.model_dump().items() if v is not None}
     if "name" in changes and not changes["name"]:
         raise HTTPException(422, detail="A character needs a name.")
-    looks_changed = "appearance" in changes and changes["appearance"] != chars[idx].get("appearance")
+    # A new look, age or gender means the portrait (and frames it appears in) no longer match
+    looks_changed = any(k in changes and changes[k] != chars[idx].get(k, "") for k in ("appearance", "age", "gender"))
     chars[idx] = {**chars[idx], **changes}
     project.memory = validate_film({**project.memory, "characters": chars})
-    if looks_changed:  # the portrait (and frames it appears in) no longer match
+    if looks_changed:
         mark_outdated(db, project.id, ["character_image"], [character_id])
     db.commit()
     db.refresh(project)

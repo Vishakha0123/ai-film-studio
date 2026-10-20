@@ -651,3 +651,43 @@ test('full stack: refreshing keeps the chat, and a film still being written is p
   await page.getByTestId('nav-story').click()
   await expect(page.getByTestId('panel-story')).toBeVisible()
 })
+
+test('full stack: characters get a drawn portrait for their age and gender (girl, boy, all ages)', async ({ page, request }) => {
+  await preparePage(page)
+  const email = 'portrait-user@dev.local'
+  const auth = { Authorization: `Bearer dev:${email}` }
+  await page.addInitScript(e => localStorage.setItem('cineai.token', `dev:${e}`), email)
+  await page.goto('/director')
+  await page.getByLabel('Message the AI Director').fill('A village school gets a robot teacher')
+  await page.keyboard.press('Enter')
+  await expect(page.getByTestId('panel-story')).toBeVisible({ timeout: 20_000 })
+  await page.getByTestId('nav-characters').click()
+  const panel = page.getByTestId('panel-characters')
+
+  const add = async (name: string, age: string, gender: 'female' | 'male', band: string) => {
+    await panel.getByRole('button', { name: /Add Character/ }).click()
+    const form = page.getByTestId('character-form')
+    await form.getByPlaceholder('e.g. Sundar').fill(name)
+    await form.getByPlaceholder('e.g. 12').fill(age)
+    await form.getByLabel('Girl / Boy').selectOption(gender)
+    await expect(form.getByTestId('portrait-band')).toContainText(band)
+    await form.getByRole('button', { name: 'Add character', exact: true }).click()
+    await expect(page.getByTestId('character-form')).toHaveCount(0)
+  }
+  await add('Pinky', '8', 'female', 'Child · girl / woman')
+  await add('Dada Ji', '76', 'male', 'Senior · boy / man')
+
+  // Their portraits are the drawings (no generated image yet), and differ from each other
+  const pinky = panel.getByRole('img', { name: 'Pinky' }).first()
+  const dada = panel.getByRole('img', { name: 'Dada Ji' }).first()
+  await expect(pinky).toHaveAttribute('src', /^data:image\/svg\+xml/)
+  await expect(dada).toHaveAttribute('src', /^data:image\/svg\+xml/)
+  expect(await pinky.getAttribute('src')).not.toBe(await dada.getAttribute('src'))
+  // The drawing actually loads
+  expect(await dada.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true)
+
+  const [p] = await (await request.get(`${API}/api/v1/projects`, { headers: auth })).json()
+  const chars = (await (await request.get(`${API}/api/v1/projects/${p.id}`, { headers: auth })).json()).memory.characters
+  expect(chars.slice(-2).map((c: { name: string; age: string; gender: string }) => [c.name, c.age, c.gender]))
+    .toEqual([['Pinky', '8', 'female'], ['Dada Ji', '76', 'male']])
+})
