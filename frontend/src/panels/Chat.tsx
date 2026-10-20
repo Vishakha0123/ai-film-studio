@@ -198,6 +198,8 @@ export default function Chat({ progress, onAdvance, onGenerate, onOpenPanel, gen
         ? (async () => {
             setStatus('Creating your project')
             const created = await createProject(genres ?? [], newFilmLanguage)
+            // Remember the film right away: a refresh while it's being written reopens it and waits.
+            if (alive.current) setProject(created)
             await uploadAll(created.id)
             const prompt = text || `Turn the attached ${attached.length === 1 ? 'file' : 'files'} into a teaser.`
             await saveBrief(created.id, { prompt, genres, language: newFilmLanguage, teaserSeconds: preferences.teaserSeconds, aspectRatio: preferences.aspectRatio })

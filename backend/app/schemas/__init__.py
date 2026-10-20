@@ -335,6 +335,24 @@ class Preferences(Schema):
     voice_pace: float = Field(default=1.0, ge=0.5, le=2.0)
 
 
+class ChatLine(Schema):
+    """One message of the AI Director chat, kept with the project so a refresh (or another device) shows it."""
+    id: str = Field(max_length=80)
+    role: Literal["user", "ai"]
+    content: str = ""
+    card: str | None = Field(default=None, max_length=20)
+    attachments: list[str] = Field(default=[], max_length=10)
+
+    @field_validator("content", mode="before")
+    @classmethod
+    def _trim(cls, v):
+        return str(v or "")[:6000]
+
+
+class ChatLog(Schema):
+    messages: list[ChatLine] = Field(max_length=500)
+
+
 class VoicePreviewRequest(Schema):
     voice: str = Field(default="shubh", max_length=40)
     pace: float = Field(default=1.0, ge=0.5, le=2.0)

@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom'
 import type { ChatMessage, NavFn, Panel, Preferences, ProjectData, Screen } from './types'
 import { DEFAULT_PREFERENCES, FILM_PROJECT, PANELS } from './types'
-import { DEMO_MODE, getMe, getProject, getToken } from './api'
+import { DEMO_MODE, getMe, getProject, getToken, listProjectJobs, saveChat, waitForJob } from './api'
 import { AUTH_EVENT } from './api/client'
 import { StudioContext, type StudioContextValue } from './studio'
 import { isPanelLocked, isTeaserLocked } from './features'
@@ -145,21 +145,84 @@ function Screens({ replyDelay, generationStepMs }: AppProps) {
     getMe().then(me => setPreferences(me.preferences)).catch(() => undefined)
   }, [signedIn])
 
+  const currentId = useRef<string | null>(null)
   const setProject = useCallback((p: ProjectData | null) => {
+    currentId.current = p?.id ?? null
     setProjectState(p)
     writeProjectId(p?.id ?? null)
   }, [])
 
+  /**
+   * A film that was still being written when the page was refreshed (or opened from Projects): the
+   * server keeps writing it, so show where it's at, wait for it, then open the finished film.
+   */
+  const resumeWriting = useCallback(async (p: ProjectData) => {
+    if (DEMO_MODE || p.memory) return
+    const latest = (await listProjectJobs(p.id).catch(() => [])).find(j => j.task === 'plan')
+    if (!latest || latest.status === 'completed') return
+    const msgId = `resume-${latest.id}`
+    const say = (content: string, card?: ChatMessage['card']) => {
+      if (currentId.current === p.id) setMessages(m => [...m.filter(x => x.id !== msgId), { id: msgId, role: 'ai', content, card }])
+    }
+    if (latest.status !== 'queued' && latest.status !== 'running') {
+      say(`Your last idea didn't finish: ${latest.error || latest.status}. Send it again to try once more.`)
+      return
+    }
+    const stale = latest.updatedAt ? Date.now() - Date.parse(latest.updatedAt) > 10 * 60_000 : false
+    if (stale) {
+      say('Writing this film stopped (the studio was restarted). Send your idea again to start over.')
+      return
+    }
+    say(`Still writing your film — ${latest.stage || 'starting'}… This keeps going even if you refresh.`)
+    try {
+      const done = await waitForJob(latest, j => say(`Still writing your film — ${j.stage || 'working'}… This keeps going even if you refresh.`))
+      if (currentId.current !== p.id) return
+      if (done.status !== 'completed') {
+        say(`The film didn't finish: ${done.error || done.status}. Send your idea again.`)
+        return
+      }
+      const full = await getProject(p.id)
+      if (currentId.current !== p.id) return
+      setProject(full)
+      setProgress(PLANNED_PROGRESS)
+      say(`"${full.title}" is ready — story, characters, screenplay, dialogue and more. Pick any stage on the left.`, 'story')
+    } catch {
+      say('Lost track of the film while it was being written. Open it again from Projects in a minute.')
+    }
+  }, [setProject])
+
   const openProject = useCallback((p: ProjectData) => {
     setProject(p)
     setProgress(p.memory ? PLANNED_PROGRESS : 0)
-    setMessages(() => [
-      ...initialMessages(),
-      ...(p.memory
-        ? [{ id: `opened-${p.id}`, role: 'ai' as const, content: `"${p.title}" is open — pick any stage on the left, or generate the teaser.`, card: 'generate' as const }]
-        : []),
-    ])
-  }, [setProject])
+    const saved = (p.brief as { chat?: unknown } | undefined)?.chat
+    // A "still writing…" note saved just before a refresh is out of date once the film is finished.
+    const chat = Array.isArray(saved)
+      ? (saved as ChatMessage[]).filter(m => !(p.memory && m.id.startsWith('resume-')))
+      : []
+    if (p.memory && Array.isArray(saved) && chat.length < saved.length) {
+      chat.push({ id: `opened-${p.id}`, role: 'ai', content: `"${p.title}" is ready — pick any stage on the left.`, card: 'story' })
+    }
+    setMessages(() => chat.length
+      ? chat
+      : [
+          ...initialMessages(),
+          ...(p.memory
+            ? [{ id: `opened-${p.id}`, role: 'ai' as const, content: `"${p.title}" is open — pick any stage on the left, or generate the teaser.`, card: 'generate' as const }]
+            : []),
+        ])
+    void resumeWriting(p)
+  }, [setProject, resumeWriting])
+
+  // The conversation is saved with the film (shortly after each change), so a refresh keeps it.
+  const projectId = project?.id
+  useEffect(() => {
+    if (DEMO_MODE || !projectId || !messages.some(m => m.role === 'user')) return
+    const t = setTimeout(() => { saveChat(projectId, messages).catch(() => undefined) }, 250)
+    // Closing or refreshing the tab before the save runs: send it right away (keepalive survives the unload).
+    const flush = () => { clearTimeout(t); saveChat(projectId, messages, true).catch(() => undefined) }
+    window.addEventListener('pagehide', flush)
+    return () => { clearTimeout(t); window.removeEventListener('pagehide', flush) }
+  }, [messages, projectId])
 
   const [filmKey, setFilmKey] = useState(0)
   const newFilm = useCallback((nextGenres: string[] = []) => {

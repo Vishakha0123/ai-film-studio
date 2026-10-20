@@ -116,6 +116,18 @@ export async function regenerateAsset(assetId: string): Promise<Job> {
   return request<Job>(`/assets/${encodeURIComponent(assetId)}/regenerate`, { method: 'POST' })
 }
 
+/** Keeps the AI Director conversation with the film (so a refresh or another device shows it). */
+export async function saveChat(projectId: string, messages: import('../types').ChatMessage[], keepalive = false): Promise<void> {
+  if (DEMO_MODE) return
+  await request<void>(`/projects/${encodeURIComponent(projectId)}/chat`, { method: 'PUT', body: JSON.stringify({ messages }), keepalive })
+}
+
+/** The film's jobs, newest first; `active` = only ones still queued or running. */
+export async function listProjectJobs(projectId: string, active = false): Promise<Job[]> {
+  if (DEMO_MODE) return []
+  return request<Job[]>(`/projects/${encodeURIComponent(projectId)}/jobs${active ? '?active=true' : ''}`)
+}
+
 export async function getJob(id: string): Promise<Job> {
   return request<Job>(`/jobs/${encodeURIComponent(id)}`)
 }

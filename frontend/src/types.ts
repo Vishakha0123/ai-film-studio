@@ -136,6 +136,7 @@ export interface Job {
   result: Record<string, unknown>
   cost: number
   error: string
+  updatedAt?: string
 }
 
 export interface CostEstimate {

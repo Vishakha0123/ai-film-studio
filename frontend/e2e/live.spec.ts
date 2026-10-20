@@ -61,7 +61,8 @@ test('full stack: login → plan with AI → generate assets → teaser → rend
 
   // Reload keeps the project: all stages open, generated portraits shown
   await page.goto('/director')
-  await expect(page.getByText('is open — pick any stage')).toBeVisible()
+  // …and the conversation is still there
+  await expect(page.getByTestId('panel-chat')).toContainText("A grieving composer hears messages in her late husband's symphony")
   await page.getByTestId('nav-characters').click()
   const portrait = page.getByTestId('panel-characters').getByRole('img', { name: 'Elena Vasquez' }).first()
   await expect(portrait).toHaveAttribute('src', /\/media\/projects\/.+\/character_image\/1-v1\.svg$/)
@@ -625,4 +626,28 @@ test('full stack: a Punjabi film whose screenplay came out in English offers "Re
   expect(body.instruction).toContain('Translate the whole screenplay into Punjabi (ਪੰਜਾਬੀ)')
   await expect(banner.getByRole('button', { name: 'Rewrite in Punjabi' })).toBeEnabled({ timeout: 15_000 })
   await expect(banner.getByRole('alert')).toHaveCount(0)
+})
+
+test('full stack: refreshing keeps the chat, and a film still being written is picked up after a refresh', async ({ page }) => {
+  await preparePage(page)
+  await page.addInitScript(() => localStorage.setItem('cineai.token', 'dev:refresh-user@dev.local'))
+  await page.goto('/director')
+
+  // 1. Refresh in the middle of writing: the film is remembered and the page waits for it
+  await page.getByLabel('Message the AI Director').fill('A tailor in Jaipur sews a coat that grants wishes [slow]')
+  await page.keyboard.press('Enter')
+  await page.waitForTimeout(1500)
+  await page.reload()
+  const chat = page.getByTestId('panel-chat')
+  await expect(chat).toContainText('A tailor in Jaipur sews a coat that grants wishes')
+  await expect(chat).toContainText('Still writing your film')
+  await expect(chat).toContainText('is ready', { timeout: 20_000 })
+  await expect(page.getByTestId('nav-story')).toBeVisible()
+
+  // 2. A plain refresh keeps the whole conversation
+  await page.reload()
+  await expect(chat).toContainText('A tailor in Jaipur sews a coat that grants wishes')
+  await expect(chat).toContainText('is ready')
+  await page.getByTestId('nav-story').click()
+  await expect(page.getByTestId('panel-story')).toBeVisible()
 })

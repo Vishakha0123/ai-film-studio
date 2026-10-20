@@ -12,7 +12,7 @@ from app.db import get_db
 from app.models import AIJob, Asset, Project, ProjectDocument, UsageEvent, User, WorkflowStep
 from app.schemas import (ApproveRequest, AssetListItem, AssetOut, Brief, CostEstimate, DocumentOut, EditRequest, FilmProject, Transcript,
                          BulkDeleteRequest, BulkDeleteResult, CharacterInput, MemoryPatch, GenerateRequest, JobOut, LanguageVersionOut, LanguageVersionRequest, Me, PlanRequest, Preferences, ProjectCreate, ProjectOut, ProjectSummary,
-                         ProjectUpdate, RenderRequest, VoicePreviewRequest)
+                         ProjectUpdate, RenderRequest, VoicePreviewRequest, ChatLog)
 from app.providers import ProviderError, stt_provider, tts_provider
 from app.services import storage
 from app.services.documents import MAX_FILES_PER_PROJECT, DocumentError, validate_and_extract
@@ -216,7 +216,8 @@ def get_project(project_id: str, db: Session = Depends(get_db), user: CurrentUse
 @router.post("/projects/{project_id}/brief", response_model=ProjectOut)
 def update_brief(project_id: str, body: Brief, db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
     project = _own_project(db, project_id, user)
-    project.brief = body.model_dump(by_alias=True)
+    chat = (project.brief or {}).get("chat")
+    project.brief = body.model_dump(by_alias=True) | ({"chat": chat} if chat else {})
     project.language = body.language
     if body.genres:
         project.genre = " / ".join(body.genres)
@@ -241,7 +242,8 @@ def create_language_version(project_id: str, body: LanguageVersionRequest, backg
     if count >= settings.MAX_PROJECTS_PER_USER:
         raise HTTPException(429, detail="Project limit reached")
     version = Project(user_id=user.id, title=source.title, genre=source.genre, language=body.language,
-                      brief={**(source.brief or {}), "language": body.language, "versionOf": source.id})
+                      brief={**{k: v for k, v in (source.brief or {}).items() if k != "chat"},
+                             "language": body.language, "versionOf": source.id})
     db.add(version)
     db.flush()
     for d in db.scalars(select(ProjectDocument).where(ProjectDocument.project_id == source.id)).all():
@@ -423,6 +425,29 @@ def regenerate(asset_id: str, background: BackgroundTasks, db: Session = Depends
     project = _own_project(db, asset.project_id, user)
     return create_job(db, background, project_id=project.id, user_id=user.id, task="regenerate",
                       params={"asset_id": asset.id})
+
+
+CHAT_KEEP = 150  # newest messages kept per project
+
+
+@router.put("/projects/{project_id}/chat", status_code=204)
+def save_chat(project_id: str, body: ChatLog, db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
+    """Keeps the AI Director conversation with the film, so refreshing the page doesn't lose it."""
+    project = _own_project(db, project_id, user)
+    lines = [m.model_dump(by_alias=True, exclude_defaults=True) for m in body.messages][-CHAT_KEEP:]
+    project.brief = {**(project.brief or {}), "chat": lines}
+    db.commit()
+
+
+@router.get("/projects/{project_id}/jobs", response_model=list[JobOut])
+def project_jobs(project_id: str, active: bool = False, db: Session = Depends(get_db),
+                 user: CurrentUser = Depends(get_current_user)):
+    """The film's jobs, newest first (active=true: only ones still queued or running) — lets a refreshed page pick up where it was."""
+    _own_project(db, project_id, user)
+    q = select(AIJob).where(AIJob.project_id == project_id, AIJob.user_id == user.id)
+    if active:
+        q = q.where(AIJob.status.in_(("queued", "running")))
+    return db.scalars(q.order_by(AIJob.created_at.desc()).limit(20)).all()
 
 
 @router.get("/jobs/{job_id}", response_model=JobOut)

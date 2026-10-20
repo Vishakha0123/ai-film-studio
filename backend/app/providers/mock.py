@@ -23,6 +23,9 @@ SAMPLE_LYRICS = {
 
 class MockStory(StoryProvider):
     async def plan_film(self, brief: dict) -> ProviderResult:
+        if "[slow]" in str(brief.get("prompt", "")):  # lets tests refresh the page while a film is being written
+            import asyncio
+            await asyncio.sleep(6)
         film = copy.deepcopy(SAMPLE)
         if brief.get("genres"):
             film["genre"] = " / ".join(brief["genres"][:2])
