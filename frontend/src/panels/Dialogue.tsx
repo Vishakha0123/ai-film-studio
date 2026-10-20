@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import LanguageFix from '../components/LanguageFix'
 import { useFilm } from '../studio'
 import { useFilmEdit } from '../lib/useFilmEdit'
 import type { DialogueLine } from '../types'
@@ -96,6 +97,8 @@ export default function Dialogue() {
           </h2>
           {scene && <p className="text-sm text-zinc-500">{scene.description} · Mood: {scene.mood}</p>}
         </div>
+
+        {live && <LanguageFix target="dialogue" text={lines.map(l => l.text).join(' ')} what="dialogue" />}
 
         {/* One tab per scene, with how many lines it has */}
         {scenes.length > 1 && (

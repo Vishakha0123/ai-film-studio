@@ -4,6 +4,7 @@ import { useFilm, useStudio } from '../studio'
 import type { Lyrics as LyricsData } from '../types'
 import { useFilmEdit } from '../lib/useFilmEdit'
 import DirectAI from '../components/DirectAI'
+import LanguageFix from '../components/LanguageFix'
 
 const SECTIONS = ['Verse', 'Pre-Chorus', 'Chorus', 'Bridge'] as const
 type Section = typeof SECTIONS[number]
@@ -82,6 +83,7 @@ export default function Lyrics() {
           </div>
         ) : (
           <>
+            <LanguageFix target="lyrics" text={SECTIONS.map(sec => original[sec]).join('\n')} what="song" />
             {/* Section tabs */}
             <div role="tablist" className="flex gap-1 p-1 rounded-xl" style={{ backgroundColor: '#111113', border: '1px solid rgba(255,255,255,0.06)' }}>
               {SECTIONS.map(s => (

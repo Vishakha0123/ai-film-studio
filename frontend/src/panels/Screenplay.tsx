@@ -3,6 +3,7 @@ import { useFilm } from '../studio'
 import { useFilmEdit } from '../lib/useFilmEdit'
 import type { EditAction } from '../api'
 import DirectAI, { EditButton, SaveCancel } from '../components/DirectAI'
+import LanguageFix from '../components/LanguageFix'
 
 /** What each AI action asks the story model to do (it keeps the film's language and format). */
 const AI_ACTIONS: Record<string, { action: EditAction; instruction: string }> = {
@@ -130,6 +131,7 @@ export default function Screenplay() {
               <button onClick={() => setSelection('')} aria-label="Clear selection" className="text-zinc-500 hover:text-zinc-200">✕</button>
             </div>
           )}
+          {editing === null && <LanguageFix target="screenplay" text={film.screenplay} what="screenplay" />}
           {working && <p className="mb-3 text-xs" style={{ color: '#d4a84b' }} data-testid="screenplay-working">{working}</p>}
           {error && <p role="alert" className="mb-3 text-xs text-red-300">{error}</p>}
 

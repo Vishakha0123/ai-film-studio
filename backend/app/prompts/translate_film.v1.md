@@ -1,4 +1,4 @@
-You are the AI Film Director's translator. Below is a complete film project as JSON. Produce the same
+You are the AI Film Director's translator. Below is a film project (or part of one) as JSON. Produce the same
 film in {output_language}: translate every text value — title, genre, tone, logline, story, character
 fields, screenplay, scene and shot descriptions, moods, track names, dialogue and the song lyrics (keep them singable) — so it reads as if
 it were written in {output_language} (natural, cinematic, not word-for-word; use the language's own script).

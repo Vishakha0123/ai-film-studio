@@ -988,3 +988,59 @@ def test_first_requests_of_a_new_user_at_the_same_time(client, monkeypatch):
     monkeypatch.setattr(S, "commit", racing_commit)
     r = client.get("/api/v1/me", headers=auth("race@x.io"))
     assert state["raced"] and r.status_code == 200 and r.json()["email"] == "race@x.io"
+
+
+def test_script_check_spots_an_english_screenplay_in_a_punjabi_film():
+    from app.services.script_check import in_language, wrong_language_fields
+    english = "EXT. MUMBAI ROOFTOP - NIGHT\nRain lashes down. ARJUN (55) leaps across a gap between two buildings.\nCUT TO:"
+    punjabi = "EXT. ਮੁੰਬਈ ਛੱਤ - ਰਾਤ\nਮੀਂਹ ਜ਼ੋਰ ਨਾਲ ਪੈ ਰਿਹਾ ਹੈ। ਅਰਜੁਨ (55) ਦੋ ਇਮਾਰਤਾਂ ਵਿਚਕਾਰ ਛਾਲ ਮਾਰਦਾ ਹੈ।\nCUT TO:"
+    assert not in_language(english, "pa") and in_language(punjabi, "pa")
+    assert in_language(english, "en")  # English films aren't checked
+    film = {"screenplay": english, "story": "ਇੱਕ ਬਦਲੇ ਦੀ ਕਹਾਣੀ ਜੋ ਮੀਂਹ ਵਿੱਚ ਸ਼ੁਰੂ ਹੁੰਦੀ ਹੈ ਅਤੇ ਖ਼ਤਮ ਹੁੰਦੀ ਹੈ।", "logline": "short"}
+    assert wrong_language_fields(film, "pa") == ["screenplay"]
+
+
+PUNJABI_SCRIPT = "ਬਾਂਦਰਾਂ ਦੀ ਬਾਰਿਸ਼\n\nFADE IN:\n\nEXT. ਮੁੰਬਈ ਛੱਤ - ਰਾਤ\n\nਮੀਂਹ ਜ਼ੋਰ ਨਾਲ ਪੈ ਰਿਹਾ ਹੈ। ਅਰਜੁਨ ਦੋ ਇਮਾਰਤਾਂ ਵਿਚਕਾਰ ਛਾਲ ਮਾਰਦਾ ਹੈ ਅਤੇ ਚਾਕੂ ਕੱਢਦਾ ਹੈ।"
+
+
+def _translate_screenplay_only(monkeypatch):
+    from app.providers.base import ProviderResult
+    from app.providers.mock import MockStory
+    calls = []
+
+    async def translate(self, memory, language):
+        calls.append(sorted(memory))
+        out = dict(memory)
+        if "screenplay" in out:
+            out["screenplay"] = PUNJABI_SCRIPT
+        return ProviderResult(out, provider="mock", model="echo")
+    monkeypatch.setattr(MockStory, "translate_film", translate)
+    return calls
+
+
+def test_plan_puts_an_english_screenplay_into_the_film_language(client, monkeypatch):
+    calls = _translate_screenplay_only(monkeypatch)
+    p = client.post("/api/v1/projects", json={"genres": ["Action"]}, headers=auth()).json()
+    client.post(f"/api/v1/projects/{p['id']}/brief", json={"prompt": "Revenge in the rain", "language": "pa"}, headers=auth())
+    job = client.post(f"/api/v1/projects/{p['id']}/plan", json={}, headers=auth()).json()
+    assert client.get(f"/api/v1/jobs/{job['id']}", headers=auth()).json()["status"] == "completed"
+    memory = client.get(f"/api/v1/projects/{p['id']}", headers=auth()).json()["memory"]
+    assert memory["screenplay"] == PUNJABI_SCRIPT
+    assert calls and "screenplay" in calls[0] and "shots" not in calls[0]  # only the wrong parts are sent
+
+
+def test_edit_that_comes_back_in_english_is_put_into_the_film_language(client, monkeypatch):
+    p = client.post("/api/v1/projects", json={"genres": ["Action"]}, headers=auth()).json()
+    client.post(f"/api/v1/projects/{p['id']}/brief", json={"prompt": "Revenge in the rain", "language": "pa"}, headers=auth())
+    client.post(f"/api/v1/projects/{p['id']}/plan", json={}, headers=auth())
+    calls = _translate_screenplay_only(monkeypatch)
+    job = client.post(f"/api/v1/projects/{p['id']}/improve", json={"target": "screenplay", "instruction": "Add more tension"}, headers=auth()).json()
+    assert client.get(f"/api/v1/jobs/{job['id']}", headers=auth()).json()["status"] == "completed"
+    assert client.get(f"/api/v1/projects/{p['id']}", headers=auth()).json()["memory"]["screenplay"] == PUNJABI_SCRIPT
+    assert calls == [["screenplay"]]
+
+
+def test_english_films_are_never_translated(client, monkeypatch):
+    calls = _translate_screenplay_only(monkeypatch)
+    _plan(client)
+    assert calls == []

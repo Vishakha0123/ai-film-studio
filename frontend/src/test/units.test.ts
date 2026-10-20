@@ -50,3 +50,18 @@ describe('workflow', () => {
     expect(PANEL_ORDER).toHaveLength(8)
   })
 })
+
+import { isInFilmLanguage } from '../lib/languages'
+
+describe('film language check', () => {
+  const english = 'EXT. MUMBAI ROOFTOP - NIGHT\nRain lashes down. ARJUN (55) leaps across a gap between two buildings.\nCUT TO:'
+  const punjabi = 'EXT. ਮੁੰਬਈ ਛੱਤ - ਰਾਤ\nਮੀਂਹ ਜ਼ੋਰ ਨਾਲ ਪੈ ਰਿਹਾ ਹੈ। ਅਰਜੁਨ ਦੋ ਇਮਾਰਤਾਂ ਵਿਚਕਾਰ ਛਾਲ ਮਾਰਦਾ ਹੈ।\nCUT TO:'
+  it('spots an English screenplay in a Punjabi film, ignoring INT./EXT./CUT TO:', () => {
+    expect(isInFilmLanguage(english, 'pa')).toBe(false)
+    expect(isInFilmLanguage(punjabi, 'pa')).toBe(true)
+  })
+  it('never flags English films or very short text', () => {
+    expect(isInFilmLanguage(english, 'en')).toBe(true)
+    expect(isInFilmLanguage('Arjun', 'pa')).toBe(true)
+  })
+})

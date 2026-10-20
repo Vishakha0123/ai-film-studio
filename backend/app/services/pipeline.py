@@ -27,6 +27,7 @@ from app.providers import ProviderError, image_provider, story_provider, tts_pro
 from app.providers.base import ProviderResult
 from app.schemas import FilmProject, Preferences
 from app.services import storage
+from app.services.script_check import CHECKED, wrong_language_fields
 
 log = logging.getLogger("cineai.pipeline")
 T = TypeVar("T")
@@ -179,6 +180,7 @@ async def task_plan(db: Session, job: AIJob, project: Project) -> dict:
         raise NeedsReview(f"The story model returned an incomplete plan ({_problems(e)}). Try again.") from e
     if prefs.visual_style and not memory.get("visualStyle"):
         memory["visualStyle"] = prefs.visual_style  # Settings → Visual style is where every new film starts
+    memory = await fix_language(db, job, memory, brief["language"])
     project.memory = memory
     project.title = memory["title"][:300]
     project.genre = memory.get("genre", project.genre)[:200]
@@ -186,6 +188,39 @@ async def task_plan(db: Session, job: AIJob, project: Project) -> dict:
     mark_outdated(db, project.id, ["character_image", "storyboard_image", "video_clip", "voice", "render"])
     db.commit()
     return {"title": project.title}
+
+
+async def fix_language(db: Session, job: AIJob, memory: dict, language: str, only: tuple[str, ...] = CHECKED) -> dict:
+    """If the model wrote some parts in the wrong language (often the screenplay in English), translate just those.
+
+    One extra pass at most; if it still isn't right we keep what we have rather than fail the job.
+    """
+    wrong = wrong_language_fields(memory, language, only)
+    if not wrong:
+        return memory
+    log.warning("film language %s: %s came back in another language — translating them", language, ", ".join(wrong))
+    set_progress(db, job, "Putting everything in the film's language", 85)
+    try:
+        res = await with_retry(lambda: story_provider().translate_film({k: memory[k] for k in wrong}, language), job, db)
+    except ProviderError:
+        return memory
+    record_usage(db, job, res)
+    data = res.data if isinstance(res.data, dict) else {}
+    fixed = dict(memory)
+    for k in wrong:
+        new, old = data.get(k), memory[k]
+        if isinstance(old, list):
+            if isinstance(new, list) and len(new) == len(old):
+                fixed[k] = [{**o, **n} if isinstance(o, dict) and isinstance(n, dict) else o for o, n in zip(old, new)]
+        elif isinstance(old, dict):
+            if isinstance(new, dict):
+                fixed[k] = {**old, **new}
+        elif isinstance(new, str) and new.strip():
+            fixed[k] = new
+    try:
+        return validate_film(fixed)
+    except ValidationError:
+        return memory
 
 
 EDIT_DEPENDENTS = {
@@ -304,6 +339,8 @@ async def task_edit(db: Session, job: AIJob, project: Project) -> dict:
         project.memory = validate_film(memory)
     except ValidationError as e:
         raise NeedsReview(f"The AI's reply didn't fit the {target} format ({_problems(e)}). Try again, or say it differently.") from e
+    if target in CHECKED:
+        project.memory = await fix_language(db, job, project.memory, project.language or "en", (target,))
     outdated = mark_outdated(db, project.id, EDIT_DEPENDENTS.get(target, []))
     db.commit()
     return {"target": target, "outdatedAssets": outdated}
@@ -536,6 +573,7 @@ async def task_translate(db: Session, job: AIJob, project: Project) -> dict:
         memory = validate_film(data)
     except ValidationError as e:
         raise NeedsReview(f"The translated film was incomplete ({_problems(e)}). Try again.") from e
+    memory = await fix_language(db, job, memory, language)
 
     copied = 0
     for a in db.scalars(select(Asset).where(Asset.project_id == source.id, Asset.type.in_(VISUAL_ASSET_TYPES),

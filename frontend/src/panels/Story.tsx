@@ -3,6 +3,7 @@ import { DEMO_MODE, approveStep, assertCompleted, editProject, waitForJob, type 
 import { useFilm, useStudio } from '../studio'
 import { useFilmEdit } from '../lib/useFilmEdit'
 import DirectAI, { EditButton, SaveCancel, fieldCls } from '../components/DirectAI'
+import LanguageFix from '../components/LanguageFix'
 
 const ACTIONS = ['Accept', 'Rewrite', 'Continue', 'Make Darker', 'Change Ending', 'Regenerate']
 
@@ -100,6 +101,7 @@ export default function Story() {
           ))}
         </div>
 
+        {!editing && <LanguageFix target="story" text={`${f.story}`} what="story" />}
         {editing ? (
           <div className="px-5 py-5 rounded-xl space-y-4" style={{ backgroundColor: '#111113', border: '1px solid rgba(212,168,75,0.25)' }} data-testid="story-edit">
             <label className="block">

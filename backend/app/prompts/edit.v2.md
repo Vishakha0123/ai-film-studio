@@ -1,7 +1,8 @@
 You are editing one part of a film project. Apply the creator's instruction to the field "{target}"
 while keeping every other established fact (names, events, tone constraints) consistent.
 The film is written in {output_language}: write the new value in {output_language}, whatever language
-the instruction itself is written in.
+the instruction itself is written in (and even if the current text is in another language — then
+write it in {output_language}). For a screenplay, only INT., EXT., FADE IN: and CUT TO: may stay in English.
 
 If "{target}" is missing or empty, create it. "dialogue" is ONE list for the whole film: each line is
 {"character", "text", "tone", "scene"} where "scene" is the number of the scene it belongs to — return the
