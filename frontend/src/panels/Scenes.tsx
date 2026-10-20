@@ -1,7 +1,39 @@
 import { isTeaserLocked } from '../features'
 import { ComingSoonButton } from '../components/LockIcon'
+import { useState } from 'react'
 import { useFilm } from '../studio'
-import { filmSeconds } from '../types'
+import { filmSeconds, type Scene } from '../types'
+import { useFilmEdit } from '../lib/useFilmEdit'
+import DirectAI, { EditButton, SaveCancel, fieldCls } from '../components/DirectAI'
+
+type SceneDraft = Omit<Scene, 'characters'> & { characters: string }
+
+/** Hand edit of one scene: place, time, what happens, mood, length and who's in it. */
+function SceneEditor({ scene, onSave, onCancel, saving, error }: { scene: Scene; onSave: (s: Scene) => void; onCancel: () => void; saving: boolean; error: string | null }) {
+  const [d, setD] = useState<SceneDraft>({ ...scene, characters: scene.characters.join(', ') })
+  const set = <K extends keyof SceneDraft>(k: K, v: SceneDraft[K]) => setD(x => ({ ...x, [k]: v }))
+  return (
+    <div className="space-y-3" data-testid="scene-edit">
+      <div className="grid grid-cols-[1fr_120px] gap-2">
+        <input aria-label="Location" value={d.location} onChange={e => set('location', e.target.value)} placeholder="INT. KITCHEN" className={fieldCls} />
+        <input aria-label="Time" value={d.time} onChange={e => set('time', e.target.value)} placeholder="NIGHT" className={fieldCls} />
+      </div>
+      <textarea aria-label="What happens" rows={3} value={d.description} onChange={e => set('description', e.target.value)} className={`${fieldCls} resize-y`} />
+      <div className="grid grid-cols-2 sm:grid-cols-[1fr_100px_2fr] gap-2">
+        <input aria-label="Mood" value={d.mood} onChange={e => set('mood', e.target.value)} placeholder="Mood" className={fieldCls} />
+        <input aria-label="Scene length" value={d.duration} onChange={e => set('duration', e.target.value)} placeholder="3s" className={fieldCls} />
+        <input aria-label="Characters in scene" value={d.characters} onChange={e => set('characters', e.target.value)} placeholder="Names, separated by commas" className={`${fieldCls} col-span-2 sm:col-span-1`} />
+      </div>
+      <SaveCancel
+        saving={saving}
+        saveLabel="Save scene"
+        onCancel={onCancel}
+        onSave={() => onSave({ ...d, location: d.location.trim(), time: d.time.trim(), characters: d.characters.split(',').map(c => c.trim()).filter(Boolean) })}
+      />
+      {error && <p role="alert" className="text-xs text-red-300">{error}</p>}
+    </div>
+  )
+}
 
 const CHECKLIST = [
   { label: 'Story', done: true },
@@ -24,6 +56,11 @@ export default function Scenes({ onGenerate }: { onGenerate: () => void }) {
   const film = useFilm()
   const scenes = film.scenes
   const totalDuration = `${filmSeconds(film)}s`
+  const { working, error, save } = useFilmEdit()
+  const [editing, setEditing] = useState<string | null>(null)
+  const saveScene = async (updated: Scene) => {
+    if (await save(`Saving scene ${updated.number}…`, { scenes: scenes.map(sc => (sc.id === updated.id ? updated : sc)) })) setEditing(null)
+  }
 
   return (
     <div className="h-full overflow-y-auto px-4 sm:px-6 py-8" data-testid="panel-scenes">
@@ -41,7 +78,11 @@ export default function Scenes({ onGenerate }: { onGenerate: () => void }) {
           {scenes.map((scene, i) => {
             const mood = MOOD_COLORS[scene.mood] || '#52525b'
             return (
-              <div key={scene.id} className="px-5 py-4 rounded-xl border" style={{ backgroundColor: '#111113', borderColor: 'rgba(255,255,255,0.07)' }}>
+              <div key={scene.id} className="px-5 py-4 rounded-xl border" style={{ backgroundColor: '#111113', borderColor: editing === scene.id ? 'rgba(212,168,75,0.3)' : 'rgba(255,255,255,0.07)' }} data-testid="scene-card">
+                {editing === scene.id ? (
+                  <SceneEditor scene={scene} onSave={s => void saveScene(s)} onCancel={() => setEditing(null)} saving={!!working} error={error} />
+                ) : (
+                <>
                 <div className="flex items-start justify-between gap-3 mb-3">
                   <div className="flex items-center gap-3">
                     <span className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0" style={{ backgroundColor: '#1a1a1e', color: '#71717a' }}>
@@ -52,8 +93,9 @@ export default function Scenes({ onGenerate }: { onGenerate: () => void }) {
                       <p className="text-xs text-zinc-500 mt-0.5">{scene.description}</p>
                     </div>
                   </div>
-                  <div className="text-right flex-shrink-0">
+                  <div className="flex items-center gap-2 flex-shrink-0">
                     <p className="text-xs font-semibold" style={{ color: '#d4a84b' }}>{scene.duration}</p>
+                    <EditButton onClick={() => setEditing(scene.id)} disabled={!!working || (editing !== null && editing !== scene.id)} ariaLabel={`Edit scene ${i + 1}`} />
                   </div>
                 </div>
 
@@ -66,10 +108,19 @@ export default function Scenes({ onGenerate }: { onGenerate: () => void }) {
                     <span key={c} className="text-[10px] px-2 py-1 rounded-full" style={{ backgroundColor: '#1a1a1e', color: '#71717a' }}>{c}</span>
                   ))}
                 </div>
+                </>
+                )}
               </div>
             )
           })}
         </div>
+
+        <DirectAI
+          target="scenes"
+          appliesTo="changes the scene breakdown"
+          suggestions={['Add a scene before the climax', 'Make every scene shorter', 'Move the ending to a rooftop', 'Give each scene a stronger mood']}
+          placeholder='Try "Add a flashback scene" or "Make scene 2 happen at night"'
+        />
 
         {/* AI Director Checklist */}
         <div className="px-5 py-5 rounded-xl" style={{ backgroundColor: 'rgba(212,168,75,0.04)', border: '1px solid rgba(212,168,75,0.15)' }}>

@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { DEMO_MODE, approveStep, assertCompleted, editProject, waitForJob, type EditAction } from '../api'
 import { useFilm, useStudio } from '../studio'
+import { useFilmEdit } from '../lib/useFilmEdit'
+import DirectAI, { EditButton, SaveCancel, fieldCls } from '../components/DirectAI'
 
 const ACTIONS = ['Accept', 'Rewrite', 'Continue', 'Make Darker', 'Change Ending', 'Regenerate']
 
@@ -43,6 +45,19 @@ export default function Story() {
   }
 
   const f = useFilm()
+  const edit = useFilmEdit()
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState({ logline: '', tone: '', story: '' })
+  const startEdit = () => {
+    setDraft({ logline: f.logline, tone: f.tone, story: f.story })
+    setEditing(true)
+  }
+  const saveEdit = async () => {
+    if (await edit.save('Saving your story…', { logline: draft.logline.trim(), tone: draft.tone.trim(), story: draft.story.trim() })) {
+      setEditing(false)
+      setAccepted(false)
+    }
+  }
 
   return (
     <div className="h-full overflow-y-auto px-4 sm:px-6 py-8" data-testid="panel-story">
@@ -55,6 +70,8 @@ export default function Story() {
               {f.title}
             </h2>
           </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+          {!editing && <EditButton onClick={startEdit} />}
           {accepted && (
             <div
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium flex-shrink-0"
@@ -66,6 +83,7 @@ export default function Story() {
               Accepted
             </div>
           )}
+          </div>
         </div>
 
         {/* Meta chips */}
@@ -82,19 +100,40 @@ export default function Story() {
           ))}
         </div>
 
-        {/* Logline */}
-        <div className="px-5 py-4 rounded-xl" style={{ backgroundColor: 'rgba(212,168,75,0.06)', border: '1px solid rgba(212,168,75,0.15)' }}>
-          <p className="text-xs font-semibold tracking-widest uppercase mb-2" style={{ color: '#d4a84b' }}>Logline</p>
-          <p className="text-sm leading-relaxed italic" style={{ color: '#e4e0da' }}>{f.logline}</p>
-        </div>
+        {editing ? (
+          <div className="px-5 py-5 rounded-xl space-y-4" style={{ backgroundColor: '#111113', border: '1px solid rgba(212,168,75,0.25)' }} data-testid="story-edit">
+            <label className="block">
+              <span className="text-xs text-zinc-500">Logline</span>
+              <textarea aria-label="Logline" rows={2} value={draft.logline} onChange={e => setDraft(d => ({ ...d, logline: e.target.value }))} className={`${fieldCls} mt-1 resize-y`} />
+            </label>
+            <label className="block">
+              <span className="text-xs text-zinc-500">Tone</span>
+              <input aria-label="Tone" value={draft.tone} onChange={e => setDraft(d => ({ ...d, tone: e.target.value }))} className={`${fieldCls} mt-1`} />
+            </label>
+            <label className="block">
+              <span className="text-xs text-zinc-500">Story <span className="text-zinc-700">(leave a blank line between paragraphs)</span></span>
+              <textarea aria-label="Story text" rows={12} value={draft.story} onChange={e => setDraft(d => ({ ...d, story: e.target.value }))} className={`${fieldCls} mt-1 resize-y leading-relaxed`} />
+            </label>
+            <SaveCancel onSave={() => void saveEdit()} onCancel={() => setEditing(false)} saving={!!edit.working} saveLabel="Save story" />
+            {edit.error && <p role="alert" className="text-xs text-red-300">{edit.error}</p>}
+          </div>
+        ) : (
+          <>
+            {/* Logline */}
+            <div className="px-5 py-4 rounded-xl" style={{ backgroundColor: 'rgba(212,168,75,0.06)', border: '1px solid rgba(212,168,75,0.15)' }}>
+              <p className="text-xs font-semibold tracking-widest uppercase mb-2" style={{ color: '#d4a84b' }}>Logline</p>
+              <p className="text-sm leading-relaxed italic" style={{ color: '#e4e0da' }}>{f.logline}</p>
+            </div>
 
-        {/* Story */}
-        <div className="px-5 py-5 rounded-xl space-y-4" style={{ backgroundColor: '#111113', border: '1px solid rgba(255,255,255,0.06)' }}>
-          <p className="text-xs font-semibold tracking-widest uppercase" style={{ color: '#52525b' }}>Story</p>
-          {f.story.split('\n\n').map((para, i) => (
-            <p key={i} className="text-sm leading-relaxed" style={{ color: '#a1a1aa' }}>{para}</p>
-          ))}
-        </div>
+            {/* Story */}
+            <div className="px-5 py-5 rounded-xl space-y-4" style={{ backgroundColor: '#111113', border: '1px solid rgba(255,255,255,0.06)' }}>
+              <p className="text-xs font-semibold tracking-widest uppercase" style={{ color: '#52525b' }}>Story</p>
+              {f.story.split('\n\n').map((para, i) => (
+                <p key={i} className="text-sm leading-relaxed" style={{ color: '#a1a1aa' }}>{para}</p>
+              ))}
+            </div>
+          </>
+        )}
 
         {/* Action buttons */}
         <div>
@@ -123,13 +162,13 @@ export default function Story() {
         {working && <p className="text-xs" style={{ color: '#d4a84b' }} data-testid="story-working">Revising the story…</p>}
         {error && <p role="alert" className="text-xs text-red-400">{error}</p>}
 
-        {/* Edit via chat */}
-        <div className="flex items-center gap-3 px-4 py-3 rounded-xl border" style={{ borderColor: 'rgba(255,255,255,0.06)', backgroundColor: 'rgba(255,255,255,0.02)' }}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="#52525b" strokeWidth="1.5" className="w-4 h-4 flex-shrink-0">
-            <path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-          <p className="text-xs text-zinc-600">All content editable via chat — "Make it more mysterious", "Set it in Tokyo", "Add a twist"</p>
-        </div>
+        <DirectAI
+          target="story"
+          appliesTo="changes the whole story"
+          suggestions={['Make it more mysterious', 'Set it in Mumbai', 'Add a twist', 'Give it a happy ending']}
+          placeholder='Try "Set it in Tokyo" or "Make the hero a woman"'
+          onDone={() => setAccepted(false)}
+        />
       </div>
     </div>
   )

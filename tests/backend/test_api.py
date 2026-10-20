@@ -965,3 +965,26 @@ def test_bad_reply_error_names_the_fields(client, monkeypatch):
     job = client.post(f"/api/v1/projects/{pid}/improve", json={"target": "dialogue", "instruction": "x"}, headers=auth()).json()
     err = client.get(f"/api/v1/jobs/{job['id']}", headers=auth()).json()["error"]
     assert "dialogue.0.text missing" in err
+
+
+def test_first_requests_of_a_new_user_at_the_same_time(client, monkeypatch):
+    """Signing in fires two requests at once; both must succeed even though both try to create the user."""
+    from sqlalchemy.orm import Session as S
+    from app.models import User
+    original_commit = S.commit
+    state = {"raced": False}
+
+    def racing_commit(self):
+        if not state["raced"] and any(isinstance(o, User) for o in self.new):
+            state["raced"] = True
+            from app.db import SessionLocal
+            other = SessionLocal()
+            from app.auth import decode_token
+            from app.config import get_settings
+            other.add(User(id=decode_token("dev:race@x.io", get_settings()).id, email="race@x.io"))
+            original_commit(other)
+            other.close()
+        return original_commit(self)
+    monkeypatch.setattr(S, "commit", racing_commit)
+    r = client.get("/api/v1/me", headers=auth("race@x.io"))
+    assert state["raced"] and r.status_code == 200 and r.json()["email"] == "race@x.io"

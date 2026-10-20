@@ -1,4 +1,5 @@
 import { isTeaserLocked } from '../features'
+import DirectAI from '../components/DirectAI'
 import { ComingSoonButton } from '../components/LockIcon'
 import { useEffect, useState } from 'react'
 import { filmSeconds, photoUrl } from '../types'
@@ -113,6 +114,14 @@ export default function Storyboard({ onGenerate }: { onGenerate: () => void }) {
             />
           ))}
         </div>
+
+        <DirectAI
+          target="shots"
+          appliesTo={selected ? `changes shot ${shots.find(sh => sh.id === selected)?.number} (click it again to change all shots)` : 'changes all shots (click a shot to change just that one)'}
+          suggestions={['More close-ups', 'Add a drone shot', 'Slower camera moves', 'Make it look like a thriller']}
+          placeholder='Try "Start with a wide shot of the city"'
+          scope={selected ? { item: selected } : {}}
+        />
 
         {/* Generate */}
         <div className="flex flex-wrap items-center justify-between gap-4 pt-4 border-t" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>

@@ -350,8 +350,9 @@ test('full stack: add, edit, change appearance, regenerate and remove characters
   await expect(page.getByTestId('panel-story')).toBeVisible({ timeout: 20_000 })
   await page.getByTestId('nav-characters').click()
   const panel = page.getByTestId('panel-characters')
-  const chips = panel.locator('button[aria-pressed]')
-  const start = await chips.count() - 1 // minus "Add Character"
+  const [proj] = await (await request.get(`${API}/api/v1/projects`, { headers: auth })).json()
+  const start = (await (await request.get(`${API}/api/v1/projects/${proj.id}`, { headers: auth })).json()).memory.characters.length
+  await expect(panel.getByText(`${start} characters`)).toBeVisible()
 
   // Add by hand
   await panel.getByRole('button', { name: /Add Character/ }).click()
@@ -536,4 +537,71 @@ test('full stack: settings — writing & voice defaults shape new films, voice p
   await page.getByRole('button', { name: 'Delete everything' }).click()
   await expect(page.getByTestId('screen-login')).toBeVisible()
   expect(await (await request.get(`${API}/api/v1/projects`, { headers: auth })).json()).toEqual([])
+})
+
+test('full stack: stay signed in on return, and edit every section by hand or with Direct the AI', async ({ page, request }) => {
+  await preparePage(page)
+  const email = 'apple-user@dev.local'
+  const auth = { Authorization: `Bearer dev:${email}` }
+  // Sign in once
+  await page.goto('/login')
+  await page.getByRole('button', { name: 'Continue with Apple' }).click()
+  await page.getByRole('button', { name: 'Skip', exact: true }).click()
+  // Coming back to the site later skips landing and login
+  await page.goto('/')
+  await expect(page).toHaveURL(/\/director$/)
+  await page.goto('/login')
+  await expect(page).toHaveURL(/\/director$/)
+
+  await page.getByLabel('Message the AI Director').fill('A lighthouse keeper adopts a talking seagull')
+  await page.keyboard.press('Enter')
+  await expect(page.getByTestId('panel-story')).toBeVisible({ timeout: 20_000 })
+  const [p] = await (await request.get(`${API}/api/v1/projects`, { headers: auth })).json()
+  const memory = async () => (await (await request.get(`${API}/api/v1/projects/${p.id}`, { headers: auth })).json()).memory
+
+  // Story by hand
+  await page.getByTestId('panel-story').getByRole('button', { name: 'Edit' }).click()
+  await page.getByLabel('Logline').fill('A lonely keeper and a loud seagull save the harbour.')
+  await page.getByRole('button', { name: 'Save story' }).click()
+  await expect(page.getByTestId('story-edit')).toHaveCount(0)
+  await expect(page.getByTestId('panel-story')).toContainText('A lonely keeper and a loud seagull save the harbour.')
+  expect((await memory()).logline).toBe('A lonely keeper and a loud seagull save the harbour.')
+
+  // Story with Direct the AI
+  const storyAI = page.getByTestId('direct-ai-story')
+  await storyAI.getByLabel('Direct the AI').fill('Add a twist')
+  await storyAI.getByRole('button', { name: 'Apply' }).click()
+  await expect(storyAI.getByLabel('Direct the AI')).toHaveValue('', { timeout: 15_000 })
+  await expect(storyAI.getByRole('alert')).toHaveCount(0)
+
+  // Screenplay by hand
+  await page.getByTestId('nav-screenplay').click()
+  await page.getByTestId('panel-screenplay').getByRole('button', { name: 'Edit' }).click()
+  const script = page.getByLabel('Screenplay text')
+  await script.fill(`${await script.inputValue()}\n\nFADE OUT.`)
+  await page.getByRole('button', { name: 'Save screenplay' }).click()
+  await expect(page.getByTestId('screenplay-edit')).toHaveCount(0)
+  expect((await memory()).screenplay.trim().endsWith('FADE OUT.')).toBe(true)
+
+  // One scene by hand
+  await page.getByTestId('nav-scenes').click()
+  await page.getByRole('button', { name: 'Edit scene 1' }).click()
+  await page.getByLabel('Location').fill('EXT. LIGHTHOUSE ROOF')
+  await page.getByRole('button', { name: 'Save scene' }).click()
+  await expect(page.getByTestId('scene-edit')).toHaveCount(0)
+  await expect(page.getByTestId('scene-card').first()).toContainText('EXT. LIGHTHOUSE ROOF')
+  expect((await memory()).scenes[0].location).toBe('EXT. LIGHTHOUSE ROOF')
+
+  // Lyrics typed in place are saved
+  await page.getByTestId('nav-lyrics').click()
+  const verse = page.getByLabel('Verse lyrics')
+  await verse.fill('Gulls above the grey, keeper of the bay')
+  await page.getByRole('button', { name: 'Save lyrics' }).click()
+  await expect(page.getByTestId('lyrics-unsaved')).toHaveCount(0)
+  expect((await memory()).lyrics.verse).toBe('Gulls above the grey, keeper of the bay')
+
+  // A reload keeps you signed in and on your film
+  await page.reload()
+  await expect(page.getByTestId('panel-lyrics')).toBeVisible()
+  await expect(page.getByTestId('screen-login')).toHaveCount(0)
 })

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import DirectAI from '../components/DirectAI'
 import { photoUrl } from '../types'
 import { useFilm, useStudio } from '../studio'
 import type { Character } from '../types'
@@ -160,6 +161,18 @@ export default function Characters() {
               onAppearance={() => setMode({ kind: 'edit', field: 'appearance' })}
             />
           )
+        )}
+
+        {char && mode.kind === 'view' && (
+          <div className="mt-8">
+            <DirectAI
+              target="characters"
+              appliesTo={`changes ${char.name} (pick another character above to change them)`}
+              suggestions={[`Make ${char.name} older`, `Give ${char.name} a secret`, `Make ${char.name} funnier`, 'Change their look to traditional clothes']}
+              placeholder={`Try "Make ${char.name} a police officer"`}
+              scope={{ item: char.id }}
+            />
+          </div>
         )}
       </div>
     </div>

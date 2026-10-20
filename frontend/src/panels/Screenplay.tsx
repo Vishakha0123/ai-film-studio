@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useFilm } from '../studio'
 import { useFilmEdit } from '../lib/useFilmEdit'
 import type { EditAction } from '../api'
+import DirectAI, { EditButton, SaveCancel } from '../components/DirectAI'
 
 /** What each AI action asks the story model to do (it keeps the film's language and format). */
 const AI_ACTIONS: Record<string, { action: EditAction; instruction: string }> = {
@@ -42,7 +43,14 @@ export const LINE_STYLES: Record<LineKind, React.CSSProperties> = {
 export default function Screenplay() {
   const film = useFilm()
   const lines = film.screenplay.split('\n')
-  const { working, error, ai } = useFilmEdit()
+  const { working, error, ai, save } = useFilmEdit()
+  const [editing, setEditing] = useState<string | null>(null)
+  const saveEdit = async () => {
+    if (editing !== null && await save('Saving your screenplay…', { screenplay: editing })) {
+      setEditing(null)
+      setDraft(d => d + 1)
+    }
+  }
   const [activeAction, setActiveAction] = useState<string | null>(null)
   const [draft, setDraft] = useState(1)
   const [selection, setSelection] = useState('')
@@ -105,9 +113,12 @@ export default function Screenplay() {
                 {film.title}
               </h2>
             </div>
-            <div className="text-right">
-              <p className="text-xs text-zinc-600">{pages} {pages === 1 ? 'page' : 'pages'}</p>
-              <p className="text-xs text-zinc-700" data-testid="screenplay-draft">Draft {draft}</p>
+            <div className="flex items-center gap-3">
+              {editing === null && <EditButton onClick={() => { setEditing(film.screenplay); setSelection('') }} disabled={!!working} />}
+              <div className="text-right">
+                <p className="text-xs text-zinc-600">{pages} {pages === 1 ? 'page' : 'pages'}</p>
+                <p className="text-xs text-zinc-700" data-testid="screenplay-draft">Draft {draft}</p>
+              </div>
             </div>
           </div>
 
@@ -122,6 +133,21 @@ export default function Screenplay() {
           {working && <p className="mb-3 text-xs" style={{ color: '#d4a84b' }} data-testid="screenplay-working">{working}</p>}
           {error && <p role="alert" className="mb-3 text-xs text-red-300">{error}</p>}
 
+          {editing !== null ? (
+            <div className="space-y-3" data-testid="screenplay-edit">
+              <textarea
+                aria-label="Screenplay text"
+                value={editing}
+                onChange={e => setEditing(e.target.value)}
+                rows={Math.min(40, Math.max(14, editing.split('\n').length + 2))}
+                spellCheck={false}
+                className="screenplay-text w-full px-5 sm:px-8 py-6 rounded-xl text-sm text-zinc-300 focus:outline-none resize-y"
+                style={{ backgroundColor: '#111113', border: '1px solid rgba(212,168,75,0.3)', lineHeight: '1.8' }}
+              />
+              <p className="text-[11px] text-zinc-700">Keep the format: scene headings like INT. HOUSE — NIGHT, character names in CAPS on their own line, (directions) in brackets.</p>
+              <SaveCancel onSave={() => void saveEdit()} onCancel={() => setEditing(null)} saving={!!working} saveLabel="Save screenplay" />
+            </div>
+          ) : (
           <div
             ref={textRef}
             className="screenplay-text px-5 sm:px-8 py-8 rounded-xl transition-opacity"
@@ -138,6 +164,7 @@ export default function Screenplay() {
               </div>
             ))}
           </div>
+          )}
 
           <div className="mt-4 flex flex-wrap items-center gap-2">
             <button
@@ -150,6 +177,17 @@ export default function Screenplay() {
               Continue Screenplay
             </button>
             <p className="text-xs text-zinc-700">Select any text to apply AI actions to that section</p>
+          </div>
+
+          <div className="mt-8">
+            <DirectAI
+              target="screenplay"
+              appliesTo={selection ? 'changes only the selected text' : 'changes the whole screenplay (select text first to change just that part)'}
+              suggestions={['Add more tension', 'Make the dialogue sharper', 'Add a scene at the beach', 'Make it funnier']}
+              placeholder='Try "Make the opening scene scarier"'
+              scope={selection ? { passage: selection } : {}}
+              onDone={() => { setDraft(d => d + 1); setSelection('') }}
+            />
           </div>
         </div>
       </div>

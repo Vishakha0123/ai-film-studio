@@ -48,13 +48,18 @@ export function getToken(): string | null {
   }
 }
 
+/** Fired on window whenever the signed-in state changes (sign-in, sign-out, session expired). */
+export const AUTH_EVENT = 'cineai:auth'
+
 export function setToken(token: string | null) {
+  const before = getToken()
   try {
     if (token) localStorage.setItem(TOKEN_KEY, token)
     else localStorage.removeItem(TOKEN_KEY)
   } catch {
     /* storage unavailable — session lives in memory only */
   }
+  if (before !== getToken() && typeof window !== 'undefined') window.dispatchEvent(new Event(AUTH_EVENT))
 }
 
 async function authHeader(): Promise<string | null> {

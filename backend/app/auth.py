@@ -11,6 +11,7 @@ from functools import lru_cache
 
 import jwt
 from fastapi import Depends, HTTPException, Request, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.config import Settings, get_settings
@@ -83,7 +84,10 @@ def get_current_user(
     row = db.get(User, user.id)
     if row is None:
         db.add(User(id=user.id, email=user.email))
-        db.commit()
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()  # another request for the same new user created the row first — that's fine
     elif user.email and row.email != user.email:
         row.email = user.email
         db.commit()

@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { DEMO_MODE, assertCompleted, editProject, waitForJob, type EditAction } from '../api'
 import { useFilm, useStudio } from '../studio'
 import type { Lyrics as LyricsData } from '../types'
+import { useFilmEdit } from '../lib/useFilmEdit'
+import DirectAI from '../components/DirectAI'
 
 const SECTIONS = ['Verse', 'Pre-Chorus', 'Chorus', 'Bridge'] as const
 type Section = typeof SECTIONS[number]
@@ -28,6 +30,13 @@ export default function Lyrics() {
   const [content, setContent] = useState<Record<Section, string>>(() => toContent(song))
   const [working, setWorking] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const edit = useFilmEdit()
+  const original = toContent(song)
+  const changed = SECTIONS.some(sec => content[sec] !== original[sec])
+  const saveLyrics = () => edit.save('Saving your lyrics…', {
+    lyrics: { ...(song ?? { title: '', style: '' }), verse: content.Verse, preChorus: content['Pre-Chorus'], chorus: content.Chorus, bridge: content.Bridge },
+  })
 
   // A new song from the AI (plan, edit, another language) replaces what's on screen.
   useEffect(() => setContent(toContent(song)), [song])
@@ -103,6 +112,16 @@ export default function Lyrics() {
                 className="w-full bg-transparent text-sm leading-loose resize-none focus:outline-none"
                 style={{ color: '#d4d4d8', fontFamily: 'Fraunces, Georgia, serif', fontSize: '15px', lineHeight: '2' }}
               />
+              {changed && (
+                <div className="flex flex-wrap items-center gap-2 pt-3 border-t" style={{ borderColor: 'rgba(255,255,255,0.05)' }} data-testid="lyrics-unsaved">
+                  <span className="text-xs text-zinc-500 mr-auto">You have unsaved changes</span>
+                  <button type="button" onClick={() => setContent(original)} className="px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-400 hover:text-zinc-200">Undo</button>
+                  <button type="button" onClick={() => void saveLyrics()} disabled={!!edit.working} className="px-4 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-60" style={{ backgroundColor: '#d4a84b', color: '#09090b' }}>
+                    {edit.working ? 'Saving…' : 'Save lyrics'}
+                  </button>
+                </div>
+              )}
+              {edit.error && <p role="alert" className="mt-2 text-xs text-red-300">{edit.error}</p>}
             </div>
 
             {/* Full lyrics preview */}
@@ -139,6 +158,14 @@ export default function Lyrics() {
                 ))}
               </div>
             </div>
+
+            <DirectAI
+              target="lyrics"
+              appliesTo={`changes the song (you're on the ${activeSection.toLowerCase()})`}
+              suggestions={['Make it a love song', 'Simpler words for kids', 'More rhymes in the chorus', 'Mention the rain']}
+              placeholder={`Try "Rewrite the ${activeSection.toLowerCase()} to sound more hopeful"`}
+              context={`(The creator is looking at the ${activeSection} section.)`}
+            />
           </>
         )}
         {working && song && <p className="text-xs" style={{ color: '#d4a84b' }} data-testid="lyrics-working">Rewriting the song…</p>}

@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes, useNavigate, useParams } from '
 import type { ChatMessage, NavFn, Panel, Preferences, ProjectData, Screen } from './types'
 import { DEFAULT_PREFERENCES, FILM_PROJECT, PANELS } from './types'
 import { DEMO_MODE, getMe, getProject, getToken } from './api'
+import { AUTH_EVENT } from './api/client'
 import { StudioContext, type StudioContextValue } from './studio'
 import { isPanelLocked, isTeaserLocked } from './features'
 import Landing from './screens/Landing'
@@ -32,6 +33,31 @@ export const SCREEN_PATHS: Record<Screen, string> = {
 /** Screens after sign-in require a session token. */
 function RequireAuth({ children }: { children: React.ReactElement }) {
   return getToken() ? children : <Navigate to="/login" replace />
+}
+
+/**
+ * Landing and login are for signed-out visitors: someone who signed in before (the session is kept
+ * in this browser) goes straight to the studio. Checked once on arrival, so signing in from the
+ * login page still continues to onboarding.
+ */
+function SignedOutOnly({ children }: { children: React.ReactElement }) {
+  const [signedInOnArrival] = useState(() => !!getToken())
+  return signedInOnArrival ? <Navigate to="/director" replace /> : children
+}
+
+/** Re-renders when the signed-in state changes here or in another tab, so guards react at once. */
+function useSignedIn(): boolean {
+  const [signedIn, setSignedIn] = useState(() => !!getToken())
+  useEffect(() => {
+    const sync = () => setSignedIn(!!getToken())
+    window.addEventListener(AUTH_EVENT, sync)
+    window.addEventListener('storage', sync)
+    return () => {
+      window.removeEventListener(AUTH_EVENT, sync)
+      window.removeEventListener('storage', sync)
+    }
+  }, [])
+  return signedIn
 }
 
 function useScreenNavigate(): NavFn {
@@ -111,7 +137,7 @@ function Screens({ replyDelay, generationStepMs }: AppProps) {
   const [project, setProjectState] = useState<ProjectData | null>(null)
   const [restoring, setRestoring] = useState(() => !DEMO_MODE && !!getToken() && !!readProjectId())
   const [preferences, setPreferences] = useState<Preferences>(DEFAULT_PREFERENCES)
-  const signedIn = !!getToken()
+  const signedIn = useSignedIn()
 
   // Load the creator's saved defaults (Settings) once signed in.
   useEffect(() => {
@@ -186,8 +212,8 @@ function Screens({ replyDelay, generationStepMs }: AppProps) {
         <div className="flex-1 flex items-center justify-center bg-zinc-950 text-xs text-zinc-600" data-testid="restoring">Opening your project…</div>
       ) : (
       <Routes>
-        <Route path="/" element={<Landing navigate={navigate} />} />
-        <Route path="/login" element={<Login navigate={navigate} />} />
+        <Route path="/" element={<SignedOutOnly><Landing navigate={navigate} /></SignedOutOnly>} />
+        <Route path="/login" element={<SignedOutOnly><Login navigate={navigate} /></SignedOutOnly>} />
         <Route path="/onboarding" element={<RequireAuth><Onboarding navigate={navigate} selected={genres} setSelected={setGenres} /></RequireAuth>} />
         <Route path="/new" element={<RequireAuth><NewFilm current={progress > 0 ? { title: project?.title || (DEMO_MODE ? FILM_PROJECT.title : 'your current film'), saved: !DEMO_MODE && !!project } : null} onStart={g => { newFilm(g); navigate('director') }} /></RequireAuth>} />
         <Route path="/director" element={<RequireAuth><DirectorRoute studio={studio} replyDelay={replyDelay} /></RequireAuth>} />
