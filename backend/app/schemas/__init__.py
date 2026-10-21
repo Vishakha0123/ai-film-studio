@@ -269,6 +269,7 @@ class ProjectOut(Schema):
     brief: dict
     memory: FilmProject | None
     assets: list[AssetOut] = []
+    chat: list[dict] = []
     created_at: UTCDateTime
     updated_at: UTCDateTime
 

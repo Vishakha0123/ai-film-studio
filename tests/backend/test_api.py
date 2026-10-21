@@ -1052,25 +1052,45 @@ def test_chat_is_kept_with_the_film(client):
     msgs = [{"id": "1", "role": "user", "content": "A ghost runs a tea stall"},
             {"id": "2", "role": "ai", "content": "Story ready.", "card": "story"}]
     assert client.put(f"/api/v1/projects/{pid}/chat", json={"messages": msgs}, headers=auth()).status_code == 204
-    brief = client.get(f"/api/v1/projects/{pid}", headers=auth()).json()["brief"]
-    assert brief["chat"] == msgs and brief["prompt"]  # the idea is still there
+    p = client.get(f"/api/v1/projects/{pid}", headers=auth()).json()
+    assert p["chat"] == msgs and p["brief"]["prompt"] and "chat" not in p["brief"]
     # saving the brief again doesn't wipe the chat
     client.post(f"/api/v1/projects/{pid}/brief", json={"prompt": "New idea"}, headers=auth())
-    assert client.get(f"/api/v1/projects/{pid}", headers=auth()).json()["brief"]["chat"] == msgs
+    assert client.get(f"/api/v1/projects/{pid}", headers=auth()).json()["chat"] == msgs
     # only the newest 150 are kept; bad roles are rejected; others can't write it
     many = [{"id": str(i), "role": "user", "content": f"m{i}"} for i in range(200)]
     client.put(f"/api/v1/projects/{pid}/chat", json={"messages": many}, headers=auth())
-    kept = client.get(f"/api/v1/projects/{pid}", headers=auth()).json()["brief"]["chat"]
+    kept = client.get(f"/api/v1/projects/{pid}", headers=auth()).json()["chat"]
     assert len(kept) == 150 and kept[-1]["content"] == "m199"
     assert client.put(f"/api/v1/projects/{pid}/chat", json={"messages": [{"id": "x", "role": "system", "content": "hi"}]}, headers=auth()).status_code == 422
     assert client.put(f"/api/v1/projects/{pid}/chat", json={"messages": msgs}, headers=auth("other@x.io")).status_code == 404
+
+
+def test_saving_the_chat_never_wipes_the_film_idea(client):
+    """Regression: the chat was saved inside the brief, so a chat save landing during the brief save erased the
+    idea ("Add a film idea to the brief before planning")."""
+    p = client.post("/api/v1/projects", json={"genres": ["Drama"]}, headers=auth()).json()
+    pid = p["id"]
+    chat = {"messages": [{"id": "1", "role": "user", "content": "Four generations save a cinema hall"}]}
+    client.put(f"/api/v1/projects/{pid}/chat", json=chat, headers=auth())   # chat first…
+    client.post(f"/api/v1/projects/{pid}/brief", json={"prompt": "Four generations save a cinema hall"}, headers=auth())
+    client.put(f"/api/v1/projects/{pid}/chat", json=chat, headers=auth())   # …and after
+    assert client.get(f"/api/v1/projects/{pid}", headers=auth()).json()["brief"]["prompt"] == "Four generations save a cinema hall"
+    job = client.post(f"/api/v1/projects/{pid}/plan", json={}, headers=auth()).json()
+    assert client.get(f"/api/v1/jobs/{job['id']}", headers=auth()).json()["status"] == "completed"
+
+
+def test_plan_uses_the_idea_sent_with_it_even_if_the_brief_is_empty(client):
+    pid = client.post("/api/v1/projects", json={"genres": ["Drama"]}, headers=auth()).json()["id"]
+    job = client.post(f"/api/v1/projects/{pid}/plan", json={"prompt": "A tailor sews wishes"}, headers=auth()).json()
+    assert client.get(f"/api/v1/jobs/{job['id']}", headers=auth()).json()["status"] == "completed"
 
 
 def test_language_versions_start_without_the_original_chat(client):
     pid, _ = _plan(client)
     client.put(f"/api/v1/projects/{pid}/chat", json={"messages": [{"id": "1", "role": "user", "content": "hi"}]}, headers=auth())
     v = client.post(f"/api/v1/projects/{pid}/versions", json={"language": "ta"}, headers=auth()).json()
-    assert "chat" not in v["project"]["brief"]
+    assert "chat" not in v["project"]["brief"] and v["project"]["chat"] == []
 
 
 def test_project_jobs_lists_newest_first_and_filters_active(client):

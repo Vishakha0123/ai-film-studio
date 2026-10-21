@@ -203,7 +203,7 @@ export default function Chat({ progress, onAdvance, onGenerate, onOpenPanel, gen
             await uploadAll(created.id)
             const prompt = text || `Turn the attached ${attached.length === 1 ? 'file' : 'files'} into a teaser.`
             await saveBrief(created.id, { prompt, genres, language: newFilmLanguage, teaserSeconds: preferences.teaserSeconds, aspectRatio: preferences.aspectRatio })
-            const job = await waitForJob(await planProject(created.id), j => alive.current && setStatus(j.stage || 'Queued'))
+            const job = await waitForJob(await planProject(created.id, prompt), j => alive.current && setStatus(j.stage || 'Queued'))
             assertCompleted(job)
             const fresh = await getProject(created.id)
             if (alive.current) setProject(fresh)

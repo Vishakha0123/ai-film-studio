@@ -125,6 +125,8 @@ export interface ProjectData {
   brief?: Record<string, unknown>
   memory: FilmProject | null
   assets: Asset[]
+  /** The AI Director conversation saved with the film */
+  chat?: ChatMessage[]
 }
 
 export type JobStatus = 'queued' | 'running' | 'completed' | 'failed' | 'cancelled' | 'needs_review'

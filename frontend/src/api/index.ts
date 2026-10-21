@@ -76,9 +76,10 @@ export async function saveBrief(id: string, brief: BriefInput): Promise<ProjectD
 
 const demoJob = (task: string): Job => ({ id: `demo-${task}`, projectId: 'demo', task, status: 'completed', stage: 'Done', progress: 100, result: {}, cost: 0, error: '' })
 
-export async function planProject(id: string): Promise<Job> {
+/** Plans the film. Passing the idea too means the plan never depends on the saved brief alone. */
+export async function planProject(id: string, prompt?: string): Promise<Job> {
   if (DEMO_MODE) return demoJob('plan')
-  return request<Job>(`/projects/${encodeURIComponent(id)}/plan`, { method: 'POST', body: '{}' })
+  return request<Job>(`/projects/${encodeURIComponent(id)}/plan`, { method: 'POST', body: JSON.stringify(prompt ? { prompt } : {}) })
 }
 
 export type EditAction = 'continue' | 'complete' | 'improve' | 'transform'

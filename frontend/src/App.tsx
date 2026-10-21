@@ -194,7 +194,7 @@ function Screens({ replyDelay, generationStepMs }: AppProps) {
   const openProject = useCallback((p: ProjectData) => {
     setProject(p)
     setProgress(p.memory ? PLANNED_PROGRESS : 0)
-    const saved = (p.brief as { chat?: unknown } | undefined)?.chat
+    const saved: unknown = p.chat?.length ? p.chat : (p.brief as { chat?: unknown } | undefined)?.chat
     // A "still writing…" note saved just before a refresh is out of date once the film is finished.
     const chat = Array.isArray(saved)
       ? (saved as ChatMessage[]).filter(m => !(p.memory && m.id.startsWith('resume-')))

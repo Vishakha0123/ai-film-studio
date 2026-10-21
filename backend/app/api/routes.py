@@ -64,7 +64,9 @@ def _project_out(project: Project) -> ProjectOut:
     mem = _memory_with_assets(project)
     return ProjectOut(
         id=project.id, title=project.title, genre=project.genre, language=project.language, status=project.status,
-        brief=project.brief or {}, memory=FilmProject.model_validate(mem) if mem else None,
+        brief={k: v for k, v in (project.brief or {}).items() if k != "chat"},
+        memory=FilmProject.model_validate(mem) if mem else None,
+        chat=project.chat or (project.brief or {}).get("chat") or [],  # older films kept it in the brief
         assets=[AssetOut.model_validate(a) for a in project.assets if a.status in ("ready", "outdated")],
         created_at=project.created_at, updated_at=project.updated_at,
     )
@@ -218,8 +220,7 @@ def get_project(project_id: str, db: Session = Depends(get_db), user: CurrentUse
 @router.post("/projects/{project_id}/brief", response_model=ProjectOut)
 def update_brief(project_id: str, body: Brief, db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
     project = _own_project(db, project_id, user)
-    chat = (project.brief or {}).get("chat")
-    project.brief = body.model_dump(by_alias=True) | ({"chat": chat} if chat else {})
+    project.brief = body.model_dump(by_alias=True)
     project.language = body.language
     if body.genres:
         project.genre = " / ".join(body.genres)
@@ -461,7 +462,7 @@ def save_chat(project_id: str, body: ChatLog, db: Session = Depends(get_db), use
     """Keeps the AI Director conversation with the film, so refreshing the page doesn't lose it."""
     project = _own_project(db, project_id, user)
     lines = [m.model_dump(by_alias=True, exclude_defaults=True) for m in body.messages][-CHAT_KEEP:]
-    project.brief = {**(project.brief or {}), "chat": lines}
+    project.chat = lines  # only the chat — never touches the brief (the film idea)
     db.commit()
 
 

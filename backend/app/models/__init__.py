@@ -44,6 +44,8 @@ class Project(TimestampMixin, Base):
     language: Mapped[str] = mapped_column(String(20), default="en")
     status: Mapped[str] = mapped_column(String(40), default="draft")
     brief: Mapped[dict] = mapped_column(JSONType, default=dict)
+    # The AI Director conversation (kept apart from the brief so the two are never saved over each other)
+    chat: Mapped[list] = mapped_column(JSONType, default=list, server_default="[]")
     # Project memory: story, characters, screenplay, scenes, shots, audio tracks (flexible → JSONB)
     memory: Mapped[dict] = mapped_column(JSONType, default=dict)
 
