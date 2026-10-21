@@ -15,6 +15,13 @@ describe('cast portraits are real or absent — never drawn', () => {
     expect(characterPhoto(base, 100, 100)).toBeNull()
   })
 
+  it('the matched reference portrait shows until a generated one exists; a generated portrait wins', () => {
+    const ref = { ...base, imageId: 'abc', referenceImageUrl: 'http://localhost:8000/portraits/female-senior.webp' }
+    expect(characterPhotoKind(ref)).toBe('reference')
+    expect(characterPhoto(ref, 100, 100)).toBe('http://localhost:8000/portraits/female-senior.webp')
+    expect(characterPhotoKind({ ...ref, imageUrl: 'https://x/p.png' })).toBe('ai')
+  })
+
   it("the offline mock's SVG placeholder frames don't count as portraits", () => {
     expect(characterPhotoKind({ ...base, imageUrl: 'http://localhost:8000/media/projects/p/character_image/1-v1.svg' })).toBe('none')
   })

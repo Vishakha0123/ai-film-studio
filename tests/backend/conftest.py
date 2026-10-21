@@ -11,6 +11,7 @@ os.environ.update({
     "DATABASE_URL": f"sqlite:///{_tmp}/test.db",
     "AUTH_MODE": "dev",
     "LOCAL_MEDIA_DIR": f"{_tmp}/media",
+    "REFERENCE_PORTRAITS_DIR": f"{_tmp}/portraits",
     "REDIS_URL": "",
     "STORY_PROVIDER": "mock", "IMAGE_PROVIDER": "mock", "VIDEO_PROVIDER": "mock", "TTS_PROVIDER": "mock",
 })

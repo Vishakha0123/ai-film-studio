@@ -333,6 +333,7 @@ function CharacterDetail({ char, busy, onEdit, onRegenerate, onAppearance, photo
           </button>
           <span className="text-[11px] text-zinc-600 leading-tight" data-testid="photo-caption">
             {isPhoto ? 'AI-generated portrait'
+              : kind === 'reference' ? 'Closest matching portrait for this age and gender'
               : photo.live === false ? 'No portrait yet — AI portraits need an image model (see Settings → Studio connection)'
               : kind === 'stock' ? 'Sample stock photo — make an AI portrait to replace it'
               : 'No portrait yet'}

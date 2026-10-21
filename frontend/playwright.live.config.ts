@@ -28,6 +28,7 @@ export default defineConfig({
         AUTH_MODE: 'dev',
         DATABASE_URL: 'sqlite:///./.e2e/e2e.db',
         LOCAL_MEDIA_DIR: './.e2e/media',
+        REFERENCE_PORTRAITS_DIR: './.e2e/portraits',
         PUBLIC_BASE_URL: API,
         CORS_ORIGINS: `["${WEB}"]`,
         STORY_PROVIDER: 'mock', IMAGE_PROVIDER: 'mock', VIDEO_PROVIDER: 'mock', TTS_PROVIDER: 'mock',

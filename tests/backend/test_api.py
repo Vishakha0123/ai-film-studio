@@ -1264,3 +1264,139 @@ def test_negative_prompt_is_configurable_and_sent_to_openai_as_avoid(client, mon
         asyncio.run(OpenAIImage().generate_image("A portrait", size="1024x1536", negative_prompt="no cartoons please"))
         sent = route.calls[0].request.content.decode()
     assert "A portrait" in sent and "Avoid: no cartoons please." in sent
+
+
+# ---------- Reference portraits (10 reusable images matched by age and gender) ----------
+
+FAMILY_PROMPT = ("A warm, funny family film set in Chennai. Four generations live in one house: Paati, a 78-year-old "
+                 "grandmother who rules the kitchen; Appa, a 45-year-old school teacher; Divya, a 22-year-old college "
+                 "student who wants to be a filmmaker; and Arjun, a 9-year-old boy who is always hiding snacks.")
+
+
+@pytest.fixture
+def reference_files():
+    """All 10 reference portraits present (tiny stand-in bytes — tests only check matching and serving)."""
+    from app.services.reference_portraits import REFERENCES, portraits_dir
+    folder = portraits_dir()
+    folder.mkdir(parents=True, exist_ok=True)
+    paths = []
+    for r in REFERENCES:
+        path = folder / f"{r.id}.webp"
+        path.write_bytes(b"RIFF" + r.id.encode())
+        paths.append(path)
+    yield folder
+    for path in folder.iterdir():
+        path.unlink()
+
+
+def test_prompt_facts_read_names_ages_and_genders():
+    from app.services.reference_portraits import prompt_facts
+    assert prompt_facts(FAMILY_PROMPT) == {
+        "paati": {"age": 78, "gender": "female"}, "appa": {"age": 45, "gender": "male"},
+        "divya": {"age": 22, "gender": ""}, "arjun": {"age": 9, "gender": "male"},
+    }
+    assert prompt_facts("A 70-year-old fisherman named Ravi finds a radio.")["ravi"]["age"] == 70
+    assert prompt_facts("Meena (12) and her grandfather Kannan (81) run a tea stall.") == {
+        "meena": {"age": 12, "gender": ""}, "kannan": {"age": 81, "gender": "male"}}  # "her grandfather" is ambiguous for Meena
+    assert prompt_facts("A ghost haunts a cinema hall.") == {}
+
+
+def test_age_and_gender_reading():
+    from app.services.reference_portraits import gender_from_text, parse_age
+    assert [parse_age(v) for v in ("78", "9 years", "early 30s", "੫੫", "elderly", "teenager", "toddler", "", None)] == \
+        [78, 9, 30, 55, 72, 15, 3, None, None]
+    assert gender_from_text("Grandmother who rules the kitchen") == "female"
+    assert gender_from_text("His father's best friend, a retired cop") == "male"
+    assert gender_from_text("The film's narrator") == ""
+
+
+def test_closest_portrait_by_gender_then_age_band_then_age(reference_files):
+    from app.services.reference_portraits import choose_reference
+    pick = lambda age, gender: choose_reference(age, gender, "x")  # noqa: E731
+    assert [pick(a, "female") for a in (3, 9, 13, 17, 22, 34, 45, 54, 60, 78, 95)] == [
+        "female-child", "female-child", "female-teen", "female-teen", "female-young", "female-young",
+        "female-adult", "female-adult", "female-senior", "female-senior", "female-senior"]
+    assert [pick(a, "male") for a in (4, 16, 28, 40, 66)] == ["male-child", "male-teen", "male-young", "male-adult", "male-senior"]
+    # no age → an adult; no gender → a stable choice per character (same name, same answer)
+    assert pick(None, "male") == "male-adult"
+    assert choose_reference(30, "", "Kiran") == choose_reference(30, "", "Kiran") in ("female-young", "male-young")
+
+
+def test_missing_files_fall_back_to_the_nearest_available(reference_files):
+    from app.services.reference_portraits import choose_reference
+    (reference_files / "female-senior.webp").unlink()
+    assert choose_reference(78, "female", "Paati") == "female-adult"  # nearest woman available
+    for f in reference_files.glob("female-*"):
+        f.unlink()
+    assert choose_reference(78, "female", "Paati") == "male-senior"  # no women at all → nearest age
+    for f in reference_files.iterdir():
+        f.unlink()
+    assert choose_reference(78, "female", "Paati") == ""  # nothing available → no reference, nothing blocked
+
+
+def _plan_family(client, monkeypatch, wrong_ages=True):
+    """The story model returns the family — with Paati's age wrong, to check the prompt's age wins."""
+    import copy
+    from app.providers.base import ProviderResult
+    from app.providers.mock import SAMPLE, MockStory
+
+    async def plan(self, brief):
+        film = copy.deepcopy(SAMPLE)
+        film["characters"] = [
+            {"id": "1", "name": "Paati", "age": "70" if wrong_ages else "78", "role": "Grandmother", "appearance": "silver hair in a bun"},
+            {"id": "2", "name": "Appa", "age": "45", "gender": "male", "role": "School teacher"},
+            {"id": "3", "name": "Divya", "age": "22", "gender": "female", "role": "Film student"},
+            {"id": "4", "name": "Arjun", "age": "", "role": "Snack thief"},
+        ]
+        return ProviderResult(film, provider="mock", model="sample-film")
+    monkeypatch.setattr(MockStory, "plan_film", plan)
+    p = client.post("/api/v1/projects", json={"genres": ["Drama"]}, headers=auth()).json()
+    client.post(f"/api/v1/projects/{p['id']}/brief", json={"prompt": FAMILY_PROMPT}, headers=auth())
+    client.post(f"/api/v1/projects/{p['id']}/plan", json={}, headers=auth())
+    return p["id"]
+
+
+def test_submitting_a_prompt_matches_each_character_to_a_portrait(client, monkeypatch, reference_files):
+    pid = _plan_family(client, monkeypatch)
+    chars = {c["name"]: c for c in client.get(f"/api/v1/projects/{pid}", headers=auth()).json()["memory"]["characters"]}
+    # the prompt's ages and genders are kept (Paati stays 78 even though the model wrote 70; Arjun gets 9)
+    assert {n: (c["age"], c.get("gender")) for n, c in chars.items()} == {
+        "Paati": ("78", "female"), "Appa": ("45", "male"), "Divya": ("22", "female"), "Arjun": ("9", "male")}
+    assert {n: c["portraitRef"] for n, c in chars.items()} == {
+        "Paati": "female-senior", "Appa": "male-adult", "Divya": "female-young", "Arjun": "male-child"}
+    assert chars["Paati"]["referenceImageUrl"] == "http://localhost:8000/portraits/female-senior.webp"
+    # the portrait is served
+    assert client.get("/portraits/female-senior.webp").content == b"RIFFfemale-senior"
+
+
+def test_editing_age_or_gender_re_matches_the_portrait(client, monkeypatch, reference_files):
+    pid = _plan_family(client, monkeypatch, wrong_ages=False)
+    client.patch(f"/api/v1/projects/{pid}/characters/4", json={"age": "16"}, headers=auth())
+    arjun = client.get(f"/api/v1/projects/{pid}", headers=auth()).json()["memory"]["characters"][3]
+    assert (arjun["age"], arjun["portraitRef"]) == ("16", "male-teen")
+
+
+def test_portraits_appear_on_films_planned_before_the_files_were_added(client, monkeypatch, reference_files):
+    for f in reference_files.iterdir():
+        f.unlink()
+    pid = _plan_family(client, monkeypatch)
+    paati = client.get(f"/api/v1/projects/{pid}", headers=auth()).json()["memory"]["characters"][0]
+    assert not paati.get("referenceImageUrl")  # nothing to show yet — and planning wasn't blocked
+    (reference_files / "female-senior.jpg").write_bytes(b"jpg")
+    paati = client.get(f"/api/v1/projects/{pid}", headers=auth()).json()["memory"]["characters"][0]
+    assert paati["referenceImageUrl"].endswith("/portraits/female-senior.jpg")
+
+
+def test_the_matched_portrait_is_sent_to_the_image_model_as_a_reference(client, monkeypatch, reference_files, photo_portraits):
+    from app.providers.mock import MockImage
+    refs = []
+    inner = MockImage.generate_image
+
+    async def spy(self, prompt, **kw):
+        refs.append((prompt, kw.get("references")))
+        return await inner(self, prompt, **kw)
+    monkeypatch.setattr(MockImage, "generate_image", spy)
+    _plan_family(client, monkeypatch)
+    paati_prompt, paati_refs = next((p, r) for p, r in refs if "named Paati" in p)
+    assert paati_refs == [b"RIFFfemale-senior"]
+    assert "exactly 78 years old" in paati_prompt and "every detail written above" in paati_prompt

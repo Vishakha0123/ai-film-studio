@@ -26,7 +26,7 @@ from app.models import AIJob, Asset, Project, ProjectDocument, UsageEvent, User
 from app.providers import ProviderError, image_provider, story_provider, tts_provider, video_provider
 from app.providers.base import ProviderResult
 from app.schemas import FilmProject, Preferences
-from app.services import storage
+from app.services import reference_portraits, storage
 from app.services.script_check import CHECKED, wrong_language_fields
 from app.services.portraits import PORTRAIT_SIZE, negative_prompt, portrait_prompt, portraits_enabled
 
@@ -85,7 +85,8 @@ def validate_film(data: object) -> dict:
         s.id, s.number = s.id or str(i), s.number or i
     for i, s in enumerate(film.shots, 1):
         s.id, s.number = s.id or str(i), s.number or i
-    return film.model_dump(by_alias=True, exclude_none=True)
+    # Every save re-picks each character's closest reference portrait, so it follows age/gender edits
+    return reference_portraits.assign(film.model_dump(by_alias=True, exclude_none=True))
 
 
 async def with_retry(fn: Callable[[], Awaitable[T]], job: AIJob, db: Session) -> T:
@@ -176,7 +177,8 @@ async def task_plan(db: Session, job: AIJob, project: Project) -> dict:
     record_usage(db, job, res)
     set_progress(db, job, "Writing story, characters and screenplay", 70)
     try:
-        memory = validate_film(res.data)
+        # Ages/genders the creator wrote for named characters in the prompt are kept exactly
+        memory = validate_film(reference_portraits.apply_prompt_facts(res.data, brief.get("prompt", "")) if isinstance(res.data, dict) else res.data)
     except ValidationError as e:
         raise NeedsReview(f"The story model returned an incomplete plan ({_problems(e)}). Try again.") from e
     if prefs.visual_style and not memory.get("visualStyle"):
@@ -375,10 +377,18 @@ async def _character_image(db, job, project, char: dict, size: str = PORTRAIT_SI
     """A photorealistic portrait of a real-looking person of the character's age and gender."""
     prompt = portrait_prompt(project, char)
     negative = negative_prompt()
-    res = await with_retry(lambda: image_provider().generate_image(prompt, size=PORTRAIT_SIZE, negative_prompt=negative), job, db)
+    # The matched reference portrait goes to the image model as a visual guide (age, gender, general look)
+    ref_id = char.get("portraitRef") or reference_portraits.assign({"characters": [char]})["characters"][0]["portraitRef"]
+    reference = reference_portraits.reference_bytes(ref_id) if ref_id else None
+    if reference:
+        prompt += (" Use the attached reference photo only as a guide to the person's general age, gender and look; "
+                   "every detail written above (age, appearance, clothing) takes priority over the photo.")
+    res = await with_retry(lambda: image_provider().generate_image(prompt, size=PORTRAIT_SIZE, negative_prompt=negative,
+                                                                   references=[reference] if reference else None), job, db)
     record_usage(db, job, res)
     return await store_asset(db, project, "character_image", char["id"], res, data=res.data, ext=_image_ext(res.data),
-                             meta={"prompt": prompt, "negativePrompt": negative, "name": char["name"]})
+                             meta={"prompt": prompt, "negativePrompt": negative, "name": char["name"],
+                                   "reference": ref_id if reference else None})
 
 
 async def _storyboard_image(db, job, project, shot: dict, size: str) -> Asset:

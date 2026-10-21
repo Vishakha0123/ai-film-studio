@@ -28,6 +28,9 @@ export interface Character {
   imageId: string
   /** Generated portrait (backend asset), falls back to imageId photo */
   imageUrl?: string
+  /** Closest of the 10 reference portraits for this age and gender (picked by the backend) */
+  portraitRef?: string
+  referenceImageUrl?: string
 }
 
 export interface Scene {
@@ -155,15 +158,17 @@ export interface CostEstimate {
 
 /**
  * Where a character's picture comes from:
- *  - "ai":    a portrait the image model generated for this character
- *  - "stock": the demo film's sample photo (a stock photo — labelled as such, never passed off as AI)
- *  - "none":  no portrait yet. Nothing is drawn or substituted; the app says so and offers to generate one.
+ *  - "ai":        a portrait the image model generated for this character
+ *  - "reference": the closest of the 10 reference portraits for their age and gender (matched automatically)
+ *  - "stock":     the demo film's sample photo (a stock photo — labelled as such, never passed off as AI)
+ *  - "none":      no portrait available. Nothing is drawn or substituted.
  * The offline mock provider's SVG placeholder frames don't count as portraits.
  */
-export type CharacterPhotoKind = 'ai' | 'stock' | 'none'
+export type CharacterPhotoKind = 'ai' | 'reference' | 'stock' | 'none'
 
-export function characterPhotoKind(c: Pick<Character, 'imageUrl' | 'imageId'>): CharacterPhotoKind {
+export function characterPhotoKind(c: Pick<Character, 'imageUrl' | 'imageId' | 'referenceImageUrl'>): CharacterPhotoKind {
   if (c.imageUrl && !/\.svg($|\?)/i.test(c.imageUrl)) return 'ai'
+  if (c.referenceImageUrl) return 'reference'
   if (c.imageId) return 'stock'
   return 'none'
 }
@@ -172,6 +177,7 @@ export function characterPhotoKind(c: Pick<Character, 'imageUrl' | 'imageId'>): 
 export function characterPhoto(c: Character, w: number, h: number): string | null {
   const kind = characterPhotoKind(c)
   if (kind === 'ai') return c.imageUrl!
+  if (kind === 'reference') return c.referenceImageUrl!
   if (kind === 'stock') return photoUrl({ imageId: c.imageId }, w, h)
   return null
 }

@@ -67,6 +67,9 @@ class Character(FilmPart):
         return normalize_gender(v)
     image_id: str = ""  # Unsplash fallback id used by the design
     image_url: str | None = None
+    # Closest of the 10 reference portraits for this age and gender (picked automatically; see reference_portraits)
+    portrait_ref: str = ""
+    reference_image_url: str | None = None  # filled in on the way out (not stored)
 
 
 class Scene(FilmPart):

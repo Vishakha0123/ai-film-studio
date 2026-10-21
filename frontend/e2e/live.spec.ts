@@ -699,3 +699,35 @@ test('full stack: without an image model, "Generate portrait" explains how to tu
   await page.getByRole('button', { name: 'Generate portrait' }).click()
   await expect(page.getByRole('alert')).toContainText('IMAGE_PROVIDER=openai')
 })
+
+test('full stack: a submitted prompt gives every character the closest of the 10 reference portraits', async ({ page, request }) => {
+  // The 10 reference files for this test backend (tiny real WebP images in its temporary folder)
+  const { mkdirSync, writeFileSync } = await import('node:fs')
+  const dir = new URL('../../backend/.e2e/portraits/', import.meta.url)
+  mkdirSync(dir, { recursive: true })
+  const pixel = Buffer.from('UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4HAA==', 'base64')
+  for (const g of ['female', 'male']) for (const a of ['child', 'teen', 'young', 'adult', 'senior']) writeFileSync(new URL(`${g}-${a}.webp`, dir), pixel)
+
+  await preparePage(page)
+  const email = 'reference-user@dev.local'
+  const auth = { Authorization: `Bearer dev:${email}` }
+  await page.addInitScript(e => localStorage.setItem('cineai.token', `dev:${e}`), email)
+  await page.goto('/director')
+  await page.getByLabel('Message the AI Director').fill('A grieving composer hears messages in her late husband\'s symphony')
+  await page.keyboard.press('Enter')
+  await expect(page.getByTestId('panel-story')).toBeVisible({ timeout: 20_000 })
+
+  // Backend: each character got the closest portrait for their age and gender; ages untouched
+  const [p] = await (await request.get(`${API}/api/v1/projects`, { headers: auth })).json()
+  const chars = (await (await request.get(`${API}/api/v1/projects/${p.id}`, { headers: auth })).json()).memory.characters
+  expect(chars.map((c: { name: string; age: string; portraitRef: string }) => [c.name, c.age, c.portraitRef])).toEqual([
+    ['Elena Vasquez', '32', 'female-young'], ['Thomas Vasquez', '35', 'male-adult'], ['Dr. James Chen', '45', 'male-adult'],
+  ])
+
+  // App: the existing Characters page shows them — no picker, no new UI
+  await page.getByTestId('nav-characters').click()
+  const elena = page.getByTestId('panel-characters').getByRole('img', { name: 'Elena Vasquez' }).first()
+  await expect(elena).toHaveAttribute('src', `${API}/portraits/female-young.webp`)
+  expect(await elena.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true)
+  await expect(page.getByTestId('photo-caption')).toHaveText('Closest matching portrait for this age and gender')
+})

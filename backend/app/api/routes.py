@@ -21,6 +21,8 @@ from app.services.jobs import create_job, dispatch
 from app.services.languages import LANGUAGES, is_supported
 from app.services.pipeline import EDIT_DEPENDENTS, LOOK_FIELDS, estimate, mark_outdated, queue_portraits, validate_film
 from app.services.portraits import real_images_available
+from app.services import reference_portraits
+from app.services.reference_portraits import reference_url
 from app.services.voices import VOICES, preview_line
 
 router = APIRouter()
@@ -37,7 +39,8 @@ def _memory_with_assets(project: Project) -> dict | None:
     """Project memory with the latest ready asset URLs filled in (imageUrl, videoUrl, audio url)."""
     if not project.memory:
         return None
-    mem = dict(project.memory)
+    # Re-match reference portraits on the way out, so films made before the files were added get them too
+    mem = reference_portraits.assign(dict(project.memory))
     latest: dict[tuple[str, str], Asset] = {}
     for a in project.assets:
         if a.status != "ready":
@@ -45,7 +48,9 @@ def _memory_with_assets(project: Project) -> dict | None:
         key = (a.type, a.ref)
         if key not in latest or a.version > latest[key].version:
             latest[key] = a
-    mem["characters"] = [{**c, **({"imageUrl": latest[("character_image", c["id"])].url} if ("character_image", c["id"]) in latest else {})}
+    mem["characters"] = [{**c,
+                          **({"imageUrl": latest[("character_image", c["id"])].url} if ("character_image", c["id"]) in latest else {}),
+                          **({"referenceImageUrl": url} if (url := reference_url(c.get("portraitRef", ""))) else {})}
                          for c in mem.get("characters", [])]
     shots = []
     for s in mem.get("shots", []):
