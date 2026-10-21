@@ -691,3 +691,16 @@ test('full stack: characters get a drawn portrait for their age and gender (girl
   expect(chars.slice(-2).map((c: { name: string; age: string; gender: string }) => [c.name, c.age, c.gender]))
     .toEqual([['Pinky', '8', 'female'], ['Dada Ji', '76', 'male']])
 })
+
+test('full stack: without an image model, "Make AI photo" explains how to turn real photos on', async ({ page }) => {
+  await preparePage(page)
+  await page.addInitScript(() => localStorage.setItem('cineai.token', 'dev:photo-user@dev.local'))
+  await page.goto('/director')
+  await page.getByLabel('Message the AI Director').fill('Two sisters run a dhaba on the highway')
+  await page.keyboard.press('Enter')
+  await expect(page.getByTestId('panel-story')).toBeVisible({ timeout: 20_000 })
+  await page.getByTestId('nav-characters').click()
+  await expect(page.getByTestId('photo-caption')).toContainText('Drawing for now')
+  await page.getByRole('button', { name: 'Make AI photo' }).click()
+  await expect(page.getByRole('alert')).toContainText('IMAGE_PROVIDER=openai')
+})

@@ -29,8 +29,13 @@ def create_job(db: Session, background: BackgroundTasks, *, project_id: str, use
     job = AIJob(project_id=project_id, user_id=user_id, task=task, params=params or {}, idempotency_key=idempotency_key)
     db.add(job)
     db.commit()
+    dispatch(background, job)
+    return job
+
+
+def dispatch(background: BackgroundTasks, job: AIJob) -> None:
+    """Run a created job after the response: on the Arq worker with Redis, otherwise in-process."""
     if get_settings().REDIS_URL:
         background.add_task(_enqueue_arq, job.id)
     else:
         background.add_task(run_job, job.id)
-    return job

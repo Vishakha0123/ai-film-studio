@@ -3,6 +3,7 @@
 import json
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Header, HTTPException, Response, UploadFile, status
+from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -16,9 +17,10 @@ from app.schemas import (ApproveRequest, AssetListItem, AssetOut, Brief, CostEst
 from app.providers import ProviderError, stt_provider, tts_provider
 from app.services import storage
 from app.services.documents import MAX_FILES_PER_PROJECT, DocumentError, validate_and_extract
-from app.services.jobs import create_job
+from app.services.jobs import create_job, dispatch
 from app.services.languages import LANGUAGES, is_supported
-from app.services.pipeline import EDIT_DEPENDENTS, estimate, mark_outdated, validate_film
+from app.services.pipeline import EDIT_DEPENDENTS, LOOK_FIELDS, estimate, mark_outdated, queue_portraits, validate_film
+from app.services.portraits import real_images_available
 from app.services.voices import VOICES, preview_line
 
 router = APIRouter()
@@ -298,7 +300,7 @@ def patch_memory(project_id: str, body: MemoryPatch, db: Session = Depends(get_d
 
 
 @router.post("/projects/{project_id}/characters", response_model=ProjectOut, status_code=201)
-def add_character(project_id: str, body: CharacterInput, db: Session = Depends(get_db),
+def add_character(project_id: str, body: CharacterInput, background: BackgroundTasks, db: Session = Depends(get_db),
                   user: CurrentUser = Depends(get_current_user)):
     """Add a character written by the creator. (To have the AI write one, use the characters edit job.)"""
     project = _planned(db, project_id, user)
@@ -309,12 +311,14 @@ def add_character(project_id: str, body: CharacterInput, db: Session = Depends(g
     chars.append({"id": next_id, **{k: (v or "").strip() for k, v in body.model_dump().items() if v is not None}})
     project.memory = validate_film({**project.memory, "characters": chars})
     db.commit()
+    if job := queue_portraits(db, project, [next_id]):  # their photo portrait, made in the background
+        dispatch(background, job)
     db.refresh(project)
     return _project_out(project)
 
 
 @router.patch("/projects/{project_id}/characters/{character_id}", response_model=ProjectOut)
-def update_character(project_id: str, character_id: str, body: CharacterInput, db: Session = Depends(get_db),
+def update_character(project_id: str, character_id: str, body: CharacterInput, background: BackgroundTasks, db: Session = Depends(get_db),
                      user: CurrentUser = Depends(get_current_user)):
     project = _planned(db, project_id, user)
     chars = list(project.memory.get("characters", []))
@@ -325,12 +329,14 @@ def update_character(project_id: str, character_id: str, body: CharacterInput, d
     if "name" in changes and not changes["name"]:
         raise HTTPException(422, detail="A character needs a name.")
     # A new look, age or gender means the portrait (and frames it appears in) no longer match
-    looks_changed = any(k in changes and changes[k] != chars[idx].get(k, "") for k in ("appearance", "age", "gender"))
+    looks_changed = any(k in changes and changes[k] != chars[idx].get(k, "") for k in LOOK_FIELDS if k != "name")
     chars[idx] = {**chars[idx], **changes}
     project.memory = validate_film({**project.memory, "characters": chars})
     if looks_changed:
         mark_outdated(db, project.id, ["character_image"], [character_id])
     db.commit()
+    if looks_changed and (job := queue_portraits(db, project, [character_id])):  # a new photo to match
+        dispatch(background, job)
     db.refresh(project)
     return _project_out(project)
 
@@ -426,6 +432,25 @@ def regenerate(asset_id: str, background: BackgroundTasks, db: Session = Depends
     project = _own_project(db, asset.project_id, user)
     return create_job(db, background, project_id=project.id, user_id=user.id, task="regenerate",
                       params={"asset_id": asset.id})
+
+
+class PortraitRequest(BaseModel):
+    characterIds: list[str] | None = None
+
+
+@router.post("/projects/{project_id}/portraits", response_model=JobOut, status_code=202)
+def make_portraits(project_id: str, body: PortraitRequest, background: BackgroundTasks, db: Session = Depends(get_db),
+                   user: CurrentUser = Depends(get_current_user)):
+    """Photorealistic portraits: the listed characters (a new photo each), or everyone without one."""
+    project = _planned(db, project_id, user)
+    if not real_images_available():
+        raise HTTPException(status.HTTP_409_CONFLICT, detail="Real photo portraits need an image model. In backend/.env set "
+                            "IMAGE_PROVIDER=openai and OPENAI_API_KEY=…, then restart the backend.")
+    ids = [c["id"] for c in project.memory.get("characters", []) if not body.characterIds or c["id"] in body.characterIds]
+    if body.characterIds and not ids:
+        raise HTTPException(404, detail="Character not found")
+    return create_job(db, background, project_id=project.id, user_id=user.id, task="portraits",
+                      params={"characterIds": body.characterIds} if body.characterIds else {})
 
 
 CHAT_KEEP = 150  # newest messages kept per project

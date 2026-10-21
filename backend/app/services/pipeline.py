@@ -28,6 +28,7 @@ from app.providers.base import ProviderResult
 from app.schemas import FilmProject, Preferences
 from app.services import storage
 from app.services.script_check import CHECKED, wrong_language_fields
+from app.services.portraits import PORTRAIT_SIZE, portrait_prompt, portraits_enabled
 
 log = logging.getLogger("cineai.pipeline")
 T = TypeVar("T")
@@ -223,12 +224,15 @@ async def fix_language(db: Session, job: AIJob, memory: dict, language: str, onl
         return memory
 
 
+# Character fields that change what their portrait should look like
+LOOK_FIELDS = ("name", "age", "gender", "appearance")
+
 EDIT_DEPENDENTS = {
     "characters": ["character_image", "storyboard_image", "video_clip", "render"],
     "shots": ["storyboard_image", "video_clip", "render"],
     "dialogue": ["voice", "render"],
     "story": [], "logline": [], "screenplay": [], "scenes": [], "lyrics": [], "tone": [],
-    "visualStyle": ["character_image", "storyboard_image", "video_clip", "render"],
+    "visualStyle": ["storyboard_image", "video_clip", "render"],  # portraits are real photos in every style
 }
 
 
@@ -341,7 +345,17 @@ async def task_edit(db: Session, job: AIJob, project: Project) -> dict:
         raise NeedsReview(f"The AI's reply didn't fit the {target} format ({_problems(e)}). Try again, or say it differently.") from e
     if target in CHECKED:
         project.memory = await fix_language(db, job, project.memory, project.language or "en", (target,))
-    outdated = mark_outdated(db, project.id, EDIT_DEPENDENTS.get(target, []))
+    if target == "characters":
+        # Only the characters whose face would look different lose their portrait (and frames they're in)
+        before = {c.get("id"): c for c in (current or []) if isinstance(c, dict)}
+        changed = [c for c in project.memory.get("characters", [])
+                   if any(str(c.get(k, "")) != str(before.get(c["id"], {}).get(k, "")) for k in LOOK_FIELDS)]
+        outdated = mark_outdated(db, project.id, ["character_image"], [c["id"] for c in changed])
+        stale = [str(s["number"]) for s in project.memory.get("shots", [])
+                 if any(c["name"].split()[0] in str(s.get("characters", "")) for c in changed if c.get("name"))]
+        outdated += mark_outdated(db, project.id, ["storyboard_image", "video_clip", "render"], stale)
+    else:
+        outdated = mark_outdated(db, project.id, EDIT_DEPENDENTS.get(target, []))
     db.commit()
     return {"target": target, "outdatedAssets": outdated}
 
@@ -357,11 +371,10 @@ def estimate(memory: dict, quality: str) -> dict:
             "estimatedCost": round(cost, 2), "currency": "USD", "requiresConfirmation": cost > s.COST_CONFIRM_THRESHOLD}
 
 
-async def _character_image(db, job, project, char: dict, size: str) -> Asset:
-    who = {"female": "a woman or girl", "male": "a man or boy"}.get(char.get("gender", ""), "a person")
-    age = f"{char['age']} years old" if str(char.get("age", "")).strip() else ""
-    prompt = f"Character portrait of {char['name']}, {who}, {age}, {char.get('role', '')}. {char.get('appearance', '')}. {style_prompt(project)}"
-    res = await with_retry(lambda: image_provider().generate_image(prompt, size="1024x1024"), job, db)
+async def _character_image(db, job, project, char: dict, size: str = PORTRAIT_SIZE) -> Asset:
+    """A photorealistic portrait of a real-looking person of the character's age and gender."""
+    prompt = portrait_prompt(project, char)
+    res = await with_retry(lambda: image_provider().generate_image(prompt, size=PORTRAIT_SIZE), job, db)
     record_usage(db, job, res)
     return await store_asset(db, project, "character_image", char["id"], res, data=res.data, ext=_image_ext(res.data),
                              meta={"prompt": prompt, "name": char["name"]})
@@ -591,7 +604,46 @@ async def task_translate(db: Session, job: AIJob, project: Project) -> dict:
     return {"title": project.title, "language": language, "sourceProjectId": source.id, "copiedAssets": copied}
 
 
-TASKS = {"plan": task_plan, "edit": task_edit, "translate": task_translate, "generate": task_generate, "regenerate": task_regenerate, "render": task_render}
+async def task_portraits(db: Session, job: AIJob, project: Project) -> dict:
+    """Photo portraits for the cast: the characters asked for, or everyone without a current portrait."""
+    chars = (project.memory or {}).get("characters", [])
+    wanted = job.params.get("characterIds")
+    if wanted:
+        todo = [c for c in chars if c["id"] in wanted]
+    else:
+        todo = [c for c in chars if not _ready(latest_asset(db, project.id, "character_image", c["id"]))]
+    created, failed = 0, []
+    for i, c in enumerate(todo):
+        set_progress(db, job, f"Photographing {c['name']}", 5 + int(90 * i / max(1, len(todo))))
+        try:
+            await _character_image(db, job, project, c)
+            created += 1
+        except ProviderError as e:
+            log.warning("portrait for %s failed: %s", c["name"], e)
+            failed.append(c["name"])
+        # frames featuring this character should be redrawn with the new face
+        stale = [str(s["number"]) for s in (project.memory or {}).get("shots", []) if c["name"].split()[0] in str(s.get("characters", ""))]
+        mark_outdated(db, project.id, ["storyboard_image", "video_clip"], stale)
+    if todo and not created:
+        raise ProviderError(f"No portraits could be made ({', '.join(failed)})")
+    return {"created": created, "failed": failed}
+
+
+def queue_portraits(db: Session, project: Project, character_ids: list[str] | None = None) -> AIJob | None:
+    """Create a portraits job when real portraits are switched on (the caller runs it)."""
+    chars = (project.memory or {}).get("characters", [])
+    if not portraits_enabled() or not chars:
+        return None
+    if not character_ids and all(_ready(latest_asset(db, project.id, "character_image", c["id"])) for c in chars):
+        return None  # everyone already has a current photo
+    job = AIJob(project_id=project.id, user_id=project.user_id, task="portraits",
+                params={"characterIds": character_ids} if character_ids else {})
+    db.add(job)
+    db.commit()
+    return job
+
+
+TASKS = {"plan": task_plan, "edit": task_edit, "translate": task_translate, "generate": task_generate, "regenerate": task_regenerate, "render": task_render, "portraits": task_portraits}
 
 
 async def run_job(job_id: str) -> None:
@@ -614,6 +666,13 @@ async def run_job(job_id: str) -> None:
         except Exception as e:  # never leave a job hanging in "running"
             log.exception("job %s failed", job_id)
             job.status, job.error = "failed", f"Unexpected error: {e.__class__.__name__}"
+        # A freshly planned cast, or characters the AI just changed or added, get photo portraits. The
+        # portraits job is saved together with this job's result, so the app sees it as soon as it sees "completed".
+        follow_up = None
+        if job.status == "completed" and (job.task == "plan" or (job.task == "edit" and job.params.get("target") == "characters")):
+            follow_up = queue_portraits(db, project)
         db.commit()
     finally:
         db.close()
+    if follow_up:
+        await run_job(follow_up.id)

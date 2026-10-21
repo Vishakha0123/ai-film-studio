@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import DirectAI from '../components/DirectAI'
+import { usePortraits } from '../lib/usePortraits'
 import { characterPhoto } from '../types'
 import { AGE_BAND_LABEL, ageBand, genderOf, portraitUrl } from '../lib/portraits'
 import { useFilm, useStudio } from '../studio'
@@ -30,6 +31,7 @@ export default function Characters() {
   const [working, setWorking] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const char = chars.find(c => c.id === selected) ?? chars[0]
+  const photos = usePortraits()
 
   /** Runs a change against the backend; the panel shows what it's doing and any error. */
   const run = async (label: string, fn: () => Promise<void>) => {
@@ -41,6 +43,7 @@ export default function Characters() {
     setWorking(label)
     try {
       await fn()
+      void photos.watch() // a new or changed character gets a fresh photo portrait in the background
     } catch (e) {
       setError(e instanceof Error ? e.message : 'That didn’t work. Try again.')
     } finally {
@@ -111,7 +114,7 @@ export default function Characters() {
                 backgroundColor: selected === c.id && mode.kind !== 'add' ? 'rgba(212,168,75,0.07)' : 'rgba(255,255,255,0.02)',
               }}
             >
-              <img src={characterPhoto(c, 64, 64)} alt={c.name} className="w-10 h-10 rounded-full object-cover flex-shrink-0" style={{ filter: 'grayscale(30%) contrast(1.1)' }} />
+              <img src={characterPhoto(c, 64, 64)} alt={c.name} className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
               <div className="text-left">
                 <p className="text-sm font-medium" style={{ color: selected === c.id ? '#f4f0ea' : '#a1a1aa' }}>{c.name}</p>
                 <p className="text-xs" style={{ color: selected === c.id ? '#d4a84b' : '#52525b' }}>{c.role}</p>
@@ -130,6 +133,13 @@ export default function Characters() {
         </div>
 
         {working && <p className="text-xs mb-4" style={{ color: '#d4a84b' }} data-testid="characters-working">{working}</p>}
+        {photos.stage && (
+          <p className="flex items-center gap-2 text-xs mb-4" style={{ color: '#d4a84b' }} data-testid="portraits-working">
+            <span className="w-3 h-3 rounded-full border-2 border-current border-t-transparent animate-spin" aria-hidden />
+            Taking photo portraits — {photos.stage}…
+          </p>
+        )}
+        {photos.error && <p role="alert" className="text-xs text-red-300 mb-4">{photos.error}</p>}
         {error && <p role="alert" className="text-xs text-red-300 mb-4">{error}</p>}
 
         {mode.kind === 'add' ? (
@@ -161,6 +171,7 @@ export default function Characters() {
               onEdit={() => setMode({ kind: 'edit' })}
               onRegenerate={() => regenerate(char)}
               onAppearance={() => setMode({ kind: 'edit', field: 'appearance' })}
+              photo={{ busy: !!photos.stage, live: photos.live, take: () => void photos.newPhoto([char.id]) }}
             />
           )
         )}
@@ -267,29 +278,52 @@ function CharacterForm({ title, hint, initial, only, busy, onCancel, submit, sec
   )
 }
 
-function CharacterDetail({ char, busy, onEdit, onRegenerate, onAppearance }: {
+function CharacterDetail({ char, busy, onEdit, onRegenerate, onAppearance, photo }: {
   char: Character
   busy: boolean
   onEdit: () => void
   onRegenerate: () => void
   onAppearance: () => void
+  photo: { busy: boolean; live: boolean | null; take: () => void }
 }) {
   const actions = [
     { label: 'Edit', run: onEdit },
     { label: 'Regenerate', run: onRegenerate },
     { label: 'Change Appearance', run: onAppearance },
   ]
+  const isPhoto = !!char.imageUrl && !/\.svg($|\?)/.test(char.imageUrl)
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-fade-up" key={char.id}>
       {/* Portrait */}
       <div className="md:col-span-1">
         <div className="aspect-[3/4] max-w-xs md:max-w-none mx-auto rounded-xl overflow-hidden relative" style={{ backgroundColor: '#111113' }}>
-          <img src={characterPhoto(char, 400, 533)} alt={char.name} className="w-full h-full object-cover" style={{ filter: 'grayscale(20%) contrast(1.1)' }} />
+          <img src={characterPhoto(char, 400, 533)} alt={char.name} className="w-full h-full object-cover" />
+          {photo.busy && !isPhoto && (
+            <div className="absolute inset-0 flex items-center justify-center" style={{ backgroundColor: 'rgba(9,9,11,0.45)' }} data-testid="photo-pending">
+              <span className="px-3 py-1.5 rounded-full text-[11px] font-medium" style={{ backgroundColor: 'rgba(9,9,11,0.8)', color: '#d4a84b' }}>Taking photo…</span>
+            </div>
+          )}
           <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(9,9,11,0.8) 0%, transparent 50%)' }} />
           <div className="absolute bottom-0 left-0 right-0 p-4">
             <p className="text-sm font-semibold" style={{ color: '#f4f0ea' }}>{char.name}</p>
             <p className="text-xs" style={{ color: '#d4a84b' }}>{char.role}{char.age ? ` · Age ${char.age}` : ''}</p>
           </div>
+        </div>
+
+        <div className="mt-3 flex items-center gap-2" data-testid="photo-row">
+          <button
+            type="button"
+            onClick={photo.take}
+            disabled={busy || photo.busy}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all disabled:opacity-50"
+            style={{ backgroundColor: 'rgba(212,168,75,0.12)', color: '#d4a84b', border: '1px solid rgba(212,168,75,0.3)' }}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-3.5 h-3.5"><path d="M4 8h3l2-3h6l2 3h3v11H4z" strokeLinejoin="round" /><circle cx="12" cy="13" r="3.5" /></svg>
+            {isPhoto ? 'New photo' : 'Make AI photo'}
+          </button>
+          <span className="text-[11px] text-zinc-600 leading-tight" data-testid="photo-caption">
+            {isPhoto ? 'AI photo' : photo.live === false ? 'Drawing for now — real photos need the image model (see Settings → Studio connection)' : 'Drawing until the AI photo is ready'}
+          </span>
         </div>
 
         <div className="flex flex-wrap gap-2 mt-3">

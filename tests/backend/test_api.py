@@ -808,7 +808,8 @@ def test_visual_style_is_saved_used_in_prompts_and_redraws_pictures(client, monk
     client.post(f"/api/v1/projects/{pid}/generate", json={"confirmCost": True}, headers=auth())
     p = client.patch(f"/api/v1/projects/{pid}/memory", json={"visualStyle": "Anime"}, headers=auth()).json()
     assert p["memory"]["visualStyle"] == "Anime"
-    assert {a["status"] for a in p["assets"] if a["type"] in ("storyboard_image", "character_image")} == {"outdated"}
+    assert {a["status"] for a in p["assets"] if a["type"] == "storyboard_image"} == {"outdated"}
+    assert {a["status"] for a in p["assets"] if a["type"] == "character_image"} == {"ready"}  # photos stay
 
     from app.providers.mock import MockImage
     prompts = []
@@ -820,7 +821,7 @@ def test_visual_style_is_saved_used_in_prompts_and_redraws_pictures(client, monk
 
     monkeypatch.setattr(MockImage, "generate_image", spy)
     client.post(f"/api/v1/projects/{pid}/generate", json={"confirmCost": True}, headers=auth())
-    assert prompts and all("anime style" in pr for pr in prompts)
+    assert prompts and all("anime style" in pr for pr in prompts)  # storyboard frames follow the style
     client.patch(f"/api/v1/projects/{pid}/memory", json={"visualStyle": "watercolour, soft pastel"}, headers=auth())
     from app.db import SessionLocal
     from app.models import Project
@@ -1107,5 +1108,98 @@ def test_portrait_prompt_says_girl_or_boy_and_age(client, monkeypatch):
     monkeypatch.setattr(MockImage, "generate_image", spy)
     pid, _ = _plan(client)
     client.post(f"/api/v1/projects/{pid}/generate", json={"quality": "draft", "confirmCost": True}, headers=auth())
-    elena = next(p for p in prompts if p.startswith("Character portrait of Elena"))
-    assert "a woman or girl" in elena and "32 years old" in elena
+    elena = next(p for p in prompts if "playing Elena" in p)
+    assert elena.startswith("Photorealistic portrait photograph of a young woman, age 32")
+    assert "Not a drawing, not a cartoon" in elena
+
+
+# ---------- Photo portraits ----------
+
+@pytest.fixture
+def photo_portraits(monkeypatch):
+    """Turn real portraits on, with the offline mock standing in for the image model; collect the prompts."""
+    from app.config import get_settings
+    from app.providers.mock import MockImage
+    monkeypatch.setattr(get_settings(), "ALLOW_MOCK_PORTRAITS", True)
+    prompts = []
+    orig = MockImage.generate_image
+
+    async def spy(self, prompt, **kw):
+        prompts.append((prompt, kw.get("size")))
+        return await orig(self, prompt, **kw)
+    monkeypatch.setattr(MockImage, "generate_image", spy)
+    return prompts
+
+
+def _portrait_versions(client, pid):
+    assets = client.get(f"/api/v1/projects/{pid}", headers=auth()).json()["assets"]
+    return {a["ref"]: a["version"] for a in assets if a["type"] == "character_image"}
+
+
+def test_portrait_age_bands_match_the_app():
+    from app.services.portraits import age_band
+    assert [age_band(a) for a in ("7", "15", "26", "44", "68", "", "teenager", "elderly", "੫੫", "early 30s")] == \
+        ["child", "teen", "young", "adult", "senior", "adult", "teen", "senior", "senior", "young"]
+
+
+def test_without_an_image_model_portraits_explain_how_to_turn_them_on(client):
+    pid, _ = _plan(client)
+    assert _portrait_versions(client, pid) == {}  # nothing automatic with the mock
+    r = client.post(f"/api/v1/projects/{pid}/portraits", json={}, headers=auth())
+    assert r.status_code == 409 and "IMAGE_PROVIDER=openai" in r.json()["detail"]
+
+
+def test_a_planned_film_gets_photo_portraits_of_its_cast(client, photo_portraits):
+    pid, _ = _plan(client)
+    assert _portrait_versions(client, pid) == {"1": 1, "2": 1, "3": 1}
+    jobs = client.get(f"/api/v1/projects/{pid}/jobs", headers=auth()).json()
+    assert [j["task"] for j in jobs] == ["portraits", "plan"] and jobs[0]["status"] == "completed"
+    prompt, size = photo_portraits[0]
+    assert prompt.startswith("Photorealistic portrait photograph of a young woman, age 32, playing Elena") and size == "1024x1536"
+    chars = client.get(f"/api/v1/projects/{pid}", headers=auth()).json()["memory"]["characters"]
+    assert all(c.get("imageUrl") for c in chars)
+
+
+def test_adding_or_changing_a_character_makes_a_new_photo(client, photo_portraits):
+    pid, _ = _plan(client)
+    p = client.post(f"/api/v1/projects/{pid}/characters", json={"name": "Pinky", "age": "8", "gender": "female"}, headers=auth()).json()
+    new_id = p["memory"]["characters"][-1]["id"]
+    assert _portrait_versions(client, pid)[new_id] == 1
+    assert any(pr.startswith("Photorealistic portrait photograph of a little girl, age 8, playing Pinky") for pr, _ in photo_portraits)
+    # older → new photo; a role change alone keeps the photo
+    client.patch(f"/api/v1/projects/{pid}/characters/{new_id}", json={"age": "70"}, headers=auth())
+    assert _portrait_versions(client, pid)[new_id] == 2
+    assert photo_portraits[-1][0].startswith("Photorealistic portrait photograph of an elderly woman, age 70")
+    client.patch(f"/api/v1/projects/{pid}/characters/{new_id}", json={"role": "Village elder"}, headers=auth())
+    assert _portrait_versions(client, pid)[new_id] == 2
+
+
+def test_new_photo_for_one_character_on_request(client, photo_portraits):
+    pid, _ = _plan(client)
+    job = client.post(f"/api/v1/projects/{pid}/portraits", json={"characterIds": ["2"]}, headers=auth()).json()
+    assert client.get(f"/api/v1/jobs/{job['id']}", headers=auth()).json()["status"] == "completed"
+    assert _portrait_versions(client, pid) == {"1": 1, "2": 2, "3": 1}
+    assert client.post(f"/api/v1/projects/{pid}/portraits", json={"characterIds": ["99"]}, headers=auth()).status_code == 404
+
+
+def test_ai_character_edit_only_rephotographs_the_changed_character(client, photo_portraits):
+    pid, _ = _plan(client)
+    # mock edit marks the targeted character's personality only → no look change → no new photos
+    client.post(f"/api/v1/projects/{pid}/transform", json={"target": "characters", "instruction": 'Rewrite only the character with id "2": braver', "item": "2"}, headers=auth())
+    assert _portrait_versions(client, pid) == {"1": 1, "2": 1, "3": 1}
+    # a look change through the AI → only that character gets a new photo
+    from app.providers.base import ProviderResult
+    from app.providers.mock import MockStory
+
+    async def older(self, memory, target, instruction, *, language="en"):
+        chars = [dict(c) for c in memory["characters"]]
+        chars[0]["age"] = "80"
+        return ProviderResult(chars[:1], provider="mock", model="echo")
+    import pytest as _pt
+    mp = _pt.MonkeyPatch()
+    mp.setattr(MockStory, "edit", older)
+    try:
+        client.post(f"/api/v1/projects/{pid}/transform", json={"target": "characters", "instruction": "Make Elena 80", "item": "1"}, headers=auth())
+    finally:
+        mp.undo()
+    assert _portrait_versions(client, pid) == {"1": 2, "2": 1, "3": 1}

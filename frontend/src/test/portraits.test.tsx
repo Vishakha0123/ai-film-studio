@@ -48,3 +48,12 @@ describe('portraits by age and gender', () => {
     expect(within(form).getByTestId('portrait-preview').getAttribute('src')).not.toBe(before)
   })
 })
+
+describe('AI photo portraits', () => {
+  it('each character has a photo button; the demo explains it needs the backend', async () => {
+    renderApp('/director/characters', { loggedIn: true })
+    expect(screen.getByTestId('photo-caption')).toHaveTextContent('Drawing for now — real photos need the image model')
+    await userEvent.click(screen.getByRole('button', { name: 'Make AI photo' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Photo portraits need the studio backend')
+  })
+})

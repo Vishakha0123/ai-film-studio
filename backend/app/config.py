@@ -38,6 +38,10 @@ class Settings(BaseSettings):
     # --- AI providers ("mock" works with no keys) ---
     STORY_PROVIDER: Literal["mock", "sarvam"] = "mock"
     IMAGE_PROVIDER: Literal["mock", "openai"] = "mock"
+    # Make photorealistic character portraits automatically (after planning, adding or changing a character)
+    AUTO_PORTRAITS: bool = True
+    # Tests only: let the offline mock image provider stand in for portraits
+    ALLOW_MOCK_PORTRAITS: bool = False
     VIDEO_PROVIDER: Literal["mock", "seedance"] = "mock"
     TTS_PROVIDER: Literal["mock", "sarvam"] = "mock"
     STT_PROVIDER: Literal["mock", "sarvam"] = "mock"  # voice input in the AI Director chat

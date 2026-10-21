@@ -128,6 +128,12 @@ export async function listProjectJobs(projectId: string, active = false): Promis
   return request<Job[]>(`/projects/${encodeURIComponent(projectId)}/jobs${active ? '?active=true' : ''}`)
 }
 
+/** Photorealistic portraits: the listed characters (a new photo each), or everyone without one. */
+export async function makePortraits(projectId: string, characterIds?: string[]): Promise<Job> {
+  if (DEMO_MODE) throw new ApiError('Photo portraits need the studio backend and an image model.', 400)
+  return request<Job>(`/projects/${encodeURIComponent(projectId)}/portraits`, { method: 'POST', body: JSON.stringify(characterIds ? { characterIds } : {}) })
+}
+
 export async function getJob(id: string): Promise<Job> {
   return request<Job>(`/jobs/${encodeURIComponent(id)}`)
 }
