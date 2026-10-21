@@ -687,7 +687,7 @@ test('full stack: characters without a generated portrait show "No portrait yet"
   expect(chars.at(-1).imageUrl).toBeFalsy()
 })
 
-test('full stack: without an image model, "Generate portrait" explains how to turn real portraits on', async ({ page }) => {
+test('full stack: without an image model, the Generate portrait button is hidden', async ({ page }) => {
   await preparePage(page)
   await page.addInitScript(() => localStorage.setItem('cineai.token', 'dev:photo-user@dev.local'))
   await page.goto('/director')
@@ -695,9 +695,8 @@ test('full stack: without an image model, "Generate portrait" explains how to tu
   await page.keyboard.press('Enter')
   await expect(page.getByTestId('panel-story')).toBeVisible({ timeout: 20_000 })
   await page.getByTestId('nav-characters').click()
-  await expect(page.getByTestId('photo-caption')).toContainText('No portrait yet')
-  await page.getByRole('button', { name: 'Generate portrait' }).click()
-  await expect(page.getByRole('alert')).toContainText('IMAGE_PROVIDER=openai')
+  await expect(page.getByTestId('photo-caption')).toHaveText('Sample stock photo')
+  await expect(page.getByRole('button', { name: 'Generate portrait' })).toHaveCount(0)
 })
 
 test('full stack: a submitted prompt gives every character the closest of the 10 reference portraits', async ({ page, request }) => {

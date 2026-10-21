@@ -26,12 +26,11 @@ describe('cast portraits are real or absent — never drawn', () => {
     expect(characterPhotoKind({ ...base, imageUrl: 'http://localhost:8000/media/projects/p/character_image/1-v1.svg' })).toBe('none')
   })
 
-  it('the demo film marks its stock photos and offers an AI portrait instead', async () => {
+  it('without an image model there is no Generate portrait button (it could only fail)', () => {
     renderApp('/director/characters', { loggedIn: true })
     expect(screen.getByTestId('stock-badge')).toHaveTextContent('Stock sample photo')
-    expect(screen.getByTestId('photo-caption')).toHaveTextContent('AI portraits need an image model')
-    await userEvent.click(screen.getByRole('button', { name: 'Generate portrait' }))
-    expect(await screen.findByRole('alert')).toHaveTextContent('Photo portraits need the studio backend')
+    expect(screen.getByTestId('photo-caption')).toHaveTextContent('Sample stock photo')
+    expect(screen.queryByRole('button', { name: 'Generate portrait' })).toBeNull()
   })
 
   it('the character form has no drawn preview any more', async () => {

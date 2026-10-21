@@ -306,21 +306,23 @@ function CharacterDetail({ char, busy, onEdit, onRegenerate, onAppearance, photo
         </div>
 
         <div className="mt-3 flex items-center gap-2" data-testid="photo-row">
-          <button
-            type="button"
-            onClick={photo.take}
-            disabled={busy || photo.busy}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all disabled:opacity-50"
-            style={{ backgroundColor: 'rgba(212,168,75,0.12)', color: '#d4a84b', border: '1px solid rgba(212,168,75,0.3)' }}
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-3.5 h-3.5"><path d="M4 8h3l2-3h6l2 3h3v11H4z" strokeLinejoin="round" /><circle cx="12" cy="13" r="3.5" /></svg>
-            {isPhoto ? 'New portrait' : 'Generate portrait'}
-          </button>
+          {/* Only when an image model is set up (IMAGE_PROVIDER=openai + key) — otherwise it could only fail */}
+          {photo.live === true && (
+            <button
+              type="button"
+              onClick={photo.take}
+              disabled={busy || photo.busy}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all disabled:opacity-50"
+              style={{ backgroundColor: 'rgba(212,168,75,0.12)', color: '#d4a84b', border: '1px solid rgba(212,168,75,0.3)' }}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-3.5 h-3.5"><path d="M4 8h3l2-3h6l2 3h3v11H4z" strokeLinejoin="round" /><circle cx="12" cy="13" r="3.5" /></svg>
+              {isPhoto ? 'New portrait' : 'Generate portrait'}
+            </button>
+          )}
           <span className="text-[11px] text-zinc-600 leading-tight" data-testid="photo-caption">
             {isPhoto ? 'AI-generated portrait'
               : kind === 'reference' ? 'Closest matching portrait for this age and gender'
-              : photo.live === false ? 'No portrait yet — AI portraits need an image model (see Settings → Studio connection)'
-              : kind === 'stock' ? 'Sample stock photo — make an AI portrait to replace it'
+              : kind === 'stock' ? (photo.live === true ? 'Sample stock photo — make an AI portrait to replace it' : 'Sample stock photo')
               : 'No portrait yet'}
           </span>
         </div>
