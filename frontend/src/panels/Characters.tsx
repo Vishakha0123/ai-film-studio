@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import DirectAI from '../components/DirectAI'
 import { usePortraits } from '../lib/usePortraits'
-import CharacterLibrary from '../components/characterLibrary/CharacterLibrary'
 import { characterPhoto, characterPhotoKind } from '../types'
 import { NoPortrait, StockBadge } from '../components/CharacterPortrait'
 import { useFilm, useStudio } from '../studio'
@@ -33,7 +32,6 @@ export default function Characters() {
   const [error, setError] = useState<string | null>(null)
   const char = chars.find(c => c.id === selected) ?? chars[0]
   const photos = usePortraits()
-  const [view, setView] = useState<'cast' | 'library'>('cast')
 
   /** Runs a change against the backend; the panel shows what it's doing and any error. */
   const run = async (label: string, fn: () => Promise<void>) => {
@@ -95,26 +93,14 @@ export default function Characters() {
 
   return (
     <div className="h-full overflow-y-auto px-4 sm:px-6 py-8" data-testid="panel-characters">
-      <div className={`${view === 'library' ? 'max-w-5xl' : 'max-w-3xl'} mx-auto animate-fade-up`}>
-        <div className="mb-6">
-          <p className="text-xs font-semibold tracking-widest uppercase mb-2" style={{ color: '#d4a84b' }}>{view === 'library' ? 'Character Library' : 'AI Generated Characters'}</p>
+      <div className="max-w-3xl mx-auto animate-fade-up">
+        <div className="mb-8">
+          <p className="text-xs font-semibold tracking-widest uppercase mb-2" style={{ color: '#d4a84b' }}>AI Generated Characters</p>
           <h2 className="text-3xl font-light" style={{ fontFamily: 'Fraunces, Georgia, serif', color: '#f4f0ea' }}>
-            {view === 'library' ? 'Find a face' : 'Cast of Characters'}
+            Cast of Characters
           </h2>
-          <p className="text-sm text-zinc-500 mt-1">{view === 'library' ? 'Choose an age, gender and look — the gallery shows the matching people.' : `${chars.length} characters · ${film.title}`}</p>
+          <p className="text-sm text-zinc-500 mt-1">{chars.length} characters · {film.title}</p>
         </div>
-
-        <div role="tablist" aria-label="Characters" className="inline-flex p-1 rounded-xl mb-8" style={{ backgroundColor: '#111113', border: '1px solid rgba(255,255,255,0.06)' }}>
-          {([['cast', 'Film cast'], ['library', 'Character library']] as const).map(([v, label]) => (
-            <button key={v} role="tab" aria-selected={view === v} onClick={() => setView(v)}
-              className="px-4 py-2 rounded-lg text-xs font-medium transition-all"
-              style={view === v ? { backgroundColor: 'rgba(255,255,255,0.08)', color: '#f4f0ea' } : { color: '#71717a' }}>
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {view === 'library' ? <CharacterLibrary /> : (<>
 
         <div className="flex gap-3 sm:gap-4 flex-wrap mb-8">
           {chars.map(c => (
@@ -203,7 +189,6 @@ export default function Characters() {
             />
           </div>
         )}
-        </>)}
       </div>
     </div>
   )
