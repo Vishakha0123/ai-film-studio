@@ -4,7 +4,8 @@ import { getProject, listDocuments, makeLanguageVersion } from '../api'
 import { FILM_LANGUAGES, languageLabel, languageName } from '../lib/languages'
 import { useStudio } from '../studio'
 import { classifyLine, LINE_STYLES } from '../panels/Screenplay'
-import { characterPhoto, filmSeconds, photoUrl } from '../types'
+import { characterPhoto, characterPhotoKind, filmSeconds, photoUrl } from '../types'
+import { NoPortrait, StockBadge } from '../components/CharacterPortrait'
 import type { Panel, ProjectData, ProjectDocument } from '../types'
 
 const SECTIONS: { id: string; label: string; panel: Panel }[] = [
@@ -190,8 +191,11 @@ export default function ProjectOverview() {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {f.characters.map(c => (
                   <article key={c.id} className="rounded-xl overflow-hidden" style={card} data-testid="overview-character">
-                    <div className="aspect-[4/3] bg-zinc-900">
-                      <img src={characterPhoto(c, 480, 360)} alt={c.name} className="w-full h-full object-cover" style={{ filter: 'grayscale(20%) contrast(1.05)' }} />
+                    <div className="aspect-[4/3] bg-zinc-900 relative">
+                      {characterPhoto(c, 480, 360)
+                        ? <img src={characterPhoto(c, 480, 360)!} alt={c.name} className="w-full h-full object-cover" />
+                        : <NoPortrait size="large" label={c.name} />}
+                      {characterPhotoKind(c) === 'stock' && <StockBadge />}
                     </div>
                     <div className="p-4 space-y-2">
                       <div>

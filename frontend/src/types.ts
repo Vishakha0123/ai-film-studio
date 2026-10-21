@@ -1,4 +1,3 @@
-import { portraitUrl } from './lib/portraits'
 export type Screen = 'landing' | 'login' | 'onboarding' | 'director' | 'generation' | 'teaser' | 'export'
 export type Panel = 'chat' | 'story' | 'characters' | 'screenplay' | 'dialogue' | 'lyrics' | 'scenes' | 'storyboard' | 'audio' | 'music'
 export type NavFn = (s: Screen) => void
@@ -155,12 +154,26 @@ export interface CostEstimate {
 }
 
 /**
- * A character's picture: the generated portrait if there is one, the sample film's photo, otherwise an
- * illustrated portrait drawn for their age and gender (girl/boy, teen, young, adult, senior).
+ * Where a character's picture comes from:
+ *  - "ai":    a portrait the image model generated for this character
+ *  - "stock": the demo film's sample photo (a stock photo — labelled as such, never passed off as AI)
+ *  - "none":  no portrait yet. Nothing is drawn or substituted; the app says so and offers to generate one.
+ * The offline mock provider's SVG placeholder frames don't count as portraits.
  */
-export function characterPhoto(c: Character, w: number, h: number): string {
-  if (c.imageUrl || c.imageId) return photoUrl(c, w, h)
-  return portraitUrl(c)
+export type CharacterPhotoKind = 'ai' | 'stock' | 'none'
+
+export function characterPhotoKind(c: Pick<Character, 'imageUrl' | 'imageId'>): CharacterPhotoKind {
+  if (c.imageUrl && !/\.svg($|\?)/i.test(c.imageUrl)) return 'ai'
+  if (c.imageId) return 'stock'
+  return 'none'
+}
+
+/** The character's real picture URL, or null when there isn't one yet. */
+export function characterPhoto(c: Character, w: number, h: number): string | null {
+  const kind = characterPhotoKind(c)
+  if (kind === 'ai') return c.imageUrl!
+  if (kind === 'stock') return photoUrl({ imageId: c.imageId }, w, h)
+  return null
 }
 
 /** Photo for a character/shot: generated asset if present, otherwise the design's Unsplash still. */

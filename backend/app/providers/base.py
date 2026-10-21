@@ -39,8 +39,9 @@ class StoryProvider(ABC):
 
 class ImageProvider(ABC):
     @abstractmethod
-    async def generate_image(self, prompt: str, *, size: str = "1536x1024", references: list[bytes] | None = None) -> ProviderResult:
-        """Return image bytes (PNG/SVG) in `data`."""
+    async def generate_image(self, prompt: str, *, size: str = "1536x1024", references: list[bytes] | None = None,
+                             negative_prompt: str = "") -> ProviderResult:
+        """Return image bytes (PNG/SVG) in `data`. `negative_prompt` lists what the image must not look like."""
 
 
 class VideoProvider(ABC):

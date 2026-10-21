@@ -1,80 +1,112 @@
 #!/usr/bin/env node
 /**
- * Character library check.
- *   npm run characters:check            → validates the data, lists which portrait files are present / missing
- *   npm run characters:check -- --prompts  → also prints the generation prompt for every missing portrait
- *   npm run characters:check -- --readme   → rewrites src/assets/characters/README.md (ids, ages, file names, prompts)
- * Exits with code 1 if the data itself is invalid (duplicate ids or files, bad ages…). Missing images are reported, not failed.
+ * Character library check — what's really there.
+ *   npm run characters:check                  → validates the data; per character: verified / unverified / invalid / missing
+ *   npm run characters:check -- --prompts     → also prints the full prompt (with the negative prompt) for each one still to generate
+ *   npm run characters:check -- --readme      → rewrites src/assets/characters/README.md
+ * Exits 1 if the data is invalid. Portraits that are missing are reported, not failed.
+ *
+ * "Verified" = a WebP of the expected size, recorded in manifest.json by `characters:generate` with the same
+ * checksum, and not identical to another character's file. Anything else is not counted as a real portrait.
  */
-import { readFileSync, readdirSync, writeFileSync, existsSync } from 'node:fs'
-import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { writeFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { imageFilesIn, loadLibrary, loadSettings, outputDir, readManifest, verifyPortrait } from './lib/portraitFiles.mjs'
 
-const root = join(dirname(fileURLToPath(import.meta.url)), '..')
-const data = JSON.parse(readFileSync(join(root, 'src/data/characterLibrary.json'), 'utf8'))
-const folder = join(root, 'src/assets/characters')
-const files = new Set(existsSync(folder) ? readdirSync(folder) : [])
+const data = loadLibrary()
 const args = new Set(process.argv.slice(2))
+const manifest = readManifest()
+const negative = loadSettings().negativePrompt || data.negativePrompt
 
 const GROUPS = [['Children', 3, 12], ['Teenagers', 13, 17], ['Young adults', 18, 29], ['Adults', 30, 59], ['Seniors', 60, Infinity]]
 const groupOf = age => GROUPS.find(([, min, max]) => age >= min && age <= max)?.[0] ?? 'Out of range'
 
 const problems = []
-const ids = new Set(), imageFiles = new Set()
+const ids = new Set(), files = new Set()
 for (const c of data.characters) {
   if (!/^CHR-\d{4}$/.test(c.id)) problems.push(`${c.id}: id should look like CHR-0001`)
   if (ids.has(c.id)) problems.push(`${c.id}: duplicate id`)
   ids.add(c.id)
   if (!Number.isInteger(c.age) || c.age < 3 || c.age > 120) problems.push(`${c.id}: age ${c.age} is outside 3–120`)
   if (!['female', 'male'].includes(c.gender)) problems.push(`${c.id}: gender must be "female" or "male"`)
-  if (!c.image?.file) problems.push(`${c.id}: no image file name`)
-  else if (imageFiles.has(c.image.file)) problems.push(`${c.id}: image file ${c.image.file} is shared with another character`)
-  imageFiles.add(c.image.file)
-  if (!c.prompt?.includes(String(c.age))) problems.push(`${c.id}: prompt doesn't mention the age ${c.age}`)
+  if (c.image?.file !== `${c.id}.webp`) problems.push(`${c.id}: image file should be ${c.id}.webp`)
+  if (files.has(c.image?.file)) problems.push(`${c.id}: image file shared with another character`)
+  files.add(c.image?.file)
+  if (!c.prompt?.startsWith(`Photorealistic close-up portrait photograph of a ${c.age}-year-old`)) problems.push(`${c.id}: prompt must start with the photorealistic portrait line and the exact age ${c.age}`)
+  if (/cartoon|illustrat|anime|avatar/i.test(c.prompt ?? '')) problems.push(`${c.id}: style words like cartoon/illustration belong in the negative prompt, not the prompt`)
 }
-const extra = [...files].filter(f => /\.(webp|jpe?g|png|avif)$/i.test(f) && !imageFiles.has(f))
+if (!negative) problems.push('negativePrompt is empty')
 
-const present = data.characters.filter(c => files.has(c.image.file))
-const missing = data.characters.filter(c => !files.has(c.image.file))
+const results = data.characters.map(c => ({ c, r: verifyPortrait(c, { manifest, spec: data.imageSpec }) }))
+const by = s => results.filter(x => x.r.status === s)
 
 console.log(`Character library: ${data.characters.length} characters`)
 for (const [name] of GROUPS) {
   const inGroup = data.characters.filter(c => groupOf(c.age) === name)
-  const f = inGroup.filter(c => c.gender === 'female').length, m = inGroup.length - f
-  console.log(`  ${name.padEnd(13)} ${String(inGroup.length).padStart(2)}  (${f} girls/women, ${m} boys/men)`)
+  const f = inGroup.filter(c => c.gender === 'female').length
+  console.log(`  ${name.padEnd(13)} ${String(inGroup.length).padStart(2)}  (${f} girls/women, ${inGroup.length - f} boys/men)`)
 }
-console.log(`\nPortraits: ${present.length} present, ${missing.length} missing  (folder: src/assets/characters/)`)
-for (const c of missing) {
-  console.log(`  missing  ${c.image.file}  — ${c.age}, ${c.gender}, ${c.heritage}`)
-  if (args.has('--prompts')) console.log(`           ${c.prompt}\n`)
+console.log(`\nPortraits in ${outputDir()}:`)
+console.log(`  generated and verified: ${by('verified').length}`)
+for (const { c, r } of by('verified')) console.log(`    ✓ ${c.image.file}  ${r.entry.model}, ${r.entry.generatedAt}`)
+console.log(`  present but unverified: ${by('unverified').length}`)
+for (const { c, r } of by('unverified')) console.log(`    ? ${c.image.file}  ${r.reason}`)
+console.log(`  invalid:                ${by('invalid').length}`)
+for (const { c, r } of by('invalid')) console.log(`    ✗ ${c.image.file}  ${r.reason}`)
+console.log(`  still to generate:      ${by('missing').length}`)
+for (const { c } of by('missing')) {
+  console.log(`    – ${c.image.file}  ${c.age}, ${c.gender}, ${c.heritage}${c.name ? ` (${c.name})` : ''}`)
+  if (args.has('--prompts')) console.log(`      ${c.prompt}\n      Avoid: ${negative}.\n`)
 }
-if (extra.length) console.log(`\nFiles in the folder that no character uses: ${extra.join(', ')}`)
+const extra = imageFilesIn(outputDir()).filter(f => !files.has(f))
+if (extra.length) console.log(`\nFiles no character uses: ${extra.join(', ')}`)
 
 if (args.has('--readme')) {
-  const rows = data.characters.map(c => `| ${c.id} | \`${c.image.file}\` | ${c.age} | ${groupOf(c.age)} | ${c.gender} | ${c.heritage} | ${files.has(c.image.file) ? 'yes' : '—'} |`)
-  const prompts = data.characters.map(c => `### ${c.id} — ${c.age}, ${c.gender}, ${c.heritage}\n\n\`${c.image.file}\`\n\n> ${c.prompt}\n`)
-  writeFileSync(join(folder, 'README.md'), `# Character library portraits
+  const status = { verified: 'generated ✓', unverified: 'unverified', invalid: 'invalid', missing: '—' }
+  const rows = results.map(({ c, r }) => `| ${c.id} | \`${c.image.file}\` | ${c.age} | ${groupOf(c.age)} | ${c.gender} | ${c.heritage}${c.name ? ` (${c.name})` : ''} | ${status[r.status]} |`)
+  const prompts = data.characters.map(c => `### ${c.id} — ${c.age}, ${c.gender}, ${c.heritage}${c.name ? ` — ${c.name}` : ''}\n\n\`${c.image.file}\`\n\n> ${c.prompt}\n`)
+  writeFileSync(join(outputDir(), 'README.md'), `# Character library portraits
 
-One AI-generated portrait per character in \`src/data/characterLibrary.json\`. Save each image here with the
-character's file name (e.g. \`CHR-0007.webp\`); the Character library picks it up automatically — no code change.
+One **AI-generated, photorealistic** portrait per character in \`src/data/characterLibrary.json\`, saved here as
+\`<ID>.webp\` (${data.imageSpec.width}×${data.imageSpec.height}). The app shows a portrait only when its own file is here; a character
+without one shows "Portrait not added yet". No drawings, avatars, stand-ins or stock photos.
 
-- **Format:** ${data.imageSpec.format}, ${data.imageSpec.width}×${data.imageSpec.height} (3:4, head and shoulders). JPG/PNG/AVIF also work if the file name in the data matches.
-- **One image per character.** Never reuse an image for two characters, and don't add stand-in pictures: a character
-  without a file shows "Portrait not added yet" in the app.
-- **Ages are matched from the data, not the file name** — if a portrait looks older or younger than the character's
-  age, change the image (or the age in the data), not the name.
-- Check what's present or missing: \`npm run characters:check\` (add \`-- --prompts\` for the missing prompts).
+## Generating them
+
+Portraits are made by an image model through \`npm run characters:generate\` (in \`frontend/\`). It needs an API key:
+
+\`\`\`
+# backend/.env  (or frontend/.env.local)
+OPENAI_API_KEY=sk-...                 # required — platform.openai.com → API keys
+CHARACTER_IMAGE_MODEL=gpt-image-1     # optional — a GPT Image model that can return WebP
+CHARACTER_IMAGE_QUALITY=high          # optional — low | medium | high (higher costs more per image)
+CHARACTER_NEGATIVE_PROMPT=...         # optional — replaces the default negative prompt below
+\`\`\`
+
+\`\`\`
+npm run characters:generate -- --dry-run          # see exactly what will be sent (no calls, no files)
+npm run characters:generate -- --only=CHR-0045    # one portrait first (Paati) to check the look
+npm run characters:generate                       # every character still missing
+npm run characters:generate -- --force --only=CHR-0007   # replace one you don't like
+npm run characters:check                          # generated and verified / unverified / invalid / missing
+\`\`\`
+
+Each image is checked before it's saved — a real WebP of the right size, not identical to another character's —
+and recorded in \`manifest.json\` (model, time, checksum, prompt checksum). Files added by hand are reported as
+**unverified**. Add another provider in \`scripts/characters-generate.mjs\` (\`PROVIDERS\`).
+
+**Negative prompt** (what portraits must never look like): ${negative}
 
 ## Characters
 
-| ID | File | Age | Group | Gender | Background | Present |
+| ID | File | Age | Group | Gender | Background | Portrait |
 |---|---|---|---|---|---|---|
 ${rows.join('\n')}
 
 ## Prompts
 
 ${prompts.join('\n')}`)
-  console.log('\nWrote src/assets/characters/README.md')
+  console.log('\nWrote README.md')
 }
 
 if (problems.length) {

@@ -49,21 +49,53 @@ _WHO = {
 
 
 def portrait_prompt(project, char: dict) -> str:
-    """A photograph-style prompt: a real-looking person of the right age and gender, in the film's world."""
+    """A live-action casting photo of a unique, fictional person with the character's recorded details.
+
+    Keeps the character's age, gender, background, look, clothing, personality and place in the story;
+    the camera/lighting part asks for a real photograph (the negative prompt is sent separately).
+    """
     band = age_band(char.get("age"))
-    who = _WHO[(band, char.get("gender", "") if char.get("gender") in ("female", "male") else "")]
+    gender = char.get("gender", "") if char.get("gender") in ("female", "male") else ""
+    who = _WHO[(band, gender)]
     age = str(char.get("age", "")).strip()
     memory = project.memory or {}
+    language = (project.language or "en")
     parts = [
-        f"Photorealistic portrait photograph of {who}" + (f", age {age}" if age else "") + f", playing {char['name']}",
-        f"role: {char['role']}" if char.get("role") else "",
-        f"look: {char['appearance']}" if char.get("appearance") else "",
-        f"film: {memory.get('genre', '')}, {memory.get('tone', '')}".strip(", ") if memory.get("genre") or memory.get("tone") else "",
-        "A real human being photographed on a cinema camera: natural skin texture and pores, real hair, "
-        "realistic eyes, head and shoulders, looking slightly off camera, soft cinematic key light, shallow depth "
-        "of field, 85mm lens, plain dark background. Not a drawing, not a cartoon, not 3D, no text, no watermark.",
+        f"Photorealistic close-up portrait photograph of {who}" + (f", exactly {age} years old" if age else "")
+        + f", a fictional character named {char['name']} in a live-action feature film",
+        f"Role in the story: {char['role']}" if char.get("role") else "",
+        f"Appearance, hair and clothing: {char['appearance']}" if char.get("appearance") else "",
+        f"Personality to show in the expression: {char['personality']}" if char.get("personality") else "",
+        f"Story world: {memory['logline']}" if memory.get("logline") else "",
+        f"Film: {memory.get('genre', '')}, {memory.get('tone', '')}".strip(", ") if memory.get("genre") or memory.get("tone") else "",
+        f"Background and culture fit a film made in {language_name(language)}" if language != "en" else "",
+        _AGE_DETAIL[band],
+        "A unique, fictional individual with their own distinct face (not a celebrity or a real person). "
+        "Realistic facial anatomy and natural asymmetry, real skin texture with visible pores and fine lines, "
+        "believable individual hair strands, natural eyes with catchlights. Shot like a casting photograph on a "
+        "full-frame cinema camera, 85mm lens at f/2, soft key light with gentle fill, natural colour, shallow depth "
+        "of field, head and shoulders, softly blurred neutral background",
     ]
-    return ". ".join(p for p in parts if p)
+    return ". ".join(p for p in parts if p) + "."
+
+
+def negative_prompt() -> str:
+    return get_settings().PORTRAIT_NEGATIVE_PROMPT
+
+
+_AGE_DETAIL = {
+    "child": "Age-appropriate child features: soft rounded face, small nose, baby teeth or a gap-toothed smile where natural",
+    "teen": "Age-appropriate teenage features: youthful skin, still-maturing face, natural teenage expression",
+    "young": "Age-appropriate young-adult features: smooth skin with natural texture, defined jawline",
+    "adult": "Age-appropriate adult features: early fine lines and laugh lines, mature face",
+    "senior": "Age-appropriate elderly features: natural deep wrinkles, crow's feet, age spots, thinning or grey hair, "
+              "softened jawline, expressive, knowing eyes",
+}
+
+
+def language_name(code: str) -> str:
+    from app.services.languages import LANGUAGES
+    return LANGUAGES.get(code, (code, code))[0]
 
 
 def real_images_available() -> bool:

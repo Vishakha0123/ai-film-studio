@@ -1128,12 +1128,15 @@ def test_portrait_prompt_says_girl_or_boy_and_age(client, monkeypatch):
     monkeypatch.setattr(MockImage, "generate_image", spy)
     pid, _ = _plan(client)
     client.post(f"/api/v1/projects/{pid}/generate", json={"quality": "draft", "confirmCost": True}, headers=auth())
-    elena = next(p for p in prompts if "playing Elena" in p)
-    assert elena.startswith("Photorealistic portrait photograph of a young woman, age 32")
-    assert "Not a drawing, not a cartoon" in elena
+    elena = next(p for p in prompts if "character named Elena" in p)
+    assert elena.startswith("Photorealistic close-up portrait photograph of a young woman, exactly 32 years old")
+    assert "real skin texture" in elena and "unique, fictional individual" in elena
 
 
 # ---------- Photo portraits ----------
+
+photo_negatives: list[str] = []
+
 
 @pytest.fixture
 def photo_portraits(monkeypatch):
@@ -1142,10 +1145,12 @@ def photo_portraits(monkeypatch):
     from app.providers.mock import MockImage
     monkeypatch.setattr(get_settings(), "ALLOW_MOCK_PORTRAITS", True)
     prompts = []
+    negatives = photo_negatives
     orig = MockImage.generate_image
 
     async def spy(self, prompt, **kw):
         prompts.append((prompt, kw.get("size")))
+        negatives.append(kw.get("negative_prompt", ""))
         return await orig(self, prompt, **kw)
     monkeypatch.setattr(MockImage, "generate_image", spy)
     return prompts
@@ -1175,7 +1180,8 @@ def test_a_planned_film_gets_photo_portraits_of_its_cast(client, photo_portraits
     jobs = client.get(f"/api/v1/projects/{pid}/jobs", headers=auth()).json()
     assert [j["task"] for j in jobs] == ["portraits", "plan"] and jobs[0]["status"] == "completed"
     prompt, size = photo_portraits[0]
-    assert prompt.startswith("Photorealistic portrait photograph of a young woman, age 32, playing Elena") and size == "1024x1536"
+    assert prompt.startswith("Photorealistic close-up portrait photograph of a young woman, exactly 32 years old, "
+                             "a fictional character named Elena") and size == "1024x1536"
     chars = client.get(f"/api/v1/projects/{pid}", headers=auth()).json()["memory"]["characters"]
     assert all(c.get("imageUrl") for c in chars)
 
@@ -1185,11 +1191,12 @@ def test_adding_or_changing_a_character_makes_a_new_photo(client, photo_portrait
     p = client.post(f"/api/v1/projects/{pid}/characters", json={"name": "Pinky", "age": "8", "gender": "female"}, headers=auth()).json()
     new_id = p["memory"]["characters"][-1]["id"]
     assert _portrait_versions(client, pid)[new_id] == 1
-    assert any(pr.startswith("Photorealistic portrait photograph of a little girl, age 8, playing Pinky") for pr, _ in photo_portraits)
+    assert any(pr.startswith("Photorealistic close-up portrait photograph of a little girl, exactly 8 years old, "
+                             "a fictional character named Pinky") for pr, _ in photo_portraits)
     # older → new photo; a role change alone keeps the photo
     client.patch(f"/api/v1/projects/{pid}/characters/{new_id}", json={"age": "70"}, headers=auth())
     assert _portrait_versions(client, pid)[new_id] == 2
-    assert photo_portraits[-1][0].startswith("Photorealistic portrait photograph of an elderly woman, age 70")
+    assert photo_portraits[-1][0].startswith("Photorealistic close-up portrait photograph of an elderly woman, exactly 70 years old")
     client.patch(f"/api/v1/projects/{pid}/characters/{new_id}", json={"role": "Village elder"}, headers=auth())
     assert _portrait_versions(client, pid)[new_id] == 2
 
@@ -1223,3 +1230,37 @@ def test_ai_character_edit_only_rephotographs_the_changed_character(client, phot
     finally:
         mp.undo()
     assert _portrait_versions(client, pid) == {"1": 2, "2": 1, "3": 1}
+
+
+def test_paati_prompt_keeps_her_details_and_asks_for_a_real_photograph(client, photo_portraits):
+    photo_negatives.clear()
+    pid, _ = _plan(client)
+    paati = {"name": "Paati", "age": "78", "gender": "female", "role": "Grandmother who rules the kitchen",
+             "appearance": "silver hair in a bun, white cotton saree with a checked border, natural wrinkles, expressive eyes",
+             "personality": "Sharp-tongued, loving, secretly sentimental"}
+    client.post(f"/api/v1/projects/{pid}/characters", json=paati, headers=auth())
+    prompt = photo_portraits[-1][0]
+    assert prompt.startswith("Photorealistic close-up portrait photograph of an elderly woman, exactly 78 years old, a fictional character named Paati")
+    for detail in ("silver hair in a bun", "white cotton saree with a checked border", "Grandmother who rules the kitchen",
+                   "Sharp-tongued, loving", "natural deep wrinkles", "unique, fictional individual", "85mm"):
+        assert detail in prompt
+    # every portrait goes out with the negative prompt
+    assert photo_negatives and all("cartoon" in n and "illustration" in n and "anime" in n and "3D render" in n
+                                   and "painting" in n and "avatar" in n for n in photo_negatives)
+
+
+def test_negative_prompt_is_configurable_and_sent_to_openai_as_avoid(client, monkeypatch):
+    from app.config import get_settings
+    from app.providers.openai_images import OpenAIImage
+    monkeypatch.setattr(get_settings(), "OPENAI_API_KEY", "k")
+    monkeypatch.setattr(get_settings(), "PORTRAIT_NEGATIVE_PROMPT", "no cartoons please")
+    from app.services.portraits import negative_prompt
+    assert negative_prompt() == "no cartoons please"
+    import base64
+    with respx.mock:
+        route = respx.post("https://api.openai.com/v1/images/generations").mock(
+            return_value=Response(200, json={"data": [{"b64_json": base64.b64encode(b"img").decode()}]}))
+        import asyncio
+        asyncio.run(OpenAIImage().generate_image("A portrait", size="1024x1536", negative_prompt="no cartoons please"))
+        sent = route.calls[0].request.content.decode()
+    assert "A portrait" in sent and "Avoid: no cartoons please." in sent

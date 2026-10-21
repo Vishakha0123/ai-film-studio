@@ -84,7 +84,8 @@ class MockStory(StoryProvider):
 
 
 class MockImage(ImageProvider):
-    async def generate_image(self, prompt: str, *, size: str = "1536x1024", references=None) -> ProviderResult:
+    async def generate_image(self, prompt: str, *, size: str = "1536x1024", references=None,
+                             negative_prompt: str = "") -> ProviderResult:
         w, h = (int(x) for x in size.split("x"))
         hue = sum(map(ord, prompt)) % 360
         label = escape(prompt[:90])

@@ -61,11 +61,18 @@ export default function CharacterCard({ character: c, selected, onSelect }: {
         <span className="absolute top-2 left-2 px-2 py-0.5 rounded text-[10px] font-semibold tracking-wide" style={{ backgroundColor: 'rgba(9,9,11,0.8)', color: '#a1a1aa' }}>
           {group.label}
         </span>
+        {c.portrait.status === 'ready' && (
+          <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded text-[10px] font-medium" style={{ backgroundColor: 'rgba(9,9,11,0.8)', color: c.portrait.generated ? '#a1a1aa' : '#fbbf24' }}
+            title={c.portrait.generated ? `Generated with ${c.portrait.generated.model} on ${c.portrait.generated.generatedAt.slice(0, 10)}` : 'This file was not made by characters:generate'}
+            data-testid="portrait-origin">
+            {c.portrait.generated ? `AI-generated · ${c.portrait.generated.model}` : 'Unverified image'}
+          </span>
+        )}
       </div>
 
       <div className="p-3 flex flex-col gap-2 flex-1">
         <code className="self-start px-1.5 py-0.5 rounded text-[10px] text-zinc-400" style={{ backgroundColor: 'rgba(255,255,255,0.05)' }} data-testid="character-id">{c.id}</code>
-        <p className="text-sm font-medium leading-snug" style={{ color: '#f4f0ea' }}>{who} · <span style={{ color: GOLD }} className="whitespace-nowrap">Age {c.age}</span></p>
+        <p className="text-sm font-medium leading-snug" style={{ color: '#f4f0ea' }}>{c.name ? `${c.name} · ` : ''}{who} · <span style={{ color: GOLD }} className="whitespace-nowrap">Age {c.age}</span></p>
         <p className="text-[11px] text-zinc-500">{c.heritage} · {ETHNICITY_LABEL[c.ethnicity]}</p>
         <p className="text-xs text-zinc-400 leading-relaxed line-clamp-2" title={c.appearance}>{c.appearance}</p>
         <button

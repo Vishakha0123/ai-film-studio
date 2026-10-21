@@ -1,9 +1,10 @@
 {
-  "version": 1,
+  "version": 2,
   "imageSpec": {
     "format": "webp",
-    "width": 768,
-    "height": 1024,
+    "width": 1024,
+    "height": 1536,
+    "aspect": "2:3",
     "folder": "frontend/src/assets/characters"
   },
   "characters": [
@@ -26,10 +27,10 @@
       "appearance": "Tamil girl with brown skin, black hair in pigtails, dark brown eyes, freckles, wearing a striped t-shirt",
       "image": {
         "file": "CHR-0001.webp",
-        "width": 768,
-        "height": 1024
+        "width": 1024,
+        "height": 1536
       },
-      "prompt": "Photorealistic studio portrait photograph of a 3-year-old Tamil girl, brown skin, black hair in pigtails, dark brown eyes, freckles, wearing a striped t-shirt. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+      "prompt": "Photorealistic close-up portrait photograph of a 3-year-old Tamil girl. Brown skin tone, black hair in pigtails, dark brown eyes, freckles. Wearing a striped t-shirt. Age-appropriate child features: soft rounded face, small nose, baby-fine hair, small milk teeth. A unique, fictional person with their own distinct face, not a celebrity. Realistic facial anatomy with natural asymmetry, real skin texture with visible pores and fine vellus hair, believable individual hair strands, natural eyes with catchlights. Casting photograph for a live-action feature film: full-frame cinema camera, 85mm lens at f/2, soft window key light with gentle fill, natural colour grading, shallow depth of field, head and shoulders, softly blurred warm-grey background."
     },
     {
       "id": "CHR-0002",
@@ -50,10 +51,10 @@
       "appearance": "Kenyan girl with dark skin, black tightly coiled hair with a headband, dark brown eyes, rosy cheeks, wearing a cotton frock",
       "image": {
         "file": "CHR-0002.webp",
-        "width": 768,
-        "height": 1024
+        "width": 1024,
+        "height": 1536
       },
-      "prompt": "Photorealistic studio portrait photograph of a 5-year-old Kenyan girl, dark skin, black tightly coiled hair with a headband, dark brown eyes, rosy cheeks, wearing a cotton frock. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+      "prompt": "Photorealistic close-up portrait photograph of a 5-year-old Kenyan girl. Dark skin tone, black tightly coiled hair with a headband, dark brown eyes, rosy cheeks. Wearing a cotton frock. Age-appropriate child features: soft rounded face, small nose, baby-fine hair, small milk teeth. A unique, fictional person with their own distinct face, not a celebrity. Realistic facial anatomy with natural asymmetry, real skin texture with visible pores and fine vellus hair, believable individual hair strands, natural eyes with catchlights. Casting photograph for a live-action feature film: full-frame cinema camera, 85mm lens at f/2, soft window key light with gentle fill, natural colour grading, shallow depth of field, head and shoulders, softly blurred warm-grey background."
     },
     {
       "id": "CHR-0003",
@@ -74,10 +75,10 @@
       "appearance": "Navajo girl with tan skin, black hair in pigtails, dark brown eyes, freckles, wearing a yellow raincoat",
       "image": {
         "file": "CHR-0003.webp",
-        "width": 768,
-        "height": 1024
+        "width": 1024,
+        "height": 1536
       },
-      "prompt": "Photorealistic studio portrait photograph of a 7-year-old Navajo girl, tan skin, black hair in pigtails, dark brown eyes, freckles, wearing a yellow raincoat. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+      "prompt": "Photorealistic close-up portrait photograph of a 7-year-old Navajo girl. Tan skin tone, black hair in pigtails, dark brown eyes, freckles. Wearing a yellow raincoat. Age-appropriate child features: soft rounded face, small nose, baby-fine hair, small milk teeth. A unique, fictional person with their own distinct face, not a celebrity. Realistic facial anatomy with natural asymmetry, real skin texture with visible pores and fine vellus hair, believable individual hair strands, natural eyes with catchlights. Casting photograph for a live-action feature film: full-frame cinema camera, 85mm lens at f/2, soft window key light with gentle fill, natural colour grading, shallow depth of field, head and shoulders, softly blurred warm-grey background."
     },
     {
       "id": "CHR-0004",
@@ -98,10 +99,10 @@
       "appearance": "Marathi girl with tan skin, black wavy hair with a headband, dark brown eyes, rosy cheeks, wearing a hand-knit sweater",
       "image": {
         "file": "CHR-0004.webp",
-        "width": 768,
-        "height": 1024
+        "width": 1024,
+        "height": 1536
       },
-      "prompt": "Photorealistic studio portrait photograph of a 9-year-old Marathi girl, tan skin, black wavy hair with a headband, dark brown eyes, rosy cheeks, wearing a hand-knit sweater. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+      "prompt": "Photorealistic close-up portrait photograph of a 9-year-old Marathi girl. Tan skin tone, black wavy hair with a headband, dark brown eyes, rosy cheeks. Wearing a hand-knit sweater. Age-appropriate child features: soft rounded face, small nose, baby-fine hair, small milk teeth. A unique, fictional person with their own distinct face, not a celebrity. Realistic facial anatomy with natural asymmetry, real skin texture with visible pores and fine vellus hair, believable individual hair strands, natural eyes with catchlights. Casting photograph for a live-action feature film: full-frame cinema camera, 85mm lens at f/2, soft window key light with gentle fill, natural colour grading, shallow depth of field, head and shoulders, softly blurred warm-grey background."
     },
     {
       "id": "CHR-0005",
@@ -122,10 +123,10 @@
       "appearance": "Bengali girl with tan skin, black hair in pigtails, dark brown eyes, freckles, wearing a school uniform shirt",
       "image": {
         "file": "CHR-0005.webp",
-        "width": 768,
-        "height": 1024
+        "width": 1024,
+        "height": 1536
       },
-      "prompt": "Photorealistic studio portrait photograph of a 11-year-old Bengali girl, tan skin, black hair in pigtails, dark brown eyes, freckles, wearing a school uniform shirt. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+      "prompt": "Photorealistic close-up portrait photograph of a 11-year-old Bengali girl. Tan skin tone, black hair in pigtails, dark brown eyes, freckles. Wearing a school uniform shirt. Age-appropriate child features: soft rounded face, small nose, baby-fine hair, small milk teeth. A unique, fictional person with their own distinct face, not a celebrity. Realistic facial anatomy with natural asymmetry, real skin texture with visible pores and fine vellus hair, believable individual hair strands, natural eyes with catchlights. Casting photograph for a live-action feature film: full-frame cinema camera, 85mm lens at f/2, soft window key light with gentle fill, natural colour grading, shallow depth of field, head and shoulders, softly blurred warm-grey background."
     },
     {
       "id": "CHR-0006",
@@ -143,13 +144,13 @@
         "a thoughtful expression"
       ],
       "wardrobe": "a school uniform shirt",
-      "appearance": "Italian teenage girl with medium-light skin, wavy brown hair worn loose, hazel eyes, a thoughtful expression, wearing a school uniform shirt",
+      "appearance": "Teenage Italian girl with medium-light skin, wavy brown hair worn loose, hazel eyes, a thoughtful expression, wearing a school uniform shirt",
       "image": {
         "file": "CHR-0006.webp",
-        "width": 768,
-        "height": 1024
+        "width": 1024,
+        "height": 1536
       },
-      "prompt": "Photorealistic studio portrait photograph of a 13-year-old Italian teenage girl, medium-light skin, wavy brown hair worn loose, hazel eyes, a thoughtful expression, wearing a school uniform shirt. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+      "prompt": "Photorealistic close-up portrait photograph of a 13-year-old teenage Italian girl. Medium-light skin tone, wavy brown hair worn loose, hazel eyes, a thoughtful expression. Wearing a school uniform shirt. Age-appropriate teenage features: youthful skin with natural texture, still-maturing face. A unique, fictional person with their own distinct face, not a celebrity. Realistic facial anatomy with natural asymmetry, real skin texture with visible pores and fine vellus hair, believable individual hair strands, natural eyes with catchlights. Casting photograph for a live-action feature film: full-frame cinema camera, 85mm lens at f/2, soft window key light with gentle fill, natural colour grading, shallow depth of field, head and shoulders, softly blurred warm-grey background."
     },
     {
       "id": "CHR-0007",
@@ -167,13 +168,13 @@
         "a confident look"
       ],
       "wardrobe": "a hoodie",
-      "appearance": "Vietnamese teenage girl with medium-light skin, long straight black hair, dark brown eyes, a confident look, wearing a hoodie",
+      "appearance": "Teenage Vietnamese girl with medium-light skin, long straight black hair, dark brown eyes, a confident look, wearing a hoodie",
       "image": {
         "file": "CHR-0007.webp",
-        "width": 768,
-        "height": 1024
+        "width": 1024,
+        "height": 1536
       },
-      "prompt": "Photorealistic studio portrait photograph of a 15-year-old Vietnamese teenage girl, medium-light skin, long straight black hair, dark brown eyes, a confident look, wearing a hoodie. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+      "prompt": "Photorealistic close-up portrait photograph of a 15-year-old teenage Vietnamese girl. Medium-light skin tone, long straight black hair, dark brown eyes, a confident look. Wearing a hoodie. Age-appropriate teenage features: youthful skin with natural texture, still-maturing face. A unique, fictional person with their own distinct face, not a celebrity. Realistic facial anatomy with natural asymmetry, real skin texture with visible pores and fine vellus hair, believable individual hair strands, natural eyes with catchlights. Casting photograph for a live-action feature film: full-frame cinema camera, 85mm lens at f/2, soft window key light with gentle fill, natural colour grading, shallow depth of field, head and shoulders, softly blurred warm-grey background."
     },
     {
       "id": "CHR-0008",
@@ -191,13 +192,13 @@
         "a thoughtful expression"
       ],
       "wardrobe": "a graphic t-shirt",
-      "appearance": "Irish teenage girl with light skin, wavy blonde hair worn loose, green eyes, a thoughtful expression, wearing a graphic t-shirt",
+      "appearance": "Teenage Irish girl with light skin, wavy blonde hair worn loose, green eyes, a thoughtful expression, wearing a graphic t-shirt",
       "image": {
         "file": "CHR-0008.webp",
-        "width": 768,
-        "height": 1024
+        "width": 1024,
+        "height": 1536
       },
-      "prompt": "Photorealistic studio portrait photograph of a 17-year-old Irish teenage girl, light skin, wavy blonde hair worn loose, green eyes, a thoughtful expression, wearing a graphic t-shirt. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+      "prompt": "Photorealistic close-up portrait photograph of a 17-year-old teenage Irish girl. Light skin tone, wavy blonde hair worn loose, green eyes, a thoughtful expression. Wearing a graphic t-shirt. Age-appropriate teenage features: youthful skin with natural texture, still-maturing face. A unique, fictional person with their own distinct face, not a celebrity. Realistic facial anatomy with natural asymmetry, real skin texture with visible pores and fine vellus hair, believable individual hair strands, natural eyes with catchlights. Casting photograph for a live-action feature film: full-frame cinema camera, 85mm lens at f/2, soft window key light with gentle fill, natural colour grading, shallow depth of field, head and shoulders, softly blurred warm-grey background."
     },
     {
       "id": "CHR-0009",
@@ -215,13 +216,13 @@
         "a calm expression"
       ],
       "wardrobe": "a plain black t-shirt",
-      "appearance": "Jamaican young woman with brown skin, a soft hijab, dark brown eyes, a calm expression, wearing a plain black t-shirt",
+      "appearance": "Young Jamaican woman with brown skin, a soft hijab, dark brown eyes, a calm expression, wearing a plain black t-shirt",
       "image": {
         "file": "CHR-0009.webp",
-        "width": 768,
-        "height": 1024
+        "width": 1024,
+        "height": 1536
       },
-      "prompt": "Photorealistic studio portrait photograph of a 19-year-old Jamaican young woman, brown skin, a soft hijab, dark brown eyes, a calm expression, wearing a plain black t-shirt. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+      "prompt": "Photorealistic close-up portrait photograph of a 19-year-old young Jamaican woman. Brown skin tone, a soft hijab, dark brown eyes, a calm expression. Wearing a plain black t-shirt. Age-appropriate young-adult features: smooth skin with natural texture and pores, defined jawline. A unique, fictional person with their own distinct face, not a celebrity. Realistic facial anatomy with natural asymmetry, real skin texture with visible pores and fine vellus hair, believable individual hair strands, natural eyes with catchlights. Casting photograph for a live-action feature film: full-frame cinema camera, 85mm lens at f/2, soft window key light with gentle fill, natural colour grading, shallow depth of field, head and shoulders, softly blurred warm-grey background."
     },
     {
       "id": "CHR-0010",
@@ -240,13 +241,13 @@
         "a small bindi"
       ],
       "wardrobe": "a cotton kurta",
-      "appearance": "Telugu young woman with brown skin, voluminous straight black hair, dark brown eyes, an easy smile, a small bindi, wearing a cotton kurta",
+      "appearance": "Young Telugu woman with brown skin, voluminous straight black hair, dark brown eyes, an easy smile, a small bindi, wearing a cotton kurta",
       "image": {
         "file": "CHR-0010.webp",
-        "width": 768,
-        "height": 1024
+        "width": 1024,
+        "height": 1536
       },
-      "prompt": "Photorealistic studio portrait photograph of a 22-year-old Telugu young woman, brown skin, voluminous straight black hair, dark brown eyes, an easy smile, a small bindi, wearing a cotton kurta. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+      "prompt": "Photorealistic close-up portrait photograph of a 22-year-old young Telugu woman. Brown skin tone, voluminous straight black hair, dark brown eyes, an easy smile, a small bindi. Wearing a cotton kurta. Age-appropriate young-adult features: smooth skin with natural texture and pores, defined jawline. A unique, fictional person with their own distinct face, not a celebrity. Realistic facial anatomy with natural asymmetry, real skin texture with visible pores and fine vellus hair, believable individual hair strands, natural eyes with catchlights. Casting photograph for a live-action feature film: full-frame cinema camera, 85mm lens at f/2, soft window key light with gentle fill, natural colour grading, shallow depth of field, head and shoulders, softly blurred warm-grey background."
     },
     {
       "id": "CHR-0011",
@@ -264,13 +265,13 @@
         "a calm expression"
       ],
       "wardrobe": "a denim jacket",
-      "appearance": "Mexican young woman with tan skin, long wavy black hair, brown eyes, a calm expression, wearing a denim jacket",
+      "appearance": "Young Mexican woman with tan skin, long wavy black hair, brown eyes, a calm expression, wearing a denim jacket",
       "image": {
         "file": "CHR-0011.webp",
-        "width": 768,
-        "height": 1024
+        "width": 1024,
+        "height": 1536
       },
-      "prompt": "Photorealistic studio portrait photograph of a 26-year-old Mexican young woman, tan skin, long wavy black hair, brown eyes, a calm expression, wearing a denim jacket. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+      "prompt": "Photorealistic close-up portrait photograph of a 26-year-old young Mexican woman. Tan skin tone, long wavy black hair, brown eyes, a calm expression. Wearing a denim jacket. Age-appropriate young-adult features: smooth skin with natural texture and pores, defined jawline. A unique, fictional person with their own distinct face, not a celebrity. Realistic facial anatomy with natural asymmetry, real skin texture with visible pores and fine vellus hair, believable individual hair strands, natural eyes with catchlights. Casting photograph for a live-action feature film: full-frame cinema camera, 85mm lens at f/2, soft window key light with gentle fill, natural colour grading, shallow depth of field, head and shoulders, softly blurred warm-grey background."
     },
     {
       "id": "CHR-0012",
@@ -288,13 +289,13 @@
         "an easy smile"
       ],
       "wardrobe": "a linen shirt",
-      "appearance": "Korean young woman with light skin, voluminous straight black hair, dark brown eyes, an easy smile, wearing a linen shirt",
+      "appearance": "Young Korean woman with light skin, voluminous straight black hair, dark brown eyes, an easy smile, wearing a linen shirt",
       "image": {
         "file": "CHR-0012.webp",
-        "width": 768,
-        "height": 1024
+        "width": 1024,
+        "height": 1536
       },
-      "prompt": "Photorealistic studio portrait photograph of a 29-year-old Korean young woman, light skin, voluminous straight black hair, dark brown eyes, an easy smile, wearing a linen shirt. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+      "prompt": "Photorealistic close-up portrait photograph of a 29-year-old young Korean woman. Light skin tone, voluminous straight black hair, dark brown eyes, an easy smile. Wearing a linen shirt. Age-appropriate young-adult features: smooth skin with natural texture and pores, defined jawline. A unique, fictional person with their own distinct face, not a celebrity. Realistic facial anatomy with natural asymmetry, real skin texture with visible pores and fine vellus hair, believable individual hair strands, natural eyes with catchlights. Casting photograph for a live-action feature film: full-frame cinema camera, 85mm lens at f/2, soft window key light with gentle fill, natural colour grading, shallow depth of field, head and shoulders, softly blurred warm-grey background."
     },
     {
       "id": "CHR-0013",
@@ -315,10 +316,10 @@
       "appearance": "Brazilian woman with medium skin, shoulder-length curly black hair, brown eyes, reading glasses, wearing a knit cardigan",
       "image": {
         "file": "CHR-0013.webp",
-        "width": 768,
-        "height": 1024
+        "width": 1024,
+        "height": 1536
       },
-      "prompt": "Photorealistic studio portrait photograph of a 31-year-old Brazilian woman, medium skin, shoulder-length curly black hair, brown eyes, reading glasses, wearing a knit cardigan. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+      "prompt": "Photorealistic close-up portrait photograph of a 31-year-old Brazilian woman. Medium skin tone, shoulder-length curly black hair, brown eyes, reading glasses. Wearing a knit cardigan. Age-appropriate adult features: early fine lines, laugh lines, mature bone structure. A unique, fictional person with their own distinct face, not a celebrity. Realistic facial anatomy with natural asymmetry, real skin texture with visible pores and fine vellus hair, believable individual hair strands, natural eyes with catchlights. Casting photograph for a live-action feature film: full-frame cinema camera, 85mm lens at f/2, soft window key light with gentle fill, natural colour grading, shallow depth of field, head and shoulders, softly blurred warm-grey background."
     },
     {
       "id": "CHR-0014",
@@ -339,10 +340,10 @@
       "appearance": "Japanese woman with light skin, a patterned headscarf, dark brown eyes, faint crow's feet, wearing a collared shirt",
       "image": {
         "file": "CHR-0014.webp",
-        "width": 768,
-        "height": 1024
+        "width": 1024,
+        "height": 1536
       },
-      "prompt": "Photorealistic studio portrait photograph of a 38-year-old Japanese woman, light skin, a patterned headscarf, dark brown eyes, faint crow's feet, wearing a collared shirt. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+      "prompt": "Photorealistic close-up portrait photograph of a 38-year-old Japanese woman. Light skin tone, a patterned headscarf, dark brown eyes, faint crow's feet. Wearing a collared shirt. Age-appropriate adult features: early fine lines, laugh lines, mature bone structure. A unique, fictional person with their own distinct face, not a celebrity. Realistic facial anatomy with natural asymmetry, real skin texture with visible pores and fine vellus hair, believable individual hair strands, natural eyes with catchlights. Casting photograph for a live-action feature film: full-frame cinema camera, 85mm lens at f/2, soft window key light with gentle fill, natural colour grading, shallow depth of field, head and shoulders, softly blurred warm-grey background."
     },
     {
       "id": "CHR-0015",
@@ -363,10 +364,10 @@
       "appearance": "Malayali woman with dark skin, shoulder-length curly black hair, dark brown eyes, reading glasses, wearing a wool blazer",
       "image": {
         "file": "CHR-0015.webp",
-        "width": 768,
-        "height": 1024
+        "width": 1024,
+        "height": 1536
       },
-      "prompt": "Photorealistic studio portrait photograph of a 45-year-old Malayali woman, dark skin, shoulder-length curly black hair, dark brown eyes, reading glasses, wearing a wool blazer. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+      "prompt": "Photorealistic close-up portrait photograph of a 45-year-old Malayali woman. Dark skin tone, shoulder-length curly black hair, dark brown eyes, reading glasses. Wearing a wool blazer. Age-appropriate adult features: early fine lines, laugh lines, mature bone structure. A unique, fictional person with their own distinct face, not a celebrity. Realistic facial anatomy with natural asymmetry, real skin texture with visible pores and fine vellus hair, believable individual hair strands, natural eyes with catchlights. Casting photograph for a live-action feature film: full-frame cinema camera, 85mm lens at f/2, soft window key light with gentle fill, natural colour grading, shallow depth of field, head and shoulders, softly blurred warm-grey background."
     },
     {
       "id": "CHR-0016",
@@ -387,10 +388,10 @@
       "appearance": "Ethiopian woman with brown skin, a patterned headscarf, dark brown eyes, faint crow's feet, wearing a collared shirt",
       "image": {
         "file": "CHR-0016.webp",
-        "width": 768,
-        "height": 1024
+        "width": 1024,
+        "height": 1536
       },
-      "prompt": "Photorealistic studio portrait photograph of a 52-year-old Ethiopian woman, brown skin, a patterned headscarf, dark brown eyes, faint crow's feet, wearing a collared shirt. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+      "prompt": "Photorealistic close-up portrait photograph of a 52-year-old Ethiopian woman. Brown skin tone, a patterned headscarf, dark brown eyes, faint crow's feet. Wearing a collared shirt. Age-appropriate adult features: early fine lines, laugh lines, mature bone structure. A unique, fictional person with their own distinct face, not a celebrity. Realistic facial anatomy with natural asymmetry, real skin texture with visible pores and fine vellus hair, believable individual hair strands, natural eyes with catchlights. Casting photograph for a live-action feature film: full-frame cinema camera, 85mm lens at f/2, soft window key light with gentle fill, natural colour grading, shallow depth of field, head and shoulders, softly blurred warm-grey background."
     },
     {
       "id": "CHR-0017",
@@ -411,10 +412,10 @@
       "appearance": "Nigerian woman with dark skin, shoulder-length tightly coiled salt-and-pepper hair, dark brown eyes, reading glasses, wearing a collared shirt",
       "image": {
         "file": "CHR-0017.webp",
-        "width": 768,
-        "height": 1024
+        "width": 1024,
+        "height": 1536
       },
-      "prompt": "Photorealistic studio portrait photograph of a 58-year-old Nigerian woman, dark skin, shoulder-length tightly coiled salt-and-pepper hair, dark brown eyes, reading glasses, wearing a collared shirt. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+      "prompt": "Photorealistic close-up portrait photograph of a 58-year-old Nigerian woman. Dark skin tone, shoulder-length tightly coiled salt-and-pepper hair, dark brown eyes, reading glasses. Wearing a collared shirt. Age-appropriate adult features: early fine lines, laugh lines, mature bone structure. A unique, fictional person with their own distinct face, not a celebrity. Realistic facial anatomy with natural asymmetry, real skin texture with visible pores and fine vellus hair, believable individual hair strands, natural eyes with catchlights. Casting photograph for a live-action feature film: full-frame cinema camera, 85mm lens at f/2, soft window key light with gentle fill, natural colour grading, shallow depth of field, head and shoulders, softly blurred warm-grey background."
     },
     {
       "id": "CHR-0018",
@@ -432,13 +433,13 @@
         "age spots and kind eyes"
       ],
       "wardrobe": "a shawl over a sweater",
-      "appearance": "Filipino elderly woman with tan skin, long grey hair in a loose plait, brown eyes, age spots and kind eyes, wearing a shawl over a sweater",
+      "appearance": "Elderly Filipino woman with tan skin, long grey hair in a loose plait, brown eyes, age spots and kind eyes, wearing a shawl over a sweater",
       "image": {
         "file": "CHR-0018.webp",
-        "width": 768,
-        "height": 1024
+        "width": 1024,
+        "height": 1536
       },
-      "prompt": "Photorealistic studio portrait photograph of a 62-year-old Filipino elderly woman, tan skin, long grey hair in a loose plait, brown eyes, age spots and kind eyes, wearing a shawl over a sweater. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+      "prompt": "Photorealistic close-up portrait photograph of a 62-year-old elderly Filipino woman. Tan skin tone, long grey hair in a loose plait, brown eyes, age spots and kind eyes. Wearing a shawl over a sweater. Age-appropriate elderly features: natural deep wrinkles, crow's feet, age spots, softened jawline, expressive knowing eyes. A unique, fictional person with their own distinct face, not a celebrity. Realistic facial anatomy with natural asymmetry, real skin texture with visible pores and fine vellus hair, believable individual hair strands, natural eyes with catchlights. Casting photograph for a live-action feature film: full-frame cinema camera, 85mm lens at f/2, soft window key light with gentle fill, natural colour grading, shallow depth of field, head and shoulders, softly blurred warm-grey background."
     },
     {
       "id": "CHR-0019",
@@ -456,13 +457,13 @@
         "laugh wrinkles around the eyes"
       ],
       "wardrobe": "a tweed jacket",
-      "appearance": "Chinese elderly woman with medium-light skin, short grey hair, dark brown eyes, laugh wrinkles around the eyes, wearing a tweed jacket",
+      "appearance": "Elderly Chinese woman with medium-light skin, short grey hair, dark brown eyes, laugh wrinkles around the eyes, wearing a tweed jacket",
       "image": {
         "file": "CHR-0019.webp",
-        "width": 768,
-        "height": 1024
+        "width": 1024,
+        "height": 1536
       },
-      "prompt": "Photorealistic studio portrait photograph of a 68-year-old Chinese elderly woman, medium-light skin, short grey hair, dark brown eyes, laugh wrinkles around the eyes, wearing a tweed jacket. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+      "prompt": "Photorealistic close-up portrait photograph of a 68-year-old elderly Chinese woman. Medium-light skin tone, short grey hair, dark brown eyes, laugh wrinkles around the eyes. Wearing a tweed jacket. Age-appropriate elderly features: natural deep wrinkles, crow's feet, age spots, softened jawline, expressive knowing eyes. A unique, fictional person with their own distinct face, not a celebrity. Realistic facial anatomy with natural asymmetry, real skin texture with visible pores and fine vellus hair, believable individual hair strands, natural eyes with catchlights. Casting photograph for a live-action feature film: full-frame cinema camera, 85mm lens at f/2, soft window key light with gentle fill, natural colour grading, shallow depth of field, head and shoulders, softly blurred warm-grey background."
     },
     {
       "id": "CHR-0020",
@@ -481,13 +482,13 @@
         "a small bindi"
       ],
       "wardrobe": "a white kurta",
-      "appearance": "Punjabi elderly woman with medium skin, long white hair in a loose plait, brown eyes, age spots and kind eyes, a small bindi, wearing a white kurta",
+      "appearance": "Elderly Punjabi woman with medium skin, long white hair in a loose plait, brown eyes, age spots and kind eyes, a small bindi, wearing a white kurta",
       "image": {
         "file": "CHR-0020.webp",
-        "width": 768,
-        "height": 1024
+        "width": 1024,
+        "height": 1536
       },
-      "prompt": "Photorealistic studio portrait photograph of a 75-year-old Punjabi elderly woman, medium skin, long white hair in a loose plait, brown eyes, age spots and kind eyes, a small bindi, wearing a white kurta. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+      "prompt": "Photorealistic close-up portrait photograph of a 75-year-old elderly Punjabi woman. Medium skin tone, long white hair in a loose plait, brown eyes, age spots and kind eyes, a small bindi. Wearing a white kurta. Age-appropriate elderly features: natural deep wrinkles, crow's feet, age spots, softened jawline, expressive knowing eyes. A unique, fictional person with their own distinct face, not a celebrity. Realistic facial anatomy with natural asymmetry, real skin texture with visible pores and fine vellus hair, believable individual hair strands, natural eyes with catchlights. Casting photograph for a live-action feature film: full-frame cinema camera, 85mm lens at f/2, soft window key light with gentle fill, natural colour grading, shallow depth of field, head and shoulders, softly blurred warm-grey background."
     },
     {
       "id": "CHR-0021",
@@ -505,13 +506,13 @@
         "laugh wrinkles around the eyes"
       ],
       "wardrobe": "a wool cardigan",
-      "appearance": "Lebanese elderly woman with medium-light skin, short white hair, brown eyes, laugh wrinkles around the eyes, wearing a wool cardigan",
+      "appearance": "Elderly Lebanese woman with medium-light skin, short white hair, brown eyes, laugh wrinkles around the eyes, wearing a wool cardigan",
       "image": {
         "file": "CHR-0021.webp",
-        "width": 768,
-        "height": 1024
+        "width": 1024,
+        "height": 1536
       },
-      "prompt": "Photorealistic studio portrait photograph of a 83-year-old Lebanese elderly woman, medium-light skin, short white hair, brown eyes, laugh wrinkles around the eyes, wearing a wool cardigan. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+      "prompt": "Photorealistic close-up portrait photograph of a 83-year-old elderly Lebanese woman. Medium-light skin tone, short white hair, brown eyes, laugh wrinkles around the eyes. Wearing a wool cardigan. Age-appropriate elderly features: natural deep wrinkles, crow's feet, age spots, softened jawline, expressive knowing eyes. A unique, fictional person with their own distinct face, not a celebrity. Realistic facial anatomy with natural asymmetry, real skin texture with visible pores and fine vellus hair, believable individual hair strands, natural eyes with catchlights. Casting photograph for a live-action feature film: full-frame cinema camera, 85mm lens at f/2, soft window key light with gentle fill, natural colour grading, shallow depth of field, head and shoulders, softly blurred warm-grey background."
     },
     {
       "id": "CHR-0022",
@@ -530,13 +531,13 @@
         "a small bindi"
       ],
       "wardrobe": "a wool cardigan",
-      "appearance": "Gujarati elderly woman with medium skin, long white hair in a loose plait, brown eyes, age spots and kind eyes, a small bindi, wearing a wool cardigan",
+      "appearance": "Elderly Gujarati woman with medium skin, long white hair in a loose plait, brown eyes, age spots and kind eyes, a small bindi, wearing a wool cardigan",
       "image": {
         "file": "CHR-0022.webp",
-        "width": 768,
-        "height": 1024
+        "width": 1024,
+        "height": 1536
       },
-      "prompt": "Photorealistic studio portrait photograph of a 92-year-old Gujarati elderly woman, medium skin, long white hair in a loose plait, brown eyes, age spots and kind eyes, a small bindi, wearing a wool cardigan. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+      "prompt": "Photorealistic close-up portrait photograph of a 92-year-old elderly Gujarati woman. Medium skin tone, long white hair in a loose plait, brown eyes, age spots and kind eyes, a small bindi. Wearing a wool cardigan. Age-appropriate elderly features: natural deep wrinkles, crow's feet, age spots, softened jawline, expressive knowing eyes. A unique, fictional person with their own distinct face, not a celebrity. Realistic facial anatomy with natural asymmetry, real skin texture with visible pores and fine vellus hair, believable individual hair strands, natural eyes with catchlights. Casting photograph for a live-action feature film: full-frame cinema camera, 85mm lens at f/2, soft window key light with gentle fill, natural colour grading, shallow depth of field, head and shoulders, softly blurred warm-grey background."
     },
     {
       "id": "CHR-0023",
@@ -557,10 +558,10 @@
       "appearance": "Korean boy with light skin, neat side-parted black hair, dark brown eyes, rosy cheeks, wearing a yellow raincoat",
       "image": {
         "file": "CHR-0023.webp",
-        "width": 768,
-        "height": 1024
+        "width": 1024,
+        "height": 1536
       },
-      "prompt": "Photorealistic studio portrait photograph of a 4-year-old Korean boy, light skin, neat side-parted black hair, dark brown eyes, rosy cheeks, wearing a yellow raincoat. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+      "prompt": "Photorealistic close-up portrait photograph of a 4-year-old Korean boy. Light skin tone, neat side-parted black hair, dark brown eyes, rosy cheeks. Wearing a yellow raincoat. Age-appropriate child features: soft rounded face, small nose, baby-fine hair, small milk teeth. A unique, fictional person with their own distinct face, not a celebrity. Realistic facial anatomy with natural asymmetry, real skin texture with visible pores and fine vellus hair, believable individual hair strands, natural eyes with catchlights. Casting photograph for a live-action feature film: full-frame cinema camera, 85mm lens at f/2, soft window key light with gentle fill, natural colour grading, shallow depth of field, head and shoulders, softly blurred warm-grey background."
     },
     {
       "id": "CHR-0024",
@@ -581,10 +582,10 @@
       "appearance": "Brazilian boy with medium skin, curly black hair, brown eyes, freckles, wearing a yellow raincoat",
       "image": {
         "file": "CHR-0024.webp",
-        "width": 768,
-        "height": 1024
+        "width": 1024,
+        "height": 1536
       },
-      "prompt": "Photorealistic studio portrait photograph of a 6-year-old Brazilian boy, medium skin, curly black hair, brown eyes, freckles, wearing a yellow raincoat. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+      "prompt": "Photorealistic close-up portrait photograph of a 6-year-old Brazilian boy. Medium skin tone, curly black hair, brown eyes, freckles. Wearing a yellow raincoat. Age-appropriate child features: soft rounded face, small nose, baby-fine hair, small milk teeth. A unique, fictional person with their own distinct face, not a celebrity. Realistic facial anatomy with natural asymmetry, real skin texture with visible pores and fine vellus hair, believable individual hair strands, natural eyes with catchlights. Casting photograph for a live-action feature film: full-frame cinema camera, 85mm lens at f/2, soft window key light with gentle fill, natural colour grading, shallow depth of field, head and shoulders, softly blurred warm-grey background."
     },
     {
       "id": "CHR-0025",
@@ -605,10 +606,10 @@
       "appearance": "Japanese boy with light skin, neat side-parted black hair, dark brown eyes, rosy cheeks, wearing a yellow raincoat",
       "image": {
         "file": "CHR-0025.webp",
-        "width": 768,
-        "height": 1024
+        "width": 1024,
+        "height": 1536
       },
-      "prompt": "Photorealistic studio portrait photograph of a 8-year-old Japanese boy, light skin, neat side-parted black hair, dark brown eyes, rosy cheeks, wearing a yellow raincoat. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+      "prompt": "Photorealistic close-up portrait photograph of a 8-year-old Japanese boy. Light skin tone, neat side-parted black hair, dark brown eyes, rosy cheeks. Wearing a yellow raincoat. Age-appropriate child features: soft rounded face, small nose, baby-fine hair, small milk teeth. A unique, fictional person with their own distinct face, not a celebrity. Realistic facial anatomy with natural asymmetry, real skin texture with visible pores and fine vellus hair, believable individual hair strands, natural eyes with catchlights. Casting photograph for a live-action feature film: full-frame cinema camera, 85mm lens at f/2, soft window key light with gentle fill, natural colour grading, shallow depth of field, head and shoulders, softly blurred warm-grey background."
     },
     {
       "id": "CHR-0026",
@@ -629,10 +630,10 @@
       "appearance": "Malayali boy with dark skin, curly black hair, dark brown eyes, freckles, wearing a yellow raincoat",
       "image": {
         "file": "CHR-0026.webp",
-        "width": 768,
-        "height": 1024
+        "width": 1024,
+        "height": 1536
       },
-      "prompt": "Photorealistic studio portrait photograph of a 10-year-old Malayali boy, dark skin, curly black hair, dark brown eyes, freckles, wearing a yellow raincoat. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+      "prompt": "Photorealistic close-up portrait photograph of a 10-year-old Malayali boy. Dark skin tone, curly black hair, dark brown eyes, freckles. Wearing a yellow raincoat. Age-appropriate child features: soft rounded face, small nose, baby-fine hair, small milk teeth. A unique, fictional person with their own distinct face, not a celebrity. Realistic facial anatomy with natural asymmetry, real skin texture with visible pores and fine vellus hair, believable individual hair strands, natural eyes with catchlights. Casting photograph for a live-action feature film: full-frame cinema camera, 85mm lens at f/2, soft window key light with gentle fill, natural colour grading, shallow depth of field, head and shoulders, softly blurred warm-grey background."
     },
     {
       "id": "CHR-0027",
@@ -653,10 +654,10 @@
       "appearance": "Ethiopian boy with brown skin, neat side-parted black hair, dark brown eyes, rosy cheeks, wearing a yellow raincoat",
       "image": {
         "file": "CHR-0027.webp",
-        "width": 768,
-        "height": 1024
+        "width": 1024,
+        "height": 1536
       },
-      "prompt": "Photorealistic studio portrait photograph of a 12-year-old Ethiopian boy, brown skin, neat side-parted black hair, dark brown eyes, rosy cheeks, wearing a yellow raincoat. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+      "prompt": "Photorealistic close-up portrait photograph of a 12-year-old Ethiopian boy. Brown skin tone, neat side-parted black hair, dark brown eyes, rosy cheeks. Wearing a yellow raincoat. Age-appropriate child features: soft rounded face, small nose, baby-fine hair, small milk teeth. A unique, fictional person with their own distinct face, not a celebrity. Realistic facial anatomy with natural asymmetry, real skin texture with visible pores and fine vellus hair, believable individual hair strands, natural eyes with catchlights. Casting photograph for a live-action feature film: full-frame cinema camera, 85mm lens at f/2, soft window key light with gentle fill, natural colour grading, shallow depth of field, head and shoulders, softly blurred warm-grey background."
     },
     {
       "id": "CHR-0028",
@@ -674,13 +675,13 @@
         "a confident look"
       ],
       "wardrobe": "a graphic t-shirt",
-      "appearance": "Nigerian teenage boy with dark skin, tightly coiled black hair, dark brown eyes, a confident look, wearing a graphic t-shirt",
+      "appearance": "Teenage Nigerian boy with dark skin, tightly coiled black hair, dark brown eyes, a confident look, wearing a graphic t-shirt",
       "image": {
         "file": "CHR-0028.webp",
-        "width": 768,
-        "height": 1024
+        "width": 1024,
+        "height": 1536
       },
-      "prompt": "Photorealistic studio portrait photograph of a 14-year-old Nigerian teenage boy, dark skin, tightly coiled black hair, dark brown eyes, a confident look, wearing a graphic t-shirt. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+      "prompt": "Photorealistic close-up portrait photograph of a 14-year-old teenage Nigerian boy. Dark skin tone, tightly coiled black hair, dark brown eyes, a confident look. Wearing a graphic t-shirt. Age-appropriate teenage features: youthful skin with natural texture, still-maturing face. A unique, fictional person with their own distinct face, not a celebrity. Realistic facial anatomy with natural asymmetry, real skin texture with visible pores and fine vellus hair, believable individual hair strands, natural eyes with catchlights. Casting photograph for a live-action feature film: full-frame cinema camera, 85mm lens at f/2, soft window key light with gentle fill, natural colour grading, shallow depth of field, head and shoulders, softly blurred warm-grey background."
     },
     {
       "id": "CHR-0029",
@@ -698,13 +699,13 @@
         "a thoughtful expression"
       ],
       "wardrobe": "a denim jacket",
-      "appearance": "Filipino teenage boy with tan skin, a black fade haircut, brown eyes, a thoughtful expression, wearing a denim jacket",
+      "appearance": "Teenage Filipino boy with tan skin, a black fade haircut, brown eyes, a thoughtful expression, wearing a denim jacket",
       "image": {
         "file": "CHR-0029.webp",
-        "width": 768,
-        "height": 1024
+        "width": 1024,
+        "height": 1536
       },
-      "prompt": "Photorealistic studio portrait photograph of a 16-year-old Filipino teenage boy, tan skin, a black fade haircut, brown eyes, a thoughtful expression, wearing a denim jacket. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+      "prompt": "Photorealistic close-up portrait photograph of a 16-year-old teenage Filipino boy. Tan skin tone, a black fade haircut, brown eyes, a thoughtful expression. Wearing a denim jacket. Age-appropriate teenage features: youthful skin with natural texture, still-maturing face. A unique, fictional person with their own distinct face, not a celebrity. Realistic facial anatomy with natural asymmetry, real skin texture with visible pores and fine vellus hair, believable individual hair strands, natural eyes with catchlights. Casting photograph for a live-action feature film: full-frame cinema camera, 85mm lens at f/2, soft window key light with gentle fill, natural colour grading, shallow depth of field, head and shoulders, softly blurred warm-grey background."
     },
     {
       "id": "CHR-0030",
@@ -722,13 +723,13 @@
         "a confident look"
       ],
       "wardrobe": "a school uniform shirt",
-      "appearance": "Chinese teenage boy with medium-light skin, straight black hair, dark brown eyes, a confident look, wearing a school uniform shirt",
+      "appearance": "Teenage Chinese boy with medium-light skin, straight black hair, dark brown eyes, a confident look, wearing a school uniform shirt",
       "image": {
         "file": "CHR-0030.webp",
-        "width": 768,
-        "height": 1024
+        "width": 1024,
+        "height": 1536
       },
-      "prompt": "Photorealistic studio portrait photograph of a 17-year-old Chinese teenage boy, medium-light skin, straight black hair, dark brown eyes, a confident look, wearing a school uniform shirt. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+      "prompt": "Photorealistic close-up portrait photograph of a 17-year-old teenage Chinese boy. Medium-light skin tone, straight black hair, dark brown eyes, a confident look. Wearing a school uniform shirt. Age-appropriate teenage features: youthful skin with natural texture, still-maturing face. A unique, fictional person with their own distinct face, not a celebrity. Realistic facial anatomy with natural asymmetry, real skin texture with visible pores and fine vellus hair, believable individual hair strands, natural eyes with catchlights. Casting photograph for a live-action feature film: full-frame cinema camera, 85mm lens at f/2, soft window key light with gentle fill, natural colour grading, shallow depth of field, head and shoulders, softly blurred warm-grey background."
     },
     {
       "id": "CHR-0031",
@@ -746,13 +747,13 @@
         "an easy smile"
       ],
       "wardrobe": "a plain black t-shirt",
-      "appearance": "Punjabi young man with medium skin, black hair tied back, brown eyes, an easy smile, wearing a plain black t-shirt",
+      "appearance": "Young Punjabi man with medium skin, black hair tied back, brown eyes, an easy smile, wearing a plain black t-shirt",
       "image": {
         "file": "CHR-0031.webp",
-        "width": 768,
-        "height": 1024
+        "width": 1024,
+        "height": 1536
       },
-      "prompt": "Photorealistic studio portrait photograph of a 18-year-old Punjabi young man, medium skin, black hair tied back, brown eyes, an easy smile, wearing a plain black t-shirt. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+      "prompt": "Photorealistic close-up portrait photograph of a 18-year-old young Punjabi man. Medium skin tone, black hair tied back, brown eyes, an easy smile. Wearing a plain black t-shirt. Age-appropriate young-adult features: smooth skin with natural texture and pores, defined jawline. A unique, fictional person with their own distinct face, not a celebrity. Realistic facial anatomy with natural asymmetry, real skin texture with visible pores and fine vellus hair, believable individual hair strands, natural eyes with catchlights. Casting photograph for a live-action feature film: full-frame cinema camera, 85mm lens at f/2, soft window key light with gentle fill, natural colour grading, shallow depth of field, head and shoulders, softly blurred warm-grey background."
     },
     {
       "id": "CHR-0032",
@@ -770,13 +771,13 @@
         "a calm expression"
       ],
       "wardrobe": "a plain black t-shirt",
-      "appearance": "Lebanese young man with medium-light skin, short black hair, brown eyes, a calm expression, wearing a plain black t-shirt",
+      "appearance": "Young Lebanese man with medium-light skin, short black hair, brown eyes, a calm expression, wearing a plain black t-shirt",
       "image": {
         "file": "CHR-0032.webp",
-        "width": 768,
-        "height": 1024
+        "width": 1024,
+        "height": 1536
       },
-      "prompt": "Photorealistic studio portrait photograph of a 21-year-old Lebanese young man, medium-light skin, short black hair, brown eyes, a calm expression, wearing a plain black t-shirt. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+      "prompt": "Photorealistic close-up portrait photograph of a 21-year-old young Lebanese man. Medium-light skin tone, short black hair, brown eyes, a calm expression. Wearing a plain black t-shirt. Age-appropriate young-adult features: smooth skin with natural texture and pores, defined jawline. A unique, fictional person with their own distinct face, not a celebrity. Realistic facial anatomy with natural asymmetry, real skin texture with visible pores and fine vellus hair, believable individual hair strands, natural eyes with catchlights. Casting photograph for a live-action feature film: full-frame cinema camera, 85mm lens at f/2, soft window key light with gentle fill, natural colour grading, shallow depth of field, head and shoulders, softly blurred warm-grey background."
     },
     {
       "id": "CHR-0033",
@@ -794,13 +795,13 @@
         "an easy smile"
       ],
       "wardrobe": "a plain black t-shirt",
-      "appearance": "Gujarati young man with medium skin, black hair tied back, brown eyes, an easy smile, wearing a plain black t-shirt",
+      "appearance": "Young Gujarati man with medium skin, black hair tied back, brown eyes, an easy smile, wearing a plain black t-shirt",
       "image": {
         "file": "CHR-0033.webp",
-        "width": 768,
-        "height": 1024
+        "width": 1024,
+        "height": 1536
       },
-      "prompt": "Photorealistic studio portrait photograph of a 24-year-old Gujarati young man, medium skin, black hair tied back, brown eyes, an easy smile, wearing a plain black t-shirt. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+      "prompt": "Photorealistic close-up portrait photograph of a 24-year-old young Gujarati man. Medium skin tone, black hair tied back, brown eyes, an easy smile. Wearing a plain black t-shirt. Age-appropriate young-adult features: smooth skin with natural texture and pores, defined jawline. A unique, fictional person with their own distinct face, not a celebrity. Realistic facial anatomy with natural asymmetry, real skin texture with visible pores and fine vellus hair, believable individual hair strands, natural eyes with catchlights. Casting photograph for a live-action feature film: full-frame cinema camera, 85mm lens at f/2, soft window key light with gentle fill, natural colour grading, shallow depth of field, head and shoulders, softly blurred warm-grey background."
     },
     {
       "id": "CHR-0034",
@@ -818,13 +819,13 @@
         "a calm expression"
       ],
       "wardrobe": "a plain black t-shirt",
-      "appearance": "Tamil young man with brown skin, a turban, dark brown eyes, a calm expression, wearing a plain black t-shirt",
+      "appearance": "Young Tamil man with brown skin, a turban, dark brown eyes, a calm expression, wearing a plain black t-shirt",
       "image": {
         "file": "CHR-0034.webp",
-        "width": 768,
-        "height": 1024
+        "width": 1024,
+        "height": 1536
       },
-      "prompt": "Photorealistic studio portrait photograph of a 28-year-old Tamil young man, brown skin, a turban, dark brown eyes, a calm expression, wearing a plain black t-shirt. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+      "prompt": "Photorealistic close-up portrait photograph of a 28-year-old young Tamil man. Brown skin tone, a turban, dark brown eyes, a calm expression. Wearing a plain black t-shirt. Age-appropriate young-adult features: smooth skin with natural texture and pores, defined jawline. A unique, fictional person with their own distinct face, not a celebrity. Realistic facial anatomy with natural asymmetry, real skin texture with visible pores and fine vellus hair, believable individual hair strands, natural eyes with catchlights. Casting photograph for a live-action feature film: full-frame cinema camera, 85mm lens at f/2, soft window key light with gentle fill, natural colour grading, shallow depth of field, head and shoulders, softly blurred warm-grey background."
     },
     {
       "id": "CHR-0035",
@@ -846,10 +847,10 @@
       "appearance": "Kenyan man with dark skin, close-cropped tightly coiled black hair, dark brown eyes, faint crow's feet, a full beard, wearing a knit cardigan",
       "image": {
         "file": "CHR-0035.webp",
-        "width": 768,
-        "height": 1024
+        "width": 1024,
+        "height": 1536
       },
-      "prompt": "Photorealistic studio portrait photograph of a 33-year-old Kenyan man, dark skin, close-cropped tightly coiled black hair, dark brown eyes, faint crow's feet, a full beard, wearing a knit cardigan. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+      "prompt": "Photorealistic close-up portrait photograph of a 33-year-old Kenyan man. Dark skin tone, close-cropped tightly coiled black hair, dark brown eyes, faint crow's feet, a full beard. Wearing a knit cardigan. Age-appropriate adult features: early fine lines, laugh lines, mature bone structure. A unique, fictional person with their own distinct face, not a celebrity. Realistic facial anatomy with natural asymmetry, real skin texture with visible pores and fine vellus hair, believable individual hair strands, natural eyes with catchlights. Casting photograph for a live-action feature film: full-frame cinema camera, 85mm lens at f/2, soft window key light with gentle fill, natural colour grading, shallow depth of field, head and shoulders, softly blurred warm-grey background."
     },
     {
       "id": "CHR-0036",
@@ -870,10 +871,10 @@
       "appearance": "Navajo man with tan skin, a shaved head, dark brown eyes, reading glasses, wearing a knit cardigan",
       "image": {
         "file": "CHR-0036.webp",
-        "width": 768,
-        "height": 1024
+        "width": 1024,
+        "height": 1536
       },
-      "prompt": "Photorealistic studio portrait photograph of a 40-year-old Navajo man, tan skin, a shaved head, dark brown eyes, reading glasses, wearing a knit cardigan. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+      "prompt": "Photorealistic close-up portrait photograph of a 40-year-old Navajo man. Tan skin tone, a shaved head, dark brown eyes, reading glasses. Wearing a knit cardigan. Age-appropriate adult features: early fine lines, laugh lines, mature bone structure. A unique, fictional person with their own distinct face, not a celebrity. Realistic facial anatomy with natural asymmetry, real skin texture with visible pores and fine vellus hair, believable individual hair strands, natural eyes with catchlights. Casting photograph for a live-action feature film: full-frame cinema camera, 85mm lens at f/2, soft window key light with gentle fill, natural colour grading, shallow depth of field, head and shoulders, softly blurred warm-grey background."
     },
     {
       "id": "CHR-0037",
@@ -895,10 +896,10 @@
       "appearance": "Marathi man with tan skin, close-cropped wavy black hair, dark brown eyes, faint crow's feet, a full beard, wearing a knit cardigan",
       "image": {
         "file": "CHR-0037.webp",
-        "width": 768,
-        "height": 1024
+        "width": 1024,
+        "height": 1536
       },
-      "prompt": "Photorealistic studio portrait photograph of a 47-year-old Marathi man, tan skin, close-cropped wavy black hair, dark brown eyes, faint crow's feet, a full beard, wearing a knit cardigan. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+      "prompt": "Photorealistic close-up portrait photograph of a 47-year-old Marathi man. Tan skin tone, close-cropped wavy black hair, dark brown eyes, faint crow's feet, a full beard. Wearing a knit cardigan. Age-appropriate adult features: early fine lines, laugh lines, mature bone structure. A unique, fictional person with their own distinct face, not a celebrity. Realistic facial anatomy with natural asymmetry, real skin texture with visible pores and fine vellus hair, believable individual hair strands, natural eyes with catchlights. Casting photograph for a live-action feature film: full-frame cinema camera, 85mm lens at f/2, soft window key light with gentle fill, natural colour grading, shallow depth of field, head and shoulders, softly blurred warm-grey background."
     },
     {
       "id": "CHR-0038",
@@ -919,10 +920,10 @@
       "appearance": "Bengali man with tan skin, a shaved head, dark brown eyes, reading glasses, wearing a knit cardigan",
       "image": {
         "file": "CHR-0038.webp",
-        "width": 768,
-        "height": 1024
+        "width": 1024,
+        "height": 1536
       },
-      "prompt": "Photorealistic studio portrait photograph of a 55-year-old Bengali man, tan skin, a shaved head, dark brown eyes, reading glasses, wearing a knit cardigan. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+      "prompt": "Photorealistic close-up portrait photograph of a 55-year-old Bengali man. Tan skin tone, a shaved head, dark brown eyes, reading glasses. Wearing a knit cardigan. Age-appropriate adult features: early fine lines, laugh lines, mature bone structure. A unique, fictional person with their own distinct face, not a celebrity. Realistic facial anatomy with natural asymmetry, real skin texture with visible pores and fine vellus hair, believable individual hair strands, natural eyes with catchlights. Casting photograph for a live-action feature film: full-frame cinema camera, 85mm lens at f/2, soft window key light with gentle fill, natural colour grading, shallow depth of field, head and shoulders, softly blurred warm-grey background."
     },
     {
       "id": "CHR-0039",
@@ -944,10 +945,10 @@
       "appearance": "Italian man with medium-light skin, close-cropped wavy salt-and-pepper hair, hazel eyes, faint crow's feet, a full beard, wearing a knit cardigan",
       "image": {
         "file": "CHR-0039.webp",
-        "width": 768,
-        "height": 1024
+        "width": 1024,
+        "height": 1536
       },
-      "prompt": "Photorealistic studio portrait photograph of a 59-year-old Italian man, medium-light skin, close-cropped wavy salt-and-pepper hair, hazel eyes, faint crow's feet, a full beard, wearing a knit cardigan. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+      "prompt": "Photorealistic close-up portrait photograph of a 59-year-old Italian man. Medium-light skin tone, close-cropped wavy salt-and-pepper hair, hazel eyes, faint crow's feet, a full beard. Wearing a knit cardigan. Age-appropriate adult features: early fine lines, laugh lines, mature bone structure. A unique, fictional person with their own distinct face, not a celebrity. Realistic facial anatomy with natural asymmetry, real skin texture with visible pores and fine vellus hair, believable individual hair strands, natural eyes with catchlights. Casting photograph for a live-action feature film: full-frame cinema camera, 85mm lens at f/2, soft window key light with gentle fill, natural colour grading, shallow depth of field, head and shoulders, softly blurred warm-grey background."
     },
     {
       "id": "CHR-0040",
@@ -965,13 +966,13 @@
         "laugh wrinkles around the eyes"
       ],
       "wardrobe": "a shawl over a sweater",
-      "appearance": "Vietnamese elderly man with medium-light skin, thinning grey hair, dark brown eyes, laugh wrinkles around the eyes, wearing a shawl over a sweater",
+      "appearance": "Elderly Vietnamese man with medium-light skin, thinning grey hair, dark brown eyes, laugh wrinkles around the eyes, wearing a shawl over a sweater",
       "image": {
         "file": "CHR-0040.webp",
-        "width": 768,
-        "height": 1024
+        "width": 1024,
+        "height": 1536
       },
-      "prompt": "Photorealistic studio portrait photograph of a 61-year-old Vietnamese elderly man, medium-light skin, thinning grey hair, dark brown eyes, laugh wrinkles around the eyes, wearing a shawl over a sweater. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+      "prompt": "Photorealistic close-up portrait photograph of a 61-year-old elderly Vietnamese man. Medium-light skin tone, thinning grey hair, dark brown eyes, laugh wrinkles around the eyes. Wearing a shawl over a sweater. Age-appropriate elderly features: natural deep wrinkles, crow's feet, age spots, softened jawline, expressive knowing eyes. A unique, fictional person with their own distinct face, not a celebrity. Realistic facial anatomy with natural asymmetry, real skin texture with visible pores and fine vellus hair, believable individual hair strands, natural eyes with catchlights. Casting photograph for a live-action feature film: full-frame cinema camera, 85mm lens at f/2, soft window key light with gentle fill, natural colour grading, shallow depth of field, head and shoulders, softly blurred warm-grey background."
     },
     {
       "id": "CHR-0041",
@@ -990,13 +991,13 @@
         "a white moustache"
       ],
       "wardrobe": "a shawl over a sweater",
-      "appearance": "Irish elderly man with light skin, short grey hair combed back, green eyes, age spots and kind eyes, a white moustache, wearing a shawl over a sweater",
+      "appearance": "Elderly Irish man with light skin, short grey hair combed back, green eyes, age spots and kind eyes, a white moustache, wearing a shawl over a sweater",
       "image": {
         "file": "CHR-0041.webp",
-        "width": 768,
-        "height": 1024
+        "width": 1024,
+        "height": 1536
       },
-      "prompt": "Photorealistic studio portrait photograph of a 66-year-old Irish elderly man, light skin, short grey hair combed back, green eyes, age spots and kind eyes, a white moustache, wearing a shawl over a sweater. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+      "prompt": "Photorealistic close-up portrait photograph of a 66-year-old elderly Irish man. Light skin tone, short grey hair combed back, green eyes, age spots and kind eyes, a white moustache. Wearing a shawl over a sweater. Age-appropriate elderly features: natural deep wrinkles, crow's feet, age spots, softened jawline, expressive knowing eyes. A unique, fictional person with their own distinct face, not a celebrity. Realistic facial anatomy with natural asymmetry, real skin texture with visible pores and fine vellus hair, believable individual hair strands, natural eyes with catchlights. Casting photograph for a live-action feature film: full-frame cinema camera, 85mm lens at f/2, soft window key light with gentle fill, natural colour grading, shallow depth of field, head and shoulders, softly blurred warm-grey background."
     },
     {
       "id": "CHR-0042",
@@ -1014,13 +1015,13 @@
         "laugh wrinkles around the eyes"
       ],
       "wardrobe": "a shawl over a sweater",
-      "appearance": "Jamaican elderly man with brown skin, thinning grey hair, dark brown eyes, laugh wrinkles around the eyes, wearing a shawl over a sweater",
+      "appearance": "Elderly Jamaican man with brown skin, thinning grey hair, dark brown eyes, laugh wrinkles around the eyes, wearing a shawl over a sweater",
       "image": {
         "file": "CHR-0042.webp",
-        "width": 768,
-        "height": 1024
+        "width": 1024,
+        "height": 1536
       },
-      "prompt": "Photorealistic studio portrait photograph of a 72-year-old Jamaican elderly man, brown skin, thinning grey hair, dark brown eyes, laugh wrinkles around the eyes, wearing a shawl over a sweater. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+      "prompt": "Photorealistic close-up portrait photograph of a 72-year-old elderly Jamaican man. Brown skin tone, thinning grey hair, dark brown eyes, laugh wrinkles around the eyes. Wearing a shawl over a sweater. Age-appropriate elderly features: natural deep wrinkles, crow's feet, age spots, softened jawline, expressive knowing eyes. A unique, fictional person with their own distinct face, not a celebrity. Realistic facial anatomy with natural asymmetry, real skin texture with visible pores and fine vellus hair, believable individual hair strands, natural eyes with catchlights. Casting photograph for a live-action feature film: full-frame cinema camera, 85mm lens at f/2, soft window key light with gentle fill, natural colour grading, shallow depth of field, head and shoulders, softly blurred warm-grey background."
     },
     {
       "id": "CHR-0043",
@@ -1039,13 +1040,13 @@
         "a white moustache"
       ],
       "wardrobe": "a shawl over a sweater",
-      "appearance": "Telugu elderly man with brown skin, short white hair combed back, dark brown eyes, age spots and kind eyes, a white moustache, wearing a shawl over a sweater",
+      "appearance": "Elderly Telugu man with brown skin, short white hair combed back, dark brown eyes, age spots and kind eyes, a white moustache, wearing a shawl over a sweater",
       "image": {
         "file": "CHR-0043.webp",
-        "width": 768,
-        "height": 1024
+        "width": 1024,
+        "height": 1536
       },
-      "prompt": "Photorealistic studio portrait photograph of a 80-year-old Telugu elderly man, brown skin, short white hair combed back, dark brown eyes, age spots and kind eyes, a white moustache, wearing a shawl over a sweater. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+      "prompt": "Photorealistic close-up portrait photograph of a 80-year-old elderly Telugu man. Brown skin tone, short white hair combed back, dark brown eyes, age spots and kind eyes, a white moustache. Wearing a shawl over a sweater. Age-appropriate elderly features: natural deep wrinkles, crow's feet, age spots, softened jawline, expressive knowing eyes. A unique, fictional person with their own distinct face, not a celebrity. Realistic facial anatomy with natural asymmetry, real skin texture with visible pores and fine vellus hair, believable individual hair strands, natural eyes with catchlights. Casting photograph for a live-action feature film: full-frame cinema camera, 85mm lens at f/2, soft window key light with gentle fill, natural colour grading, shallow depth of field, head and shoulders, softly blurred warm-grey background."
     },
     {
       "id": "CHR-0044",
@@ -1063,13 +1064,43 @@
         "laugh wrinkles around the eyes"
       ],
       "wardrobe": "a shawl over a sweater",
-      "appearance": "Mexican elderly man with tan skin, thinning white hair, brown eyes, laugh wrinkles around the eyes, wearing a shawl over a sweater",
+      "appearance": "Elderly Mexican man with tan skin, thinning white hair, brown eyes, laugh wrinkles around the eyes, wearing a shawl over a sweater",
       "image": {
         "file": "CHR-0044.webp",
-        "width": 768,
-        "height": 1024
+        "width": 1024,
+        "height": 1536
       },
-      "prompt": "Photorealistic studio portrait photograph of a 90-year-old Mexican elderly man, tan skin, thinning white hair, brown eyes, laugh wrinkles around the eyes, wearing a shawl over a sweater. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+      "prompt": "Photorealistic close-up portrait photograph of a 90-year-old elderly Mexican man. Tan skin tone, thinning white hair, brown eyes, laugh wrinkles around the eyes. Wearing a shawl over a sweater. Age-appropriate elderly features: natural deep wrinkles, crow's feet, age spots, softened jawline, expressive knowing eyes. A unique, fictional person with their own distinct face, not a celebrity. Realistic facial anatomy with natural asymmetry, real skin texture with visible pores and fine vellus hair, believable individual hair strands, natural eyes with catchlights. Casting photograph for a live-action feature film: full-frame cinema camera, 85mm lens at f/2, soft window key light with gentle fill, natural colour grading, shallow depth of field, head and shoulders, softly blurred warm-grey background."
+    },
+    {
+      "id": "CHR-0045",
+      "name": "Paati",
+      "age": 78,
+      "gender": "female",
+      "ethnicity": "south-asian",
+      "heritage": "Tamil",
+      "skinTone": "brown",
+      "hair": {
+        "style": "tied",
+        "color": "silver"
+      },
+      "eyeColor": "dark brown",
+      "features": [
+        "natural wrinkles",
+        "expressive eyes",
+        "a small gold nose stud"
+      ],
+      "wardrobe": "a white cotton saree with a checked border",
+      "role": "Grandmother who rules the family kitchen",
+      "personality": "Sharp-tongued and loving, secretly sentimental, the heart of the house",
+      "appearance": "Elderly Tamil woman with brown skin, silver hair pulled back into a neat bun, dark brown eyes, natural wrinkles, expressive eyes, a small gold nose stud, wearing a white cotton saree with a checked border",
+      "image": {
+        "file": "CHR-0045.webp",
+        "width": 1024,
+        "height": 1536
+      },
+      "prompt": "Photorealistic close-up portrait photograph of a 78-year-old elderly Tamil woman named Paati. Brown skin tone, silver hair pulled back into a neat bun, dark brown eyes, natural wrinkles, expressive eyes, a small gold nose stud. Wearing a white cotton saree with a checked border. Role: Grandmother who rules the family kitchen. Expression shows: Sharp-tongued and loving, secretly sentimental, the heart of the house. Age-appropriate elderly features: natural deep wrinkles, crow's feet, age spots, softened jawline, expressive knowing eyes. A unique, fictional person with their own distinct face, not a celebrity. Realistic facial anatomy with natural asymmetry, real skin texture with visible pores and fine vellus hair, believable individual hair strands, natural eyes with catchlights. Casting photograph for a live-action feature film: full-frame cinema camera, 85mm lens at f/2, soft window key light with gentle fill, natural colour grading, shallow depth of field, head and shoulders, softly blurred warm-grey background."
     }
-  ]
+  ],
+  "negativePrompt": "cartoon, illustration, drawing, sketch, anime, manga, comic, 3D render, CGI, video-game character, doll, plastic or waxy skin, airbrushed skin, painting, watercolor, digital art, avatar, emoji, caricature, distorted or asymmetric eyes, extra fingers, deformed face, text, watermark, logo, frame, collage, duplicate face"
 }

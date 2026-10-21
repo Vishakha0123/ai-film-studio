@@ -15,6 +15,10 @@ export type HairStyle = 'short' | 'long' | 'curly' | 'braided' | 'tied' | 'bald'
 export interface LibraryCharacter {
   /** Stable id, e.g. "CHR-0007" */
   id: string
+  /** Optional story name (e.g. "Paati"), role and personality — kept in the portrait prompt */
+  name?: string
+  role?: string
+  personality?: string
   /** Exact age in years — the age filter uses this */
   age: number
   gender: Gender
@@ -34,10 +38,15 @@ export interface LibraryCharacter {
   prompt: string
 }
 
-/** A character plus where its portrait is: `src` is set only when the image file really exists. */
+/**
+ * A character plus where its portrait is: `src` is set only when its own image file really exists.
+ * `generated` says whether the file was recorded by the generator (model + time) — files added by hand aren't.
+ */
 export interface LibraryEntry extends LibraryCharacter {
   ageGroup: AgeGroupId
-  portrait: { status: 'ready'; src: string } | { status: 'missing'; expectedPath: string }
+  portrait:
+    | { status: 'ready'; src: string; generated: { model: string; generatedAt: string } | null }
+    | { status: 'missing'; expectedPath: string }
 }
 
 export interface AgeGroup {

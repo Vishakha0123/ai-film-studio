@@ -74,12 +74,32 @@ describe('library data', () => {
     expect(new Set(CHARS.map(c => c.hair.style)).size).toBeGreaterThanOrEqual(5)
   })
 
-  it('prompts ask for a photorealistic person of that exact age', () => {
+  it('prompts describe a unique, photorealistic person of that exact age, with their recorded details', () => {
     for (const c of CHARS) {
-      expect(c.prompt).toMatch(/^Photorealistic studio portrait photograph of a \d+-year-old/)
-      expect(c.prompt).toContain(`${c.age}-year-old`)
-      expect(c.prompt).toContain('not a cartoon, not an illustration')
+      expect(c.prompt.startsWith(`Photorealistic close-up portrait photograph of a ${c.age}-year-old`)).toBe(true)
+      for (const detail of [c.heritage, c.eyeColor, c.wardrobe, ...c.features]) expect(c.prompt).toContain(detail)
+      expect(c.prompt).toContain('A unique, fictional person with their own distinct face')
+      expect(c.prompt).toContain('real skin texture')
+      expect(c.prompt).not.toMatch(/cartoon|illustrat|anime|avatar/i) // style words only in the negative prompt
     }
+    expect(new Set(CHARS.map(c => c.prompt)).size).toBe(CHARS.length) // no two characters get the same prompt
+  })
+
+  it('has a negative prompt that rules out cartoons, illustrations, anime, 3D, paintings and avatars', () => {
+    for (const word of ['cartoon', 'illustration', 'anime', '3D render', 'painting', 'avatar']) expect(data.negativePrompt).toContain(word)
+  })
+
+  it('Paati (CHR-0045) is a 78-year-old Indian grandmother with silver hair in a bun and a white checked-border cotton saree', () => {
+    const p = CHARS.find(c => c.id === 'CHR-0045')!
+    expect(p).toMatchObject({ name: 'Paati', age: 78, gender: 'female', ethnicity: 'south-asian', image: { file: 'CHR-0045.webp' } })
+    for (const d of ['silver hair pulled back into a neat bun', 'white cotton saree with a checked border', 'natural wrinkles', 'expressive eyes'])
+      expect(p.prompt).toContain(d)
+    expect(ageGroupOf(p.age)).toBe('senior')
+  })
+
+  it('portraits are 1024×1536 WebP, one file per character id', () => {
+    expect(data.imageSpec).toMatchObject({ format: 'webp', width: 1024, height: 1536 })
+    for (const c of CHARS) expect(c.image).toEqual({ file: `${c.id}.webp`, width: 1024, height: 1536 })
   })
 })
 
@@ -87,7 +107,9 @@ describe('portrait files', () => {
   it('a character is "ready" only when its own file exists; otherwise it says which file is missing', () => {
     const c = CHARS[0]
     expect(toEntry(c, {}).portrait).toEqual({ status: 'missing', expectedPath: `frontend/src/assets/characters/${c.image.file}` })
-    expect(toEntry(c, { [c.image.file]: '/assets/x.webp' }).portrait).toEqual({ status: 'ready', src: '/assets/x.webp' })
+    expect(toEntry(c, { [c.image.file]: '/assets/x.webp' }, {}).portrait).toEqual({ status: 'ready', src: '/assets/x.webp', generated: null })
+    expect(toEntry(c, { [c.image.file]: '/assets/x.webp' }, { [c.id]: { file: c.image.file, model: 'gpt-image-1', generatedAt: '2026-10-21T10:00:00Z' } }).portrait)
+      .toEqual({ status: 'ready', src: '/assets/x.webp', generated: { model: 'gpt-image-1', generatedAt: '2026-10-21T10:00:00Z' } })
     expect(toEntry(c, { 'CHR-9999.webp': '/assets/other.webp' }).portrait.status).toBe('missing') // never borrows another file
   })
 

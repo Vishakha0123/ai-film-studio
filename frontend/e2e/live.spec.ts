@@ -59,13 +59,15 @@ test('full stack: login → plan with AI → generate assets → teaser → rend
   await page.getByRole('button', { name: 'Export 16:9 · 1080' }).click()
   await expect(page.getByRole('alert')).toContainText('Every shot needs a ready video clip', { timeout: 15_000 })
 
-  // Reload keeps the project: all stages open, generated portraits shown
+  // Reload keeps the project: all stages open
   await page.goto('/director')
   // …and the conversation is still there
   await expect(page.getByTestId('panel-chat')).toContainText("A grieving composer hears messages in her late husband's symphony")
   await page.getByTestId('nav-characters').click()
+  // The offline mock's SVG placeholder frames are never shown as portraits; the sample's stock photo is labelled
   const portrait = page.getByTestId('panel-characters').getByRole('img', { name: 'Elena Vasquez' }).first()
-  await expect(portrait).toHaveAttribute('src', /\/media\/projects\/.+\/character_image\/1-v1\.svg$/)
+  await expect(portrait).not.toHaveAttribute('src', /\.svg$/)
+  await expect(page.getByTestId('stock-badge')).toHaveText('Stock sample photo')
 
   expect(errors).toEqual([])
 })
@@ -652,7 +654,7 @@ test('full stack: refreshing keeps the chat, and a film still being written is p
   await expect(page.getByTestId('panel-story')).toBeVisible()
 })
 
-test('full stack: characters get a drawn portrait for their age and gender (girl, boy, all ages)', async ({ page, request }) => {
+test('full stack: characters without a generated portrait show "No portrait yet" — never a drawing or stand-in', async ({ page, request }) => {
   await preparePage(page)
   const email = 'portrait-user@dev.local'
   const auth = { Authorization: `Bearer dev:${email}` }
@@ -664,35 +666,28 @@ test('full stack: characters get a drawn portrait for their age and gender (girl
   await page.getByTestId('nav-characters').click()
   const panel = page.getByTestId('panel-characters')
 
-  const add = async (name: string, age: string, gender: 'female' | 'male', band: string) => {
-    await panel.getByRole('button', { name: /Add Character/ }).click()
-    const form = page.getByTestId('character-form')
-    await form.getByPlaceholder('e.g. Sundar').fill(name)
-    await form.getByPlaceholder('e.g. 12').fill(age)
-    await form.getByLabel('Girl / Boy').selectOption(gender)
-    await expect(form.getByTestId('portrait-band')).toContainText(band)
-    await form.getByRole('button', { name: 'Add character', exact: true }).click()
-    await expect(page.getByTestId('character-form')).toHaveCount(0)
-  }
-  await add('Pinky', '8', 'female', 'Child · girl / woman')
-  await add('Dada Ji', '76', 'male', 'Senior · boy / man')
+  await panel.getByRole('button', { name: /Add Character/ }).click()
+  const form = page.getByTestId('character-form')
+  await form.getByPlaceholder('e.g. Sundar').fill('Paati')
+  await form.getByPlaceholder('e.g. 12').fill('78')
+  await form.getByLabel('Girl / Boy').selectOption('female')
+  await expect(form.getByRole('img')).toHaveCount(0) // no drawn preview
+  await form.getByRole('button', { name: 'Add character', exact: true }).click()
+  await expect(page.getByTestId('character-form')).toHaveCount(0)
 
-  // Their portraits are the drawings (no generated image yet), and differ from each other
-  const pinky = panel.getByRole('img', { name: 'Pinky' }).first()
-  const dada = panel.getByRole('img', { name: 'Dada Ji' }).first()
-  await expect(pinky).toHaveAttribute('src', /^data:image\/svg\+xml/)
-  await expect(dada).toHaveAttribute('src', /^data:image\/svg\+xml/)
-  expect(await pinky.getAttribute('src')).not.toBe(await dada.getAttribute('src'))
-  // The drawing actually loads
-  expect(await dada.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true)
+  // No image model in this test setup → no portrait, said plainly; no <img> pretends to be her
+  await expect(panel.getByRole('img', { name: 'Paati: no portrait yet' }).first()).toBeVisible()
+  await expect(panel.locator('img[alt="Paati"]')).toHaveCount(0)
+  await expect(page.locator('img[src^="data:image/svg"]')).toHaveCount(0)
+  await expect(page.getByTestId('photo-caption')).toContainText('No portrait yet')
 
   const [p] = await (await request.get(`${API}/api/v1/projects`, { headers: auth })).json()
   const chars = (await (await request.get(`${API}/api/v1/projects/${p.id}`, { headers: auth })).json()).memory.characters
-  expect(chars.slice(-2).map((c: { name: string; age: string; gender: string }) => [c.name, c.age, c.gender]))
-    .toEqual([['Pinky', '8', 'female'], ['Dada Ji', '76', 'male']])
+  expect(chars.at(-1)).toMatchObject({ name: 'Paati', age: '78', gender: 'female' })
+  expect(chars.at(-1).imageUrl).toBeFalsy()
 })
 
-test('full stack: without an image model, "Make AI photo" explains how to turn real photos on', async ({ page }) => {
+test('full stack: without an image model, "Generate portrait" explains how to turn real portraits on', async ({ page }) => {
   await preparePage(page)
   await page.addInitScript(() => localStorage.setItem('cineai.token', 'dev:photo-user@dev.local'))
   await page.goto('/director')
@@ -700,7 +695,7 @@ test('full stack: without an image model, "Make AI photo" explains how to turn r
   await page.keyboard.press('Enter')
   await expect(page.getByTestId('panel-story')).toBeVisible({ timeout: 20_000 })
   await page.getByTestId('nav-characters').click()
-  await expect(page.getByTestId('photo-caption')).toContainText('Drawing for now')
-  await page.getByRole('button', { name: 'Make AI photo' }).click()
+  await expect(page.getByTestId('photo-caption')).toContainText('No portrait yet')
+  await page.getByRole('button', { name: 'Generate portrait' }).click()
   await expect(page.getByRole('alert')).toContainText('IMAGE_PROVIDER=openai')
 })

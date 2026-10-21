@@ -40,6 +40,11 @@ class Settings(BaseSettings):
     IMAGE_PROVIDER: Literal["mock", "openai"] = "mock"
     # Make photorealistic character portraits automatically (after planning, adding or changing a character)
     AUTO_PORTRAITS: bool = True
+    # What character portraits must never look like (sent with every portrait request)
+    PORTRAIT_NEGATIVE_PROMPT: str = ("cartoon, illustration, drawing, sketch, anime, manga, comic, 3D render, CGI, video-game "
+                                     "character, doll, plastic or waxy skin, airbrushed skin, painting, watercolor, digital art, "
+                                     "avatar, emoji, caricature, distorted or asymmetric eyes, extra fingers, deformed face, "
+                                     "text, watermark, logo, frame, collage, duplicate face")
     # Tests only: let the offline mock image provider stand in for portraits
     ALLOW_MOCK_PORTRAITS: bool = False
     VIDEO_PROVIDER: Literal["mock", "seedance"] = "mock"

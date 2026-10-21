@@ -9,11 +9,14 @@ from app.providers.base import ImageProvider, ProviderError, ProviderResult
 
 
 class OpenAIImage(ImageProvider):
-    async def generate_image(self, prompt: str, *, size: str = "1536x1024", references: list[bytes] | None = None) -> ProviderResult:
+    async def generate_image(self, prompt: str, *, size: str = "1536x1024", references: list[bytes] | None = None,
+                             negative_prompt: str = "") -> ProviderResult:
         s = get_settings()
         if not s.OPENAI_API_KEY:
             raise ProviderError("OPENAI_API_KEY is not set")
         headers = {"Authorization": f"Bearer {s.OPENAI_API_KEY}"}
+        if negative_prompt:  # GPT Image has no separate negative prompt field, so it goes in as an instruction
+            prompt = f"{prompt}\n\nAvoid: {negative_prompt}."
         async with httpx.AsyncClient(timeout=240) as client:
             try:
                 if references:

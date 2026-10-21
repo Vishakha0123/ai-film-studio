@@ -2,8 +2,8 @@ import { useState } from 'react'
 import DirectAI from '../components/DirectAI'
 import { usePortraits } from '../lib/usePortraits'
 import CharacterLibrary from '../components/characterLibrary/CharacterLibrary'
-import { characterPhoto } from '../types'
-import { AGE_BAND_LABEL, ageBand, genderOf, portraitUrl } from '../lib/portraits'
+import { characterPhoto, characterPhotoKind } from '../types'
+import { NoPortrait, StockBadge } from '../components/CharacterPortrait'
 import { useFilm, useStudio } from '../studio'
 import type { Character } from '../types'
 import { DEMO_MODE, addCharacter, assertCompleted, editProject, removeCharacter, updateCharacter, waitForJob, type CharacterInput } from '../api'
@@ -128,7 +128,9 @@ export default function Characters() {
                 backgroundColor: selected === c.id && mode.kind !== 'add' ? 'rgba(212,168,75,0.07)' : 'rgba(255,255,255,0.02)',
               }}
             >
-              <img src={characterPhoto(c, 64, 64)} alt={c.name} className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
+              {characterPhoto(c, 64, 64)
+                ? <img src={characterPhoto(c, 64, 64)!} alt={c.name} className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
+                : <NoPortrait size="chip" label={c.name} />}
               <div className="text-left">
                 <p className="text-sm font-medium" style={{ color: selected === c.id ? '#f4f0ea' : '#a1a1aa' }}>{c.name}</p>
                 <p className="text-xs" style={{ color: selected === c.id ? '#d4a84b' : '#52525b' }}>{c.role}</p>
@@ -231,21 +233,11 @@ function CharacterForm({ title, hint, initial, only, busy, onCancel, submit, sec
       data-testid="character-form"
     >
       <div className="flex items-start gap-4">
-        {(fields.some(f => f.key === 'age' || f.key === 'gender')) && !initial?.imageUrl && (
-          <img
-            src={portraitUrl({ ...initial, name: data.name || initial?.name || 'New character', age: data.age, gender: data.gender })}
-            alt="Portrait preview"
-            data-testid="portrait-preview"
-            className="w-16 h-20 rounded-lg object-cover flex-shrink-0"
-          />
-        )}
         <div>
           <h3 className="text-base font-medium" style={{ color: '#f4f0ea' }}>{title}</h3>
           {hint && <p className="text-xs text-zinc-500 mt-1">{hint}</p>}
-          {(fields.some(f => f.key === 'age')) && (
-            <p className="text-[11px] text-zinc-600 mt-1" data-testid="portrait-band">
-              Portrait: {AGE_BAND_LABEL[ageBand(data.age)]} · {genderOf({ ...initial, name: data.name || initial?.name || 'New character', gender: data.gender }) === 'female' ? 'girl / woman' : 'boy / man'} — set by the age and Girl / Boy fields
-            </p>
+          {(fields.some(f => f.key === 'age' || f.key === 'appearance')) && (
+            <p className="text-[11px] text-zinc-600 mt-1">Age, Girl / Boy and Appearance shape the AI portrait.</p>
           )}
         </div>
       </div>
@@ -306,13 +298,16 @@ function CharacterDetail({ char, busy, onEdit, onRegenerate, onAppearance, photo
     { label: 'Regenerate', run: onRegenerate },
     { label: 'Change Appearance', run: onAppearance },
   ]
-  const isPhoto = !!char.imageUrl && !/\.svg($|\?)/.test(char.imageUrl)
+  const kind = characterPhotoKind(char)
+  const isPhoto = kind === 'ai'
+  const src = characterPhoto(char, 400, 533)
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-fade-up" key={char.id}>
       {/* Portrait */}
       <div className="md:col-span-1">
         <div className="aspect-[3/4] max-w-xs md:max-w-none mx-auto rounded-xl overflow-hidden relative" style={{ backgroundColor: '#111113' }}>
-          <img src={characterPhoto(char, 400, 533)} alt={char.name} className="w-full h-full object-cover" />
+          {src ? <img src={src} alt={char.name} className="w-full h-full object-cover" /> : <NoPortrait size="large" label={char.name} />}
+          {kind === 'stock' && <StockBadge />}
           {photo.busy && !isPhoto && (
             <div className="absolute inset-0 flex items-center justify-center" style={{ backgroundColor: 'rgba(9,9,11,0.45)' }} data-testid="photo-pending">
               <span className="px-3 py-1.5 rounded-full text-[11px] font-medium" style={{ backgroundColor: 'rgba(9,9,11,0.8)', color: '#d4a84b' }}>Taking photo…</span>
@@ -334,10 +329,13 @@ function CharacterDetail({ char, busy, onEdit, onRegenerate, onAppearance, photo
             style={{ backgroundColor: 'rgba(212,168,75,0.12)', color: '#d4a84b', border: '1px solid rgba(212,168,75,0.3)' }}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-3.5 h-3.5"><path d="M4 8h3l2-3h6l2 3h3v11H4z" strokeLinejoin="round" /><circle cx="12" cy="13" r="3.5" /></svg>
-            {isPhoto ? 'New photo' : 'Make AI photo'}
+            {isPhoto ? 'New portrait' : 'Generate portrait'}
           </button>
           <span className="text-[11px] text-zinc-600 leading-tight" data-testid="photo-caption">
-            {isPhoto ? 'AI photo' : photo.live === false ? 'Drawing for now — real photos need the image model (see Settings → Studio connection)' : 'Drawing until the AI photo is ready'}
+            {isPhoto ? 'AI-generated portrait'
+              : photo.live === false ? 'No portrait yet — AI portraits need an image model (see Settings → Studio connection)'
+              : kind === 'stock' ? 'Sample stock photo — make an AI portrait to replace it'
+              : 'No portrait yet'}
           </span>
         </div>
 

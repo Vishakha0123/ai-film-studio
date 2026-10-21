@@ -28,7 +28,7 @@ from app.providers.base import ProviderResult
 from app.schemas import FilmProject, Preferences
 from app.services import storage
 from app.services.script_check import CHECKED, wrong_language_fields
-from app.services.portraits import PORTRAIT_SIZE, portrait_prompt, portraits_enabled
+from app.services.portraits import PORTRAIT_SIZE, negative_prompt, portrait_prompt, portraits_enabled
 
 log = logging.getLogger("cineai.pipeline")
 T = TypeVar("T")
@@ -374,10 +374,11 @@ def estimate(memory: dict, quality: str) -> dict:
 async def _character_image(db, job, project, char: dict, size: str = PORTRAIT_SIZE) -> Asset:
     """A photorealistic portrait of a real-looking person of the character's age and gender."""
     prompt = portrait_prompt(project, char)
-    res = await with_retry(lambda: image_provider().generate_image(prompt, size=PORTRAIT_SIZE), job, db)
+    negative = negative_prompt()
+    res = await with_retry(lambda: image_provider().generate_image(prompt, size=PORTRAIT_SIZE, negative_prompt=negative), job, db)
     record_usage(db, job, res)
     return await store_asset(db, project, "character_image", char["id"], res, data=res.data, ext=_image_ext(res.data),
-                             meta={"prompt": prompt, "name": char["name"]})
+                             meta={"prompt": prompt, "negativePrompt": negative, "name": char["name"]})
 
 
 async def _storyboard_image(db, job, project, shot: dict, size: str) -> Asset:
