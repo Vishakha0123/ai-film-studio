@@ -127,7 +127,8 @@ test('full stack workspace: settings defaults → projects (open, rename, delete
   await expect(page.getByTestId('overview-title')).toHaveText('Madurai Nights')
   await expect(page.getByTestId('overview-character')).toHaveCount(3)
   await expect(page.getByTestId('overview-shot')).toHaveCount(4)
-  await expect(page.getByTestId('overview-shot').first().locator('img')).toHaveAttribute('src', /storyboard_image\/1-v1\.svg$/)
+  // mock placeholder frames (SVG) are never shown as frames; the sample film's still is used instead
+  await expect(page.getByTestId('overview-shot').first().locator('img')).not.toHaveAttribute('src', /\.svg$/)
   await page.getByRole('button', { name: 'Edit Story in the Director' }).click()
   await expect(page.getByTestId('panel-story')).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Madurai Nights' })).toBeVisible()
@@ -729,4 +730,35 @@ test('full stack: a submitted prompt gives every character the closest of the 10
   await expect(elena).toHaveAttribute('src', `${API}/portraits/female-young.webp`)
   expect(await elena.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true)
   await expect(page.getByTestId('photo-caption')).toHaveText('Closest matching portrait for this age and gender')
+})
+
+test('full stack: shots without a frame show "No frame yet" (not one shared photo), and the style tint changes', async ({ page, request }) => {
+  await preparePage(page)
+  const email = 'frames-user@dev.local'
+  const auth = { Authorization: `Bearer dev:${email}`, 'Content-Type': 'application/json' }
+  await page.addInitScript(e => localStorage.setItem('cineai.token', `dev:${e}`), email)
+  await page.goto('/director')
+  await page.getByLabel('Message the AI Director').fill('A lullaby plays at 3 a.m. in an abandoned palace')
+  await page.keyboard.press('Enter')
+  await expect(page.getByTestId('panel-story')).toBeVisible({ timeout: 20_000 })
+
+  // Like a real story model's plan: shots with no sample still and no generated frame
+  const [p] = await (await request.get(`${API}/api/v1/projects`, { headers: auth })).json()
+  const shots = (await (await request.get(`${API}/api/v1/projects/${p.id}`, { headers: auth })).json()).memory.shots
+    .map((s: Record<string, unknown>) => ({ ...s, imageId: '' }))
+  await request.patch(`${API}/api/v1/projects/${p.id}/memory`, { headers: auth, data: { shots } })
+  await page.reload()
+  await page.getByTestId('nav-storyboard').click()
+
+  const frames = page.getByTestId('no-frame')
+  await expect(frames).toHaveCount(shots.length)
+  await expect(page.getByTestId('shot-image')).toHaveCount(0)
+  await expect(frames.first()).toContainText('No frame yet')
+  await expect(page.getByTestId('shot-1')).toContainText(shots[0].description)
+
+  const before = await frames.first().evaluate(el => getComputedStyle(el).backgroundImage)
+  await page.getByRole('button', { name: 'Anime', exact: true }).click()
+  await expect(frames.first()).toContainText('Drawn in Anime when frames are generated')
+  await expect.poll(() => frames.first().evaluate(el => getComputedStyle(el).backgroundImage)).not.toBe(before)
+  await expect(page.getByTestId('style-note')).toContainText('Character portraits stay photorealistic')
 })

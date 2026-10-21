@@ -182,6 +182,26 @@ export function characterPhoto(c: Character, w: number, h: number): string | nul
   return null
 }
 
+/**
+ * A storyboard shot's picture: a generated frame ("ai"), the demo film's sample still ("stock"), or nothing yet
+ * ("none") — never one shared stand-in photo for every shot. Mock SVG placeholder frames don't count.
+ */
+export function shotFrame(shot: Pick<Shot, 'imageUrl' | 'imageId'>, w: number, h: number): { kind: 'ai' | 'stock' | 'none'; src: string | null } {
+  if (shot.imageUrl && !/\.svg($|\?)/i.test(shot.imageUrl)) return { kind: 'ai', src: shot.imageUrl }
+  if (shot.imageId) return { kind: 'stock', src: photoUrl({ imageId: shot.imageId }, w, h) }
+  return { kind: 'none', src: null }
+}
+
+/** The characters named in a shot's "characters" text ("Rohan, Nila"), matched to the cast by name. */
+export function shotCast(shot: Pick<Shot, 'characters'>, cast: Character[]): Character[] {
+  const names = String(shot.characters || '').split(/[,،、&]| and /).map(n => n.trim().toLowerCase()).filter(n => n && n !== 'none')
+  return cast.filter(c => {
+    const full = c.name.toLowerCase()
+    const first = full.split(/\s+/)[0]
+    return names.some(n => n === full || n === first || full.includes(n) || n.includes(first))
+  })
+}
+
 /** Photo for a character/shot: generated asset if present, otherwise the design's Unsplash still. */
 export function photoUrl(item: { imageUrl?: string; imageId: string }, w: number, h: number, q = 80): string {
   if (item.imageUrl) return item.imageUrl

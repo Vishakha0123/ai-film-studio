@@ -4,8 +4,8 @@ import { getProject, listDocuments, makeLanguageVersion } from '../api'
 import { FILM_LANGUAGES, languageLabel, languageName } from '../lib/languages'
 import { useStudio } from '../studio'
 import { classifyLine, LINE_STYLES } from '../panels/Screenplay'
-import { characterPhoto, characterPhotoKind, filmSeconds, photoUrl } from '../types'
-import { NoPortrait, StockBadge } from '../components/CharacterPortrait'
+import { characterPhoto, characterPhotoKind, filmSeconds, shotFrame } from '../types'
+import { NoFrame, NoPortrait, StockBadge } from '../components/CharacterPortrait'
 import type { Panel, ProjectData, ProjectDocument } from '../types'
 
 const SECTIONS: { id: string; label: string; panel: Panel }[] = [
@@ -98,7 +98,7 @@ export default function ProjectOverview() {
 
   const f = project.memory
   const status = STATUS[project.status] ?? { label: project.status, color: '#71717a' }
-  const hero = f?.shots[0] ? photoUrl(f.shots[0], 1280, 540) : null
+  const hero = f?.shots[0] ? shotFrame(f.shots[0], 1280, 540).src : null
 
   return (
     <div className="pb-16" data-testid="project-overview">
@@ -267,7 +267,9 @@ export default function ProjectOverview() {
                 {f.shots.map(s => (
                   <figure key={s.id} className="rounded-xl overflow-hidden" style={card} data-testid="overview-shot">
                     <div className="relative aspect-video bg-zinc-900">
-                      <img src={photoUrl(s, 640, 360)} alt={`Shot ${s.number}`} className="absolute inset-0 w-full h-full object-cover" />
+                      {shotFrame(s, 640, 360).src
+                        ? <img src={shotFrame(s, 640, 360).src!} alt={`Shot ${s.number}`} className="absolute inset-0 w-full h-full object-cover" />
+                        : <NoFrame tint="linear-gradient(135deg, #27272a 0%, #3f3f46 50%, #18181b 100%)" />}
                       <span className="absolute top-2 left-2 text-[10px] font-semibold px-2 py-0.5 rounded" style={{ backgroundColor: 'rgba(9,9,11,0.75)', color: '#f4f0ea' }}>Shot {s.number} · {s.duration}</span>
                     </div>
                     <figcaption className="p-4 space-y-1">

@@ -2,21 +2,25 @@ import { isTeaserLocked } from '../features'
 import DirectAI from '../components/DirectAI'
 import { ComingSoonButton } from '../components/LockIcon'
 import { useEffect, useState } from 'react'
-import { filmSeconds, photoUrl } from '../types'
+import { characterPhoto, filmSeconds, shotCast, shotFrame, type Character } from '../types'
+import { NoFrame } from '../components/CharacterPortrait'
 import { useFilm } from '../studio'
 import { useFilmEdit } from '../lib/useFilmEdit'
 import type { Shot } from '../types'
 
 const PRESETS = ['Photorealistic', 'Dark Cinema', 'Anime', '3D Render', 'Vintage'] as const
 
-/** How each style looks on the frames right away (the real pictures are redrawn in it when generated). */
-const STYLE_LOOK: Record<string, { filter: string; overlay?: string }> = {
-  Photorealistic: { filter: 'none' },
-  'Dark Cinema': { filter: 'grayscale(30%) contrast(1.15) brightness(0.85)', overlay: 'rgba(212,168,75,0.06)' },
-  Anime: { filter: 'saturate(1.9) contrast(1.15) brightness(1.08) hue-rotate(-12deg)', overlay: 'rgba(120,180,255,0.08)' },
-  '3D Render': { filter: 'saturate(1.35) contrast(1.25) brightness(1.05)', overlay: 'rgba(255,255,255,0.04)' },
-  Vintage: { filter: 'sepia(0.75) contrast(0.92) brightness(0.95) saturate(0.85)', overlay: 'rgba(120,80,30,0.12)' },
-  Custom: { filter: 'contrast(1.05)' },
+/**
+ * How each style shows right away: a filter on real frames, and a tint on shots that have no frame yet
+ * (the frames themselves are drawn in the style when they're generated).
+ */
+const STYLE_LOOK: Record<string, { filter: string; overlay?: string; tint: string }> = {
+  Photorealistic: { filter: 'none', tint: 'linear-gradient(135deg, #2a2d33 0%, #4a4e55 55%, #1d1f23 100%)' },
+  'Dark Cinema': { filter: 'grayscale(30%) contrast(1.15) brightness(0.85)', overlay: 'rgba(212,168,75,0.06)', tint: 'radial-gradient(ellipse at 30% 30%, #4a3416 0%, #17120b 55%, #070605 100%)' },
+  Anime: { filter: 'saturate(1.9) contrast(1.15) brightness(1.08) hue-rotate(-12deg)', overlay: 'rgba(120,180,255,0.08)', tint: 'linear-gradient(135deg, #3b82f6 0%, #a855f7 50%, #f472b6 100%)' },
+  '3D Render': { filter: 'saturate(1.35) contrast(1.25) brightness(1.05)', overlay: 'rgba(255,255,255,0.04)', tint: 'linear-gradient(135deg, #0f766e 0%, #155e75 45%, #c2410c 100%)' },
+  Vintage: { filter: 'sepia(0.75) contrast(0.92) brightness(0.95) saturate(0.85)', overlay: 'rgba(120,80,30,0.12)', tint: 'linear-gradient(135deg, #7c5a32 0%, #a8885a 50%, #4a3520 100%)' },
+  Custom: { filter: 'contrast(1.05)', tint: 'linear-gradient(135deg, #3f3f46 0%, #52525b 50%, #27272a 100%)' },
 }
 
 const CAMERAS = ['Extreme wide', 'Wide', 'Medium', 'Close-up', 'Extreme close-up', 'Over-the-shoulder', 'POV', 'Aerial']
@@ -92,7 +96,9 @@ export default function Storyboard({ onGenerate }: { onGenerate: () => void }) {
             </form>
           )}
           <p className="text-[11px] text-zinc-600 mt-2" data-testid="style-note">
-            {canEdit ? `Saved for this film — frames and portraits are redrawn in ${style === 'Custom' ? 'your style' : style} when you generate.` : 'Preview only in demo mode.'}
+            {canEdit
+              ? `Saved for this film — storyboard frames are drawn in ${style === 'Custom' ? 'your style' : style} when they're generated. Character portraits stay photorealistic.`
+              : 'Preview only in demo mode.'}
           </p>
           {working && <p className="text-xs mt-2" style={{ color: '#d4a84b' }} data-testid="storyboard-working">{working}</p>}
           {error && <p role="alert" className="text-xs text-red-300 mt-2">{error}</p>}
@@ -105,6 +111,8 @@ export default function Storyboard({ onGenerate }: { onGenerate: () => void }) {
               key={shot.id}
               shot={shot}
               look={look}
+              styleName={style === 'Custom' ? custom || 'your style' : style}
+              cast={shotCast(shot, film.characters)}
               busy={!!working}
               isSelected={selected === shot.id}
               onSelect={() => setSelected(selected === shot.id ? null : shot.id)}
@@ -146,9 +154,11 @@ export default function Storyboard({ onGenerate }: { onGenerate: () => void }) {
 
 type Mode = 'view' | 'edit' | 'camera'
 
-function ShotCard({ shot, look, busy, isSelected, onSelect, onSave, onRegenerate }: {
+function ShotCard({ shot, look, styleName, cast, busy, isSelected, onSelect, onSave, onRegenerate }: {
   shot: Shot
-  look: { filter: string; overlay?: string }
+  look: { filter: string; overlay?: string; tint: string }
+  styleName: string
+  cast: Character[]
   busy: boolean
   isSelected: boolean
   onSelect: () => void
@@ -160,6 +170,7 @@ function ShotCard({ shot, look, busy, isSelected, onSelect, onSave, onRegenerate
   const open = (m: Mode) => { setDraft({ description: shot.description, duration: shot.duration, mood: shot.mood, camera: shot.camera, movement: shot.movement }); setMode(m) }
   const field = 'w-full px-2.5 py-1.5 rounded-md bg-zinc-900 border border-zinc-800 text-xs text-zinc-200 focus:outline-none focus:border-zinc-600'
   const stop = (e: React.MouseEvent) => e.stopPropagation()
+  const frame = shotFrame(shot, 600, 338)
 
   return (
     <div
@@ -172,14 +183,31 @@ function ShotCard({ shot, look, busy, isSelected, onSelect, onSave, onRegenerate
       data-testid={`shot-${shot.number}`}
     >
       <div className="relative aspect-video bg-zinc-900">
-        <img
-          src={photoUrl(shot, 600, 338, 70)}
-          alt={shot.description}
-          className="w-full h-full object-cover transition-[filter] duration-500"
-          style={{ filter: look.filter, opacity: 0.9 }}
-          data-testid="shot-image"
-        />
-        {look.overlay && <div className="absolute inset-0 transition-colors duration-500" style={{ backgroundColor: look.overlay, mixBlendMode: 'overlay' }} />}
+        {frame.src ? (
+          <>
+            <img
+              src={frame.src}
+              alt={shot.description}
+              className="w-full h-full object-cover transition-[filter] duration-500"
+              style={{ filter: look.filter, opacity: 0.9 }}
+              data-testid="shot-image"
+            />
+            {look.overlay && <div className="absolute inset-0 transition-colors duration-500" style={{ backgroundColor: look.overlay, mixBlendMode: 'overlay' }} />}
+          </>
+        ) : (
+          <NoFrame tint={look.tint} styleName={styleName}>
+            {cast.length > 0 && (
+              <div className="absolute top-9 right-2 flex -space-x-2" data-testid="shot-cast">
+                {cast.map(c => {
+                  const src = characterPhoto(c, 64, 64)
+                  return src
+                    ? <img key={c.id} src={src} alt={c.name} title={c.name} className="w-8 h-8 rounded-full object-cover border-2" style={{ borderColor: '#111113' }} />
+                    : null
+                })}
+              </div>
+            )}
+          </NoFrame>
+        )}
         <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(9,9,11,0.7) 0%, transparent 60%)' }} />
         <div className="absolute top-2 left-2 px-2 py-0.5 rounded text-[10px] font-bold" style={{ backgroundColor: 'rgba(9,9,11,0.8)', color: '#a1a1aa' }}>
           {shot.number.toString().padStart(2, '0')}
