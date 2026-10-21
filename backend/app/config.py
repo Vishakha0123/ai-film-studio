@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     STORAGE_BACKEND: Literal["local", "supabase"] = "local"
     LOCAL_MEDIA_DIR: str = "./media"
     # The 10 reusable reference portraits (female-child … male-senior .webp/.jpg/.png), served at /portraits
-    REFERENCE_PORTRAITS_DIR: str = "./portraits"
+    REFERENCE_PORTRAITS_DIR: str = ""  # default: backend/portraits (relative paths are relative to backend/)
     SUPABASE_STORAGE_BUCKET: str = "assets"
 
     # --- Jobs ---

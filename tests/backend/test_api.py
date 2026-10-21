@@ -1400,3 +1400,67 @@ def test_the_matched_portrait_is_sent_to_the_image_model_as_a_reference(client, 
     paati_prompt, paati_refs = next((p, r) for p, r in refs if "named Paati" in p)
     assert paati_refs == [b"RIFFfemale-senior"]
     assert "exactly 78 years old" in paati_prompt and "every detail written above" in paati_prompt
+
+
+MARATHI_HORROR = ("A horror film set in an abandoned hill-station palace in Ooty. Kamala, a 74-year-old woman who was the "
+                  "palace caretaker, knows what happened there; Rohan, a 28-year-old man and ghost-hunting YouTuber, breaks "
+                  "in; Nila, a 14-year-old girl, sneaks in after him; and Sundar, a 48-year-old man who is the new owner, "
+                  "wants the palace sold.")
+
+
+def test_film_in_marathi_from_an_english_prompt_gets_the_right_genders(client, monkeypatch, reference_files):
+    """The names come back in Devanagari ("कमला"), so they're matched to the prompt by age; Marathi words count too."""
+    import copy
+    from app.providers.base import ProviderResult
+    from app.providers.mock import SAMPLE, MockStory
+
+    async def plan(self, brief):
+        film = copy.deepcopy(SAMPLE)
+        film["characters"] = [
+            {"id": "1", "name": "कमला", "age": "74", "role": "राजवाड्याची जुनी काळजीवाहू आणि रक्षक",
+             "personality": "शांत, रहस्यमय आणि भूतकाळातील भयंकर सत्य लपवणारी"},
+            {"id": "2", "name": "सुंदर", "age": "48", "role": "राजवाड्याचा नवीन मालक", "personality": "घाबरलेला, लालची"},
+            {"id": "3", "name": "रोहन", "age": "28", "role": "भूत शोधणारा यूट्यूबर्स"},
+            {"id": "4", "name": "निळा", "age": "१४", "role": "धाडसी मुलगी"},
+        ]
+        return ProviderResult(film, provider="mock", model="sample-film")
+    monkeypatch.setattr(MockStory, "plan_film", plan)
+    p = client.post("/api/v1/projects", json={"genres": ["Horror"]}, headers=auth()).json()
+    client.post(f"/api/v1/projects/{p['id']}/brief", json={"prompt": MARATHI_HORROR, "language": "mr"}, headers=auth())
+    client.post(f"/api/v1/projects/{p['id']}/plan", json={}, headers=auth())
+    chars = client.get(f"/api/v1/projects/{p['id']}", headers=auth()).json()["memory"]["characters"]
+    assert [(c["name"], c["age"], c["gender"], c["portraitRef"]) for c in chars] == [
+        ("कमला", "74", "female", "female-senior"), ("सुंदर", "48", "male", "male-adult"),
+        ("रोहन", "28", "male", "male-young"), ("निळा", "14", "female", "female-teen")]
+    assert all(c["referenceImageUrl"].endswith(f"/portraits/{c['portraitRef']}.webp") for c in chars)
+
+
+def test_gender_words_in_indian_languages():
+    from app.services.reference_portraits import gender_from_text
+    cases = {
+        "राजवाड्याची जुनी काळजीवाहू, सत्य लपवणारी": "female",      # Marathi feminine ending
+        "भूत शोधणारा यूट्यूबर": "male",                           # Marathi masculine ending
+        "गांव की बूढ़ी दादी": "female", "एक छोटा लड़का": "male",       # Hindi
+        "கிராமத்து பாட்டி": "female", "மீனவர் தாத்தா": "male",          # Tamil
+        "చిన్న అమ్మాయి": "female", "ఊరి తాత": "male",                 # Telugu
+        "ಹಳ್ಳಿಯ ಅಜ್ಜಿ": "female", "ಹಳ್ಳಿಯ ಅಜ್ಜ": "male",               # Kannada: ಅಜ್ಜಿ contains ಅಜ್ಜ
+        "রাজবাড়ির নতুন মালিক": "",                                   # nothing to go on
+    }
+    assert {t: gender_from_text(t) for t in cases} == cases
+
+
+def test_two_characters_with_the_same_age_are_not_guessed_by_age():
+    from app.services.reference_portraits import apply_prompt_facts
+    memory = {"characters": [{"name": "अ", "age": "30"}, {"name": "ब", "age": "30"}]}
+    out = apply_prompt_facts(memory, "Meera, a 30-year-old woman, and Ravi, a 30-year-old man, run a shop.")
+    assert [c.get("gender") for c in out["characters"]] == [None, None]
+
+
+def test_portraits_folder_is_backend_portraits_wherever_the_server_starts(monkeypatch, tmp_path):
+    from app.config import get_settings
+    from app.services.reference_portraits import BACKEND_DIR, portraits_dir
+    monkeypatch.setattr(get_settings(), "REFERENCE_PORTRAITS_DIR", "")
+    monkeypatch.chdir(tmp_path)  # started from some other folder
+    assert portraits_dir() == BACKEND_DIR / "portraits" and BACKEND_DIR.name == "backend"
+    monkeypatch.setattr(get_settings(), "REFERENCE_PORTRAITS_DIR", "my-faces")
+    assert portraits_dir() == BACKEND_DIR / "my-faces"

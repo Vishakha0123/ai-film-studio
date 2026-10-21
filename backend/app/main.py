@@ -29,7 +29,8 @@ if settings.STORAGE_BACKEND == "local":
     media = Path(settings.LOCAL_MEDIA_DIR)
     media.mkdir(parents=True, exist_ok=True)
     app.mount("/media", StaticFiles(directory=media), name="media")
-    portraits = Path(settings.REFERENCE_PORTRAITS_DIR)
+    from app.services.reference_portraits import portraits_dir
+    portraits = portraits_dir()
     portraits.mkdir(parents=True, exist_ok=True)
     app.mount("/portraits", StaticFiles(directory=portraits), name="portraits")
 
