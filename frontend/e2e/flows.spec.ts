@@ -163,3 +163,28 @@ test('chat sits beside every section on desktop', async ({ page }) => {
   await page.getByTestId('chat-toggle').click()
   await expect(page.getByTestId('chat-dock')).toBeVisible()
 })
+
+test('character library: filter by age and gender, select a character — fits the screen on desktop and phone', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('cineai.token', 'demo-token'))
+  await page.goto('/director/characters')
+  await page.getByRole('tab', { name: 'Character library' }).click()
+  const cards = page.getByTestId('library-card')
+  await expect(cards.first()).toBeVisible()
+  const total = await cards.count()
+
+  await page.getByRole('button', { name: /Teenagers · 13–17/ }).click()
+  await page.getByRole('radio', { name: 'Boys & men' }).click()
+  await expect.poll(async () => cards.count()).toBeLessThan(total)
+  for (const card of await cards.all()) {
+    const age = Number(await card.getAttribute('data-age'))
+    expect(age >= 13 && age <= 17).toBe(true)
+    expect(await card.getAttribute('data-gender')).toBe('male')
+  }
+  await cards.first().getByRole('button', { name: 'Select Character' }).click()
+  await expect(page.getByTestId('selected-character')).toBeVisible()
+  await expect(cards.first().getByRole('button', { name: 'Selected ✓' })).toBeVisible()
+
+  // No sideways scrolling at this screen size
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
+  expect(overflow).toBeLessThanOrEqual(1)
+})

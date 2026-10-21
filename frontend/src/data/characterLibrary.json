@@ -1,0 +1,1075 @@
+{
+  "version": 1,
+  "imageSpec": {
+    "format": "webp",
+    "width": 768,
+    "height": 1024,
+    "folder": "frontend/src/assets/characters"
+  },
+  "characters": [
+    {
+      "id": "CHR-0001",
+      "age": 3,
+      "gender": "female",
+      "ethnicity": "south-asian",
+      "heritage": "Tamil",
+      "skinTone": "brown",
+      "hair": {
+        "style": "tied",
+        "color": "black"
+      },
+      "eyeColor": "dark brown",
+      "features": [
+        "freckles"
+      ],
+      "wardrobe": "a striped t-shirt",
+      "appearance": "Tamil girl with brown skin, black hair in pigtails, dark brown eyes, freckles, wearing a striped t-shirt",
+      "image": {
+        "file": "CHR-0001.webp",
+        "width": 768,
+        "height": 1024
+      },
+      "prompt": "Photorealistic studio portrait photograph of a 3-year-old Tamil girl, brown skin, black hair in pigtails, dark brown eyes, freckles, wearing a striped t-shirt. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+    },
+    {
+      "id": "CHR-0002",
+      "age": 5,
+      "gender": "female",
+      "ethnicity": "black",
+      "heritage": "Kenyan",
+      "skinTone": "dark",
+      "hair": {
+        "style": "curly",
+        "color": "black"
+      },
+      "eyeColor": "dark brown",
+      "features": [
+        "rosy cheeks"
+      ],
+      "wardrobe": "a cotton frock",
+      "appearance": "Kenyan girl with dark skin, black tightly coiled hair with a headband, dark brown eyes, rosy cheeks, wearing a cotton frock",
+      "image": {
+        "file": "CHR-0002.webp",
+        "width": 768,
+        "height": 1024
+      },
+      "prompt": "Photorealistic studio portrait photograph of a 5-year-old Kenyan girl, dark skin, black tightly coiled hair with a headband, dark brown eyes, rosy cheeks, wearing a cotton frock. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+    },
+    {
+      "id": "CHR-0003",
+      "age": 7,
+      "gender": "female",
+      "ethnicity": "indigenous",
+      "heritage": "Navajo",
+      "skinTone": "tan",
+      "hair": {
+        "style": "tied",
+        "color": "black"
+      },
+      "eyeColor": "dark brown",
+      "features": [
+        "freckles"
+      ],
+      "wardrobe": "a yellow raincoat",
+      "appearance": "Navajo girl with tan skin, black hair in pigtails, dark brown eyes, freckles, wearing a yellow raincoat",
+      "image": {
+        "file": "CHR-0003.webp",
+        "width": 768,
+        "height": 1024
+      },
+      "prompt": "Photorealistic studio portrait photograph of a 7-year-old Navajo girl, tan skin, black hair in pigtails, dark brown eyes, freckles, wearing a yellow raincoat. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+    },
+    {
+      "id": "CHR-0004",
+      "age": 9,
+      "gender": "female",
+      "ethnicity": "south-asian",
+      "heritage": "Marathi",
+      "skinTone": "tan",
+      "hair": {
+        "style": "curly",
+        "color": "black"
+      },
+      "eyeColor": "dark brown",
+      "features": [
+        "rosy cheeks"
+      ],
+      "wardrobe": "a hand-knit sweater",
+      "appearance": "Marathi girl with tan skin, black wavy hair with a headband, dark brown eyes, rosy cheeks, wearing a hand-knit sweater",
+      "image": {
+        "file": "CHR-0004.webp",
+        "width": 768,
+        "height": 1024
+      },
+      "prompt": "Photorealistic studio portrait photograph of a 9-year-old Marathi girl, tan skin, black wavy hair with a headband, dark brown eyes, rosy cheeks, wearing a hand-knit sweater. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+    },
+    {
+      "id": "CHR-0005",
+      "age": 11,
+      "gender": "female",
+      "ethnicity": "south-asian",
+      "heritage": "Bengali",
+      "skinTone": "tan",
+      "hair": {
+        "style": "tied",
+        "color": "black"
+      },
+      "eyeColor": "dark brown",
+      "features": [
+        "freckles"
+      ],
+      "wardrobe": "a school uniform shirt",
+      "appearance": "Bengali girl with tan skin, black hair in pigtails, dark brown eyes, freckles, wearing a school uniform shirt",
+      "image": {
+        "file": "CHR-0005.webp",
+        "width": 768,
+        "height": 1024
+      },
+      "prompt": "Photorealistic studio portrait photograph of a 11-year-old Bengali girl, tan skin, black hair in pigtails, dark brown eyes, freckles, wearing a school uniform shirt. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+    },
+    {
+      "id": "CHR-0006",
+      "age": 13,
+      "gender": "female",
+      "ethnicity": "white",
+      "heritage": "Italian",
+      "skinTone": "medium-light",
+      "hair": {
+        "style": "curly",
+        "color": "brown"
+      },
+      "eyeColor": "hazel",
+      "features": [
+        "a thoughtful expression"
+      ],
+      "wardrobe": "a school uniform shirt",
+      "appearance": "Italian teenage girl with medium-light skin, wavy brown hair worn loose, hazel eyes, a thoughtful expression, wearing a school uniform shirt",
+      "image": {
+        "file": "CHR-0006.webp",
+        "width": 768,
+        "height": 1024
+      },
+      "prompt": "Photorealistic studio portrait photograph of a 13-year-old Italian teenage girl, medium-light skin, wavy brown hair worn loose, hazel eyes, a thoughtful expression, wearing a school uniform shirt. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+    },
+    {
+      "id": "CHR-0007",
+      "age": 15,
+      "gender": "female",
+      "ethnicity": "southeast-asian",
+      "heritage": "Vietnamese",
+      "skinTone": "medium-light",
+      "hair": {
+        "style": "long",
+        "color": "black"
+      },
+      "eyeColor": "dark brown",
+      "features": [
+        "a confident look"
+      ],
+      "wardrobe": "a hoodie",
+      "appearance": "Vietnamese teenage girl with medium-light skin, long straight black hair, dark brown eyes, a confident look, wearing a hoodie",
+      "image": {
+        "file": "CHR-0007.webp",
+        "width": 768,
+        "height": 1024
+      },
+      "prompt": "Photorealistic studio portrait photograph of a 15-year-old Vietnamese teenage girl, medium-light skin, long straight black hair, dark brown eyes, a confident look, wearing a hoodie. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+    },
+    {
+      "id": "CHR-0008",
+      "age": 17,
+      "gender": "female",
+      "ethnicity": "white",
+      "heritage": "Irish",
+      "skinTone": "light",
+      "hair": {
+        "style": "curly",
+        "color": "blonde"
+      },
+      "eyeColor": "green",
+      "features": [
+        "a thoughtful expression"
+      ],
+      "wardrobe": "a graphic t-shirt",
+      "appearance": "Irish teenage girl with light skin, wavy blonde hair worn loose, green eyes, a thoughtful expression, wearing a graphic t-shirt",
+      "image": {
+        "file": "CHR-0008.webp",
+        "width": 768,
+        "height": 1024
+      },
+      "prompt": "Photorealistic studio portrait photograph of a 17-year-old Irish teenage girl, light skin, wavy blonde hair worn loose, green eyes, a thoughtful expression, wearing a graphic t-shirt. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+    },
+    {
+      "id": "CHR-0009",
+      "age": 19,
+      "gender": "female",
+      "ethnicity": "black",
+      "heritage": "Jamaican",
+      "skinTone": "brown",
+      "hair": {
+        "style": "covered",
+        "color": "none"
+      },
+      "eyeColor": "dark brown",
+      "features": [
+        "a calm expression"
+      ],
+      "wardrobe": "a plain black t-shirt",
+      "appearance": "Jamaican young woman with brown skin, a soft hijab, dark brown eyes, a calm expression, wearing a plain black t-shirt",
+      "image": {
+        "file": "CHR-0009.webp",
+        "width": 768,
+        "height": 1024
+      },
+      "prompt": "Photorealistic studio portrait photograph of a 19-year-old Jamaican young woman, brown skin, a soft hijab, dark brown eyes, a calm expression, wearing a plain black t-shirt. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+    },
+    {
+      "id": "CHR-0010",
+      "age": 22,
+      "gender": "female",
+      "ethnicity": "south-asian",
+      "heritage": "Telugu",
+      "skinTone": "brown",
+      "hair": {
+        "style": "curly",
+        "color": "black"
+      },
+      "eyeColor": "dark brown",
+      "features": [
+        "an easy smile",
+        "a small bindi"
+      ],
+      "wardrobe": "a cotton kurta",
+      "appearance": "Telugu young woman with brown skin, voluminous straight black hair, dark brown eyes, an easy smile, a small bindi, wearing a cotton kurta",
+      "image": {
+        "file": "CHR-0010.webp",
+        "width": 768,
+        "height": 1024
+      },
+      "prompt": "Photorealistic studio portrait photograph of a 22-year-old Telugu young woman, brown skin, voluminous straight black hair, dark brown eyes, an easy smile, a small bindi, wearing a cotton kurta. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+    },
+    {
+      "id": "CHR-0011",
+      "age": 26,
+      "gender": "female",
+      "ethnicity": "latino",
+      "heritage": "Mexican",
+      "skinTone": "tan",
+      "hair": {
+        "style": "long",
+        "color": "black"
+      },
+      "eyeColor": "brown",
+      "features": [
+        "a calm expression"
+      ],
+      "wardrobe": "a denim jacket",
+      "appearance": "Mexican young woman with tan skin, long wavy black hair, brown eyes, a calm expression, wearing a denim jacket",
+      "image": {
+        "file": "CHR-0011.webp",
+        "width": 768,
+        "height": 1024
+      },
+      "prompt": "Photorealistic studio portrait photograph of a 26-year-old Mexican young woman, tan skin, long wavy black hair, brown eyes, a calm expression, wearing a denim jacket. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+    },
+    {
+      "id": "CHR-0012",
+      "age": 29,
+      "gender": "female",
+      "ethnicity": "east-asian",
+      "heritage": "Korean",
+      "skinTone": "light",
+      "hair": {
+        "style": "curly",
+        "color": "black"
+      },
+      "eyeColor": "dark brown",
+      "features": [
+        "an easy smile"
+      ],
+      "wardrobe": "a linen shirt",
+      "appearance": "Korean young woman with light skin, voluminous straight black hair, dark brown eyes, an easy smile, wearing a linen shirt",
+      "image": {
+        "file": "CHR-0012.webp",
+        "width": 768,
+        "height": 1024
+      },
+      "prompt": "Photorealistic studio portrait photograph of a 29-year-old Korean young woman, light skin, voluminous straight black hair, dark brown eyes, an easy smile, wearing a linen shirt. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+    },
+    {
+      "id": "CHR-0013",
+      "age": 31,
+      "gender": "female",
+      "ethnicity": "latino",
+      "heritage": "Brazilian",
+      "skinTone": "medium",
+      "hair": {
+        "style": "long",
+        "color": "black"
+      },
+      "eyeColor": "brown",
+      "features": [
+        "reading glasses"
+      ],
+      "wardrobe": "a knit cardigan",
+      "appearance": "Brazilian woman with medium skin, shoulder-length curly black hair, brown eyes, reading glasses, wearing a knit cardigan",
+      "image": {
+        "file": "CHR-0013.webp",
+        "width": 768,
+        "height": 1024
+      },
+      "prompt": "Photorealistic studio portrait photograph of a 31-year-old Brazilian woman, medium skin, shoulder-length curly black hair, brown eyes, reading glasses, wearing a knit cardigan. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+    },
+    {
+      "id": "CHR-0014",
+      "age": 38,
+      "gender": "female",
+      "ethnicity": "east-asian",
+      "heritage": "Japanese",
+      "skinTone": "light",
+      "hair": {
+        "style": "covered",
+        "color": "none"
+      },
+      "eyeColor": "dark brown",
+      "features": [
+        "faint crow's feet"
+      ],
+      "wardrobe": "a collared shirt",
+      "appearance": "Japanese woman with light skin, a patterned headscarf, dark brown eyes, faint crow's feet, wearing a collared shirt",
+      "image": {
+        "file": "CHR-0014.webp",
+        "width": 768,
+        "height": 1024
+      },
+      "prompt": "Photorealistic studio portrait photograph of a 38-year-old Japanese woman, light skin, a patterned headscarf, dark brown eyes, faint crow's feet, wearing a collared shirt. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+    },
+    {
+      "id": "CHR-0015",
+      "age": 45,
+      "gender": "female",
+      "ethnicity": "south-asian",
+      "heritage": "Malayali",
+      "skinTone": "dark",
+      "hair": {
+        "style": "long",
+        "color": "black"
+      },
+      "eyeColor": "dark brown",
+      "features": [
+        "reading glasses"
+      ],
+      "wardrobe": "a wool blazer",
+      "appearance": "Malayali woman with dark skin, shoulder-length curly black hair, dark brown eyes, reading glasses, wearing a wool blazer",
+      "image": {
+        "file": "CHR-0015.webp",
+        "width": 768,
+        "height": 1024
+      },
+      "prompt": "Photorealistic studio portrait photograph of a 45-year-old Malayali woman, dark skin, shoulder-length curly black hair, dark brown eyes, reading glasses, wearing a wool blazer. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+    },
+    {
+      "id": "CHR-0016",
+      "age": 52,
+      "gender": "female",
+      "ethnicity": "black",
+      "heritage": "Ethiopian",
+      "skinTone": "brown",
+      "hair": {
+        "style": "covered",
+        "color": "none"
+      },
+      "eyeColor": "dark brown",
+      "features": [
+        "faint crow's feet"
+      ],
+      "wardrobe": "a collared shirt",
+      "appearance": "Ethiopian woman with brown skin, a patterned headscarf, dark brown eyes, faint crow's feet, wearing a collared shirt",
+      "image": {
+        "file": "CHR-0016.webp",
+        "width": 768,
+        "height": 1024
+      },
+      "prompt": "Photorealistic studio portrait photograph of a 52-year-old Ethiopian woman, brown skin, a patterned headscarf, dark brown eyes, faint crow's feet, wearing a collared shirt. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+    },
+    {
+      "id": "CHR-0017",
+      "age": 58,
+      "gender": "female",
+      "ethnicity": "black",
+      "heritage": "Nigerian",
+      "skinTone": "dark",
+      "hair": {
+        "style": "long",
+        "color": "salt-and-pepper"
+      },
+      "eyeColor": "dark brown",
+      "features": [
+        "reading glasses"
+      ],
+      "wardrobe": "a collared shirt",
+      "appearance": "Nigerian woman with dark skin, shoulder-length tightly coiled salt-and-pepper hair, dark brown eyes, reading glasses, wearing a collared shirt",
+      "image": {
+        "file": "CHR-0017.webp",
+        "width": 768,
+        "height": 1024
+      },
+      "prompt": "Photorealistic studio portrait photograph of a 58-year-old Nigerian woman, dark skin, shoulder-length tightly coiled salt-and-pepper hair, dark brown eyes, reading glasses, wearing a collared shirt. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+    },
+    {
+      "id": "CHR-0018",
+      "age": 62,
+      "gender": "female",
+      "ethnicity": "southeast-asian",
+      "heritage": "Filipino",
+      "skinTone": "tan",
+      "hair": {
+        "style": "long",
+        "color": "grey"
+      },
+      "eyeColor": "brown",
+      "features": [
+        "age spots and kind eyes"
+      ],
+      "wardrobe": "a shawl over a sweater",
+      "appearance": "Filipino elderly woman with tan skin, long grey hair in a loose plait, brown eyes, age spots and kind eyes, wearing a shawl over a sweater",
+      "image": {
+        "file": "CHR-0018.webp",
+        "width": 768,
+        "height": 1024
+      },
+      "prompt": "Photorealistic studio portrait photograph of a 62-year-old Filipino elderly woman, tan skin, long grey hair in a loose plait, brown eyes, age spots and kind eyes, wearing a shawl over a sweater. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+    },
+    {
+      "id": "CHR-0019",
+      "age": 68,
+      "gender": "female",
+      "ethnicity": "east-asian",
+      "heritage": "Chinese",
+      "skinTone": "medium-light",
+      "hair": {
+        "style": "short",
+        "color": "grey"
+      },
+      "eyeColor": "dark brown",
+      "features": [
+        "laugh wrinkles around the eyes"
+      ],
+      "wardrobe": "a tweed jacket",
+      "appearance": "Chinese elderly woman with medium-light skin, short grey hair, dark brown eyes, laugh wrinkles around the eyes, wearing a tweed jacket",
+      "image": {
+        "file": "CHR-0019.webp",
+        "width": 768,
+        "height": 1024
+      },
+      "prompt": "Photorealistic studio portrait photograph of a 68-year-old Chinese elderly woman, medium-light skin, short grey hair, dark brown eyes, laugh wrinkles around the eyes, wearing a tweed jacket. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+    },
+    {
+      "id": "CHR-0020",
+      "age": 75,
+      "gender": "female",
+      "ethnicity": "south-asian",
+      "heritage": "Punjabi",
+      "skinTone": "medium",
+      "hair": {
+        "style": "long",
+        "color": "white"
+      },
+      "eyeColor": "brown",
+      "features": [
+        "age spots and kind eyes",
+        "a small bindi"
+      ],
+      "wardrobe": "a white kurta",
+      "appearance": "Punjabi elderly woman with medium skin, long white hair in a loose plait, brown eyes, age spots and kind eyes, a small bindi, wearing a white kurta",
+      "image": {
+        "file": "CHR-0020.webp",
+        "width": 768,
+        "height": 1024
+      },
+      "prompt": "Photorealistic studio portrait photograph of a 75-year-old Punjabi elderly woman, medium skin, long white hair in a loose plait, brown eyes, age spots and kind eyes, a small bindi, wearing a white kurta. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+    },
+    {
+      "id": "CHR-0021",
+      "age": 83,
+      "gender": "female",
+      "ethnicity": "middle-eastern",
+      "heritage": "Lebanese",
+      "skinTone": "medium-light",
+      "hair": {
+        "style": "short",
+        "color": "white"
+      },
+      "eyeColor": "brown",
+      "features": [
+        "laugh wrinkles around the eyes"
+      ],
+      "wardrobe": "a wool cardigan",
+      "appearance": "Lebanese elderly woman with medium-light skin, short white hair, brown eyes, laugh wrinkles around the eyes, wearing a wool cardigan",
+      "image": {
+        "file": "CHR-0021.webp",
+        "width": 768,
+        "height": 1024
+      },
+      "prompt": "Photorealistic studio portrait photograph of a 83-year-old Lebanese elderly woman, medium-light skin, short white hair, brown eyes, laugh wrinkles around the eyes, wearing a wool cardigan. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+    },
+    {
+      "id": "CHR-0022",
+      "age": 92,
+      "gender": "female",
+      "ethnicity": "south-asian",
+      "heritage": "Gujarati",
+      "skinTone": "medium",
+      "hair": {
+        "style": "long",
+        "color": "white"
+      },
+      "eyeColor": "brown",
+      "features": [
+        "age spots and kind eyes",
+        "a small bindi"
+      ],
+      "wardrobe": "a wool cardigan",
+      "appearance": "Gujarati elderly woman with medium skin, long white hair in a loose plait, brown eyes, age spots and kind eyes, a small bindi, wearing a wool cardigan",
+      "image": {
+        "file": "CHR-0022.webp",
+        "width": 768,
+        "height": 1024
+      },
+      "prompt": "Photorealistic studio portrait photograph of a 92-year-old Gujarati elderly woman, medium skin, long white hair in a loose plait, brown eyes, age spots and kind eyes, a small bindi, wearing a wool cardigan. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+    },
+    {
+      "id": "CHR-0023",
+      "age": 4,
+      "gender": "male",
+      "ethnicity": "east-asian",
+      "heritage": "Korean",
+      "skinTone": "light",
+      "hair": {
+        "style": "short",
+        "color": "black"
+      },
+      "eyeColor": "dark brown",
+      "features": [
+        "rosy cheeks"
+      ],
+      "wardrobe": "a yellow raincoat",
+      "appearance": "Korean boy with light skin, neat side-parted black hair, dark brown eyes, rosy cheeks, wearing a yellow raincoat",
+      "image": {
+        "file": "CHR-0023.webp",
+        "width": 768,
+        "height": 1024
+      },
+      "prompt": "Photorealistic studio portrait photograph of a 4-year-old Korean boy, light skin, neat side-parted black hair, dark brown eyes, rosy cheeks, wearing a yellow raincoat. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+    },
+    {
+      "id": "CHR-0024",
+      "age": 6,
+      "gender": "male",
+      "ethnicity": "latino",
+      "heritage": "Brazilian",
+      "skinTone": "medium",
+      "hair": {
+        "style": "curly",
+        "color": "black"
+      },
+      "eyeColor": "brown",
+      "features": [
+        "freckles"
+      ],
+      "wardrobe": "a yellow raincoat",
+      "appearance": "Brazilian boy with medium skin, curly black hair, brown eyes, freckles, wearing a yellow raincoat",
+      "image": {
+        "file": "CHR-0024.webp",
+        "width": 768,
+        "height": 1024
+      },
+      "prompt": "Photorealistic studio portrait photograph of a 6-year-old Brazilian boy, medium skin, curly black hair, brown eyes, freckles, wearing a yellow raincoat. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+    },
+    {
+      "id": "CHR-0025",
+      "age": 8,
+      "gender": "male",
+      "ethnicity": "east-asian",
+      "heritage": "Japanese",
+      "skinTone": "light",
+      "hair": {
+        "style": "short",
+        "color": "black"
+      },
+      "eyeColor": "dark brown",
+      "features": [
+        "rosy cheeks"
+      ],
+      "wardrobe": "a yellow raincoat",
+      "appearance": "Japanese boy with light skin, neat side-parted black hair, dark brown eyes, rosy cheeks, wearing a yellow raincoat",
+      "image": {
+        "file": "CHR-0025.webp",
+        "width": 768,
+        "height": 1024
+      },
+      "prompt": "Photorealistic studio portrait photograph of a 8-year-old Japanese boy, light skin, neat side-parted black hair, dark brown eyes, rosy cheeks, wearing a yellow raincoat. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+    },
+    {
+      "id": "CHR-0026",
+      "age": 10,
+      "gender": "male",
+      "ethnicity": "south-asian",
+      "heritage": "Malayali",
+      "skinTone": "dark",
+      "hair": {
+        "style": "curly",
+        "color": "black"
+      },
+      "eyeColor": "dark brown",
+      "features": [
+        "freckles"
+      ],
+      "wardrobe": "a yellow raincoat",
+      "appearance": "Malayali boy with dark skin, curly black hair, dark brown eyes, freckles, wearing a yellow raincoat",
+      "image": {
+        "file": "CHR-0026.webp",
+        "width": 768,
+        "height": 1024
+      },
+      "prompt": "Photorealistic studio portrait photograph of a 10-year-old Malayali boy, dark skin, curly black hair, dark brown eyes, freckles, wearing a yellow raincoat. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+    },
+    {
+      "id": "CHR-0027",
+      "age": 12,
+      "gender": "male",
+      "ethnicity": "black",
+      "heritage": "Ethiopian",
+      "skinTone": "brown",
+      "hair": {
+        "style": "short",
+        "color": "black"
+      },
+      "eyeColor": "dark brown",
+      "features": [
+        "rosy cheeks"
+      ],
+      "wardrobe": "a yellow raincoat",
+      "appearance": "Ethiopian boy with brown skin, neat side-parted black hair, dark brown eyes, rosy cheeks, wearing a yellow raincoat",
+      "image": {
+        "file": "CHR-0027.webp",
+        "width": 768,
+        "height": 1024
+      },
+      "prompt": "Photorealistic studio portrait photograph of a 12-year-old Ethiopian boy, brown skin, neat side-parted black hair, dark brown eyes, rosy cheeks, wearing a yellow raincoat. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+    },
+    {
+      "id": "CHR-0028",
+      "age": 14,
+      "gender": "male",
+      "ethnicity": "black",
+      "heritage": "Nigerian",
+      "skinTone": "dark",
+      "hair": {
+        "style": "curly",
+        "color": "black"
+      },
+      "eyeColor": "dark brown",
+      "features": [
+        "a confident look"
+      ],
+      "wardrobe": "a graphic t-shirt",
+      "appearance": "Nigerian teenage boy with dark skin, tightly coiled black hair, dark brown eyes, a confident look, wearing a graphic t-shirt",
+      "image": {
+        "file": "CHR-0028.webp",
+        "width": 768,
+        "height": 1024
+      },
+      "prompt": "Photorealistic studio portrait photograph of a 14-year-old Nigerian teenage boy, dark skin, tightly coiled black hair, dark brown eyes, a confident look, wearing a graphic t-shirt. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+    },
+    {
+      "id": "CHR-0029",
+      "age": 16,
+      "gender": "male",
+      "ethnicity": "southeast-asian",
+      "heritage": "Filipino",
+      "skinTone": "tan",
+      "hair": {
+        "style": "short",
+        "color": "black"
+      },
+      "eyeColor": "brown",
+      "features": [
+        "a thoughtful expression"
+      ],
+      "wardrobe": "a denim jacket",
+      "appearance": "Filipino teenage boy with tan skin, a black fade haircut, brown eyes, a thoughtful expression, wearing a denim jacket",
+      "image": {
+        "file": "CHR-0029.webp",
+        "width": 768,
+        "height": 1024
+      },
+      "prompt": "Photorealistic studio portrait photograph of a 16-year-old Filipino teenage boy, tan skin, a black fade haircut, brown eyes, a thoughtful expression, wearing a denim jacket. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+    },
+    {
+      "id": "CHR-0030",
+      "age": 17,
+      "gender": "male",
+      "ethnicity": "east-asian",
+      "heritage": "Chinese",
+      "skinTone": "medium-light",
+      "hair": {
+        "style": "curly",
+        "color": "black"
+      },
+      "eyeColor": "dark brown",
+      "features": [
+        "a confident look"
+      ],
+      "wardrobe": "a school uniform shirt",
+      "appearance": "Chinese teenage boy with medium-light skin, straight black hair, dark brown eyes, a confident look, wearing a school uniform shirt",
+      "image": {
+        "file": "CHR-0030.webp",
+        "width": 768,
+        "height": 1024
+      },
+      "prompt": "Photorealistic studio portrait photograph of a 17-year-old Chinese teenage boy, medium-light skin, straight black hair, dark brown eyes, a confident look, wearing a school uniform shirt. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+    },
+    {
+      "id": "CHR-0031",
+      "age": 18,
+      "gender": "male",
+      "ethnicity": "south-asian",
+      "heritage": "Punjabi",
+      "skinTone": "medium",
+      "hair": {
+        "style": "long",
+        "color": "black"
+      },
+      "eyeColor": "brown",
+      "features": [
+        "an easy smile"
+      ],
+      "wardrobe": "a plain black t-shirt",
+      "appearance": "Punjabi young man with medium skin, black hair tied back, brown eyes, an easy smile, wearing a plain black t-shirt",
+      "image": {
+        "file": "CHR-0031.webp",
+        "width": 768,
+        "height": 1024
+      },
+      "prompt": "Photorealistic studio portrait photograph of a 18-year-old Punjabi young man, medium skin, black hair tied back, brown eyes, an easy smile, wearing a plain black t-shirt. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+    },
+    {
+      "id": "CHR-0032",
+      "age": 21,
+      "gender": "male",
+      "ethnicity": "middle-eastern",
+      "heritage": "Lebanese",
+      "skinTone": "medium-light",
+      "hair": {
+        "style": "short",
+        "color": "black"
+      },
+      "eyeColor": "brown",
+      "features": [
+        "a calm expression"
+      ],
+      "wardrobe": "a plain black t-shirt",
+      "appearance": "Lebanese young man with medium-light skin, short black hair, brown eyes, a calm expression, wearing a plain black t-shirt",
+      "image": {
+        "file": "CHR-0032.webp",
+        "width": 768,
+        "height": 1024
+      },
+      "prompt": "Photorealistic studio portrait photograph of a 21-year-old Lebanese young man, medium-light skin, short black hair, brown eyes, a calm expression, wearing a plain black t-shirt. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+    },
+    {
+      "id": "CHR-0033",
+      "age": 24,
+      "gender": "male",
+      "ethnicity": "south-asian",
+      "heritage": "Gujarati",
+      "skinTone": "medium",
+      "hair": {
+        "style": "long",
+        "color": "black"
+      },
+      "eyeColor": "brown",
+      "features": [
+        "an easy smile"
+      ],
+      "wardrobe": "a plain black t-shirt",
+      "appearance": "Gujarati young man with medium skin, black hair tied back, brown eyes, an easy smile, wearing a plain black t-shirt",
+      "image": {
+        "file": "CHR-0033.webp",
+        "width": 768,
+        "height": 1024
+      },
+      "prompt": "Photorealistic studio portrait photograph of a 24-year-old Gujarati young man, medium skin, black hair tied back, brown eyes, an easy smile, wearing a plain black t-shirt. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+    },
+    {
+      "id": "CHR-0034",
+      "age": 28,
+      "gender": "male",
+      "ethnicity": "south-asian",
+      "heritage": "Tamil",
+      "skinTone": "brown",
+      "hair": {
+        "style": "covered",
+        "color": "none"
+      },
+      "eyeColor": "dark brown",
+      "features": [
+        "a calm expression"
+      ],
+      "wardrobe": "a plain black t-shirt",
+      "appearance": "Tamil young man with brown skin, a turban, dark brown eyes, a calm expression, wearing a plain black t-shirt",
+      "image": {
+        "file": "CHR-0034.webp",
+        "width": 768,
+        "height": 1024
+      },
+      "prompt": "Photorealistic studio portrait photograph of a 28-year-old Tamil young man, brown skin, a turban, dark brown eyes, a calm expression, wearing a plain black t-shirt. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+    },
+    {
+      "id": "CHR-0035",
+      "age": 33,
+      "gender": "male",
+      "ethnicity": "black",
+      "heritage": "Kenyan",
+      "skinTone": "dark",
+      "hair": {
+        "style": "curly",
+        "color": "black"
+      },
+      "eyeColor": "dark brown",
+      "features": [
+        "faint crow's feet",
+        "a full beard"
+      ],
+      "wardrobe": "a knit cardigan",
+      "appearance": "Kenyan man with dark skin, close-cropped tightly coiled black hair, dark brown eyes, faint crow's feet, a full beard, wearing a knit cardigan",
+      "image": {
+        "file": "CHR-0035.webp",
+        "width": 768,
+        "height": 1024
+      },
+      "prompt": "Photorealistic studio portrait photograph of a 33-year-old Kenyan man, dark skin, close-cropped tightly coiled black hair, dark brown eyes, faint crow's feet, a full beard, wearing a knit cardigan. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+    },
+    {
+      "id": "CHR-0036",
+      "age": 40,
+      "gender": "male",
+      "ethnicity": "indigenous",
+      "heritage": "Navajo",
+      "skinTone": "tan",
+      "hair": {
+        "style": "bald",
+        "color": "black"
+      },
+      "eyeColor": "dark brown",
+      "features": [
+        "reading glasses"
+      ],
+      "wardrobe": "a knit cardigan",
+      "appearance": "Navajo man with tan skin, a shaved head, dark brown eyes, reading glasses, wearing a knit cardigan",
+      "image": {
+        "file": "CHR-0036.webp",
+        "width": 768,
+        "height": 1024
+      },
+      "prompt": "Photorealistic studio portrait photograph of a 40-year-old Navajo man, tan skin, a shaved head, dark brown eyes, reading glasses, wearing a knit cardigan. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+    },
+    {
+      "id": "CHR-0037",
+      "age": 47,
+      "gender": "male",
+      "ethnicity": "south-asian",
+      "heritage": "Marathi",
+      "skinTone": "tan",
+      "hair": {
+        "style": "curly",
+        "color": "black"
+      },
+      "eyeColor": "dark brown",
+      "features": [
+        "faint crow's feet",
+        "a full beard"
+      ],
+      "wardrobe": "a knit cardigan",
+      "appearance": "Marathi man with tan skin, close-cropped wavy black hair, dark brown eyes, faint crow's feet, a full beard, wearing a knit cardigan",
+      "image": {
+        "file": "CHR-0037.webp",
+        "width": 768,
+        "height": 1024
+      },
+      "prompt": "Photorealistic studio portrait photograph of a 47-year-old Marathi man, tan skin, close-cropped wavy black hair, dark brown eyes, faint crow's feet, a full beard, wearing a knit cardigan. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+    },
+    {
+      "id": "CHR-0038",
+      "age": 55,
+      "gender": "male",
+      "ethnicity": "south-asian",
+      "heritage": "Bengali",
+      "skinTone": "tan",
+      "hair": {
+        "style": "bald",
+        "color": "salt-and-pepper"
+      },
+      "eyeColor": "dark brown",
+      "features": [
+        "reading glasses"
+      ],
+      "wardrobe": "a knit cardigan",
+      "appearance": "Bengali man with tan skin, a shaved head, dark brown eyes, reading glasses, wearing a knit cardigan",
+      "image": {
+        "file": "CHR-0038.webp",
+        "width": 768,
+        "height": 1024
+      },
+      "prompt": "Photorealistic studio portrait photograph of a 55-year-old Bengali man, tan skin, a shaved head, dark brown eyes, reading glasses, wearing a knit cardigan. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+    },
+    {
+      "id": "CHR-0039",
+      "age": 59,
+      "gender": "male",
+      "ethnicity": "white",
+      "heritage": "Italian",
+      "skinTone": "medium-light",
+      "hair": {
+        "style": "curly",
+        "color": "salt-and-pepper"
+      },
+      "eyeColor": "hazel",
+      "features": [
+        "faint crow's feet",
+        "a full beard"
+      ],
+      "wardrobe": "a knit cardigan",
+      "appearance": "Italian man with medium-light skin, close-cropped wavy salt-and-pepper hair, hazel eyes, faint crow's feet, a full beard, wearing a knit cardigan",
+      "image": {
+        "file": "CHR-0039.webp",
+        "width": 768,
+        "height": 1024
+      },
+      "prompt": "Photorealistic studio portrait photograph of a 59-year-old Italian man, medium-light skin, close-cropped wavy salt-and-pepper hair, hazel eyes, faint crow's feet, a full beard, wearing a knit cardigan. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+    },
+    {
+      "id": "CHR-0040",
+      "age": 61,
+      "gender": "male",
+      "ethnicity": "southeast-asian",
+      "heritage": "Vietnamese",
+      "skinTone": "medium-light",
+      "hair": {
+        "style": "short",
+        "color": "grey"
+      },
+      "eyeColor": "dark brown",
+      "features": [
+        "laugh wrinkles around the eyes"
+      ],
+      "wardrobe": "a shawl over a sweater",
+      "appearance": "Vietnamese elderly man with medium-light skin, thinning grey hair, dark brown eyes, laugh wrinkles around the eyes, wearing a shawl over a sweater",
+      "image": {
+        "file": "CHR-0040.webp",
+        "width": 768,
+        "height": 1024
+      },
+      "prompt": "Photorealistic studio portrait photograph of a 61-year-old Vietnamese elderly man, medium-light skin, thinning grey hair, dark brown eyes, laugh wrinkles around the eyes, wearing a shawl over a sweater. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+    },
+    {
+      "id": "CHR-0041",
+      "age": 66,
+      "gender": "male",
+      "ethnicity": "white",
+      "heritage": "Irish",
+      "skinTone": "light",
+      "hair": {
+        "style": "short",
+        "color": "grey"
+      },
+      "eyeColor": "green",
+      "features": [
+        "age spots and kind eyes",
+        "a white moustache"
+      ],
+      "wardrobe": "a shawl over a sweater",
+      "appearance": "Irish elderly man with light skin, short grey hair combed back, green eyes, age spots and kind eyes, a white moustache, wearing a shawl over a sweater",
+      "image": {
+        "file": "CHR-0041.webp",
+        "width": 768,
+        "height": 1024
+      },
+      "prompt": "Photorealistic studio portrait photograph of a 66-year-old Irish elderly man, light skin, short grey hair combed back, green eyes, age spots and kind eyes, a white moustache, wearing a shawl over a sweater. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+    },
+    {
+      "id": "CHR-0042",
+      "age": 72,
+      "gender": "male",
+      "ethnicity": "black",
+      "heritage": "Jamaican",
+      "skinTone": "brown",
+      "hair": {
+        "style": "short",
+        "color": "grey"
+      },
+      "eyeColor": "dark brown",
+      "features": [
+        "laugh wrinkles around the eyes"
+      ],
+      "wardrobe": "a shawl over a sweater",
+      "appearance": "Jamaican elderly man with brown skin, thinning grey hair, dark brown eyes, laugh wrinkles around the eyes, wearing a shawl over a sweater",
+      "image": {
+        "file": "CHR-0042.webp",
+        "width": 768,
+        "height": 1024
+      },
+      "prompt": "Photorealistic studio portrait photograph of a 72-year-old Jamaican elderly man, brown skin, thinning grey hair, dark brown eyes, laugh wrinkles around the eyes, wearing a shawl over a sweater. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+    },
+    {
+      "id": "CHR-0043",
+      "age": 80,
+      "gender": "male",
+      "ethnicity": "south-asian",
+      "heritage": "Telugu",
+      "skinTone": "brown",
+      "hair": {
+        "style": "short",
+        "color": "white"
+      },
+      "eyeColor": "dark brown",
+      "features": [
+        "age spots and kind eyes",
+        "a white moustache"
+      ],
+      "wardrobe": "a shawl over a sweater",
+      "appearance": "Telugu elderly man with brown skin, short white hair combed back, dark brown eyes, age spots and kind eyes, a white moustache, wearing a shawl over a sweater",
+      "image": {
+        "file": "CHR-0043.webp",
+        "width": 768,
+        "height": 1024
+      },
+      "prompt": "Photorealistic studio portrait photograph of a 80-year-old Telugu elderly man, brown skin, short white hair combed back, dark brown eyes, age spots and kind eyes, a white moustache, wearing a shawl over a sweater. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+    },
+    {
+      "id": "CHR-0044",
+      "age": 90,
+      "gender": "male",
+      "ethnicity": "latino",
+      "heritage": "Mexican",
+      "skinTone": "tan",
+      "hair": {
+        "style": "short",
+        "color": "white"
+      },
+      "eyeColor": "brown",
+      "features": [
+        "laugh wrinkles around the eyes"
+      ],
+      "wardrobe": "a shawl over a sweater",
+      "appearance": "Mexican elderly man with tan skin, thinning white hair, brown eyes, laugh wrinkles around the eyes, wearing a shawl over a sweater",
+      "image": {
+        "file": "CHR-0044.webp",
+        "width": 768,
+        "height": 1024
+      },
+      "prompt": "Photorealistic studio portrait photograph of a 90-year-old Mexican elderly man, tan skin, thinning white hair, brown eyes, laugh wrinkles around the eyes, wearing a shawl over a sweater. Head and shoulders, looking at the camera, soft natural window light, plain warm-grey background, 85mm lens, sharp focus on the eyes, natural skin texture. A real-looking person: not a cartoon, not an illustration, not 3D, no text, no watermark."
+    }
+  ]
+}
