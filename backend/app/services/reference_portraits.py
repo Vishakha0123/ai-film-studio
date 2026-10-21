@@ -50,8 +50,16 @@ REFERENCES: tuple[Reference, ...] = (
 BY_ID = {r.id: r for r in REFERENCES}
 
 
+BACKEND_DIR = Path(__file__).resolve().parents[2]
+
+
 def portraits_dir() -> Path:
-    return Path(get_settings().REFERENCE_PORTRAITS_DIR)
+    """backend/portraits by default — the same folder whichever directory the server is started from."""
+    configured = get_settings().REFERENCE_PORTRAITS_DIR
+    if not configured:
+        return BACKEND_DIR / "portraits"
+    path = Path(configured)
+    return path if path.is_absolute() else (BACKEND_DIR / path).resolve()
 
 
 def available() -> dict[str, Path]:
@@ -101,8 +109,45 @@ def parse_age(value: object) -> int | None:
     return None
 
 
+# The same words in the film languages (Hindi/Marathi, Tamil, Telugu, Kannada, Malayalam, Bengali, Gujarati, Punjabi).
+# Matched inside words, so female words are counted first and removed (ಅಜ್ಜಿ "grandmother" contains ಅಜ್ಜ "grandfather").
+_FEMALE_INDIC = (
+    "महिला", "स्त्री", "मुलगी", "लड़की", "लडकी", "आजी", "दादी", "नानी", "आई", "माँ", "मां", "पत्नी", "बायको", "बहीण", "बहन",
+    "बेटी", "काकू", "मावशी", "आत्या", "राणी", "रानी", "नायिका", "वहिनी", "ताई", "बाई",
+    "பெண்", "அம்மா", "பாட்டி", "மகள்", "அக்கா", "தங்கை", "மனைவி", "சிறுமி",
+    "అమ్మాయి", "అమ్మమ్మ", "అమ్మ", "భార్య", "కూతురు", "అక్క", "చెల్లి", "స్త్రీ",
+    "ಹುಡುಗಿ", "ಅಜ್ಜಿ", "ಅಮ್ಮ", "ಹೆಂಡತಿ", "ಮಗಳು", "ಮಹಿಳೆ",
+    "പെൺ", "അമ്മ", "മുത്തശ്ശി", "ഭാര്യ", "മകൾ", "സ്ത്രീ",
+    "মেয়ে", "মহিলা", "দিদিমা", "ঠাকুমা", "স্ত্রী",
+    "સ્ત્રી", "છોકરી", "માતા", "દાદી", "પત્ની",
+    "ਔਰਤ", "ਕੁੜੀ", "ਮਾਂ", "ਦਾਦੀ", "ਪਤਨੀ",
+)
+_MALE_INDIC = (
+    "पुरुष", "मुलगा", "लड़का", "लडका", "आजोबा", "दादा", "नाना", "बाबा", "वडील", "पिता", "पती", "नवरा", "भाऊ", "भाई", "बेटा",
+    "काका", "मामा", "राजा", "नायक",
+    "ஆண்", "அப்பா", "தாத்தா", "மகன்", "அண்ணன்", "தம்பி", "கணவன்", "சிறுவன்",
+    "అబ్బాయి", "నాన్న", "తాత", "భర్త", "కొడుకు", "అన్న", "తమ్ముడు", "పురుషుడు",
+    "ಹುಡುಗ", "ಅಜ್ಜ", "ಅಪ್ಪ", "ಗಂಡ", "ಮಗ", "ಪುರುಷ",
+    "ആൺ", "അച്ഛൻ", "മുത്തച്ഛൻ", "ഭർത്താവ്", "മകൻ",
+    "ছেলে", "পুরুষ", "বাবা", "দাদু",
+    "પુરુષ", "છોકરો", "પિતા", "દાદા", "પતિ",
+    "ਆਦਮੀ", "ਮੁੰਡਾ", "ਪਿਤਾ", "ਦਾਦਾ", "ਪਤੀ",
+)
+# Hindi/Marathi words that change with gender: लपवणारी / लपवणारा, घरवाली / घरवाला, रहती है / रहता है
+_FEMALE_ENDINGS = re.compile(r"(णारी|वाली|ती है|ती हैं|लेली)(?=[\s,.;:!?)]|$)")
+_MALE_ENDINGS = re.compile(r"(णारा|वाला|ता है|ता हैं|लेला)(?=[\s,.;:!?)]|$)")
+
+
 def gender_from_text(text: str) -> str:
-    f, m = len(_FEMALE.findall(text or "")), len(_MALE.findall(text or ""))
+    text = text or ""
+    f, m = len(_FEMALE.findall(text)), len(_MALE.findall(text))
+    rest = text
+    for word in _FEMALE_INDIC:
+        f += rest.count(word)
+        rest = rest.replace(word, " ")
+    m += sum(rest.count(word) for word in _MALE_INDIC)
+    f += len(_FEMALE_ENDINGS.findall(text))
+    m += len(_MALE_ENDINGS.findall(text))
     return "female" if f > m else "male" if m > f else ""
 
 
@@ -131,21 +176,23 @@ _PROMPT_AGE_PATTERNS = (
 def prompt_facts(prompt: str) -> dict[str, dict]:
     """Ages and genders the creator gave named characters in the prompt: {'paati': {'age': 78, 'gender': 'female'}}."""
     text = prompt or ""
-    found: list[tuple[int, int, str, int]] = []  # (start of match, start of name, name, age)
+    found: list[tuple[int, int, str, int, int]] = []  # (match start, name start, name, age, match end)
     for i, pattern in enumerate(_PROMPT_AGE_PATTERNS):
         for m in pattern.finditer(text):
             name_group, age_group = (2, 1) if i == len(_PROMPT_AGE_PATTERNS) - 1 else (1, 2)
             name = m.group(name_group)
             if name.lower() in ("a", "an", "the", "and", "with", "her", "his", "she", "he"):
                 continue
-            found.append((m.start(), m.start(name_group), name, int(m.group(age_group))))
+            found.append((m.start(), m.start(name_group), name, int(m.group(age_group)), m.end()))
     found.sort()
     facts: dict[str, dict] = {}
-    for n, (start, name_at, name, age) in enumerate(found):
+    for n, (start, name_at, name, age, end_at) in enumerate(found):
         # this person's words: up to the next ";" / sentence end, or where the next named person starts
         end = found[n + 1][0] if n + 1 < len(found) else len(text)
         clause = re.split(r"[;.]", text[start:end], maxsplit=1)[0]
-        gender = gender_from_text(clause) or gender_from_text("".join(text[:name_at].split()[-1:]))  # the word just before: "grandfather Kannan"
+        right_after = " ".join(re.split(r"[,;.]", text[end_at:], maxsplit=1)[0].split()[:3])  # "14-year-old girl"
+        gender = (gender_from_text(right_after) or gender_from_text(clause)
+                  or gender_from_text("".join(text[:name_at].split()[-1:])))  # or the word just before: "grandfather Kannan"
         facts.setdefault(name.lower(), {"age": age, "gender": gender})
     return facts
 
@@ -155,17 +202,32 @@ def apply_prompt_facts(memory: dict, prompt: str) -> dict:
     facts = prompt_facts(prompt)
     if not facts:
         return memory
-    chars = []
-    for c in memory.get("characters", []):
-        c = dict(c)
+    chars = [dict(c) for c in memory.get("characters", [])]
+    used: set[str] = set()
+    unmatched = []
+    for c in chars:
         first = str(c.get("name", "")).split()[0].lower() if c.get("name") else ""
-        fact = facts.get(first) or facts.get(str(c.get("name", "")).lower())
-        if fact:
-            c["age"] = str(fact["age"])
-            if fact["gender"]:
-                c["gender"] = fact["gender"]
-        chars.append(c)
+        key = first if first in facts else str(c.get("name", "")).lower()
+        if key in facts:
+            _apply(c, facts[key])
+            used.add(key)
+        else:
+            unmatched.append(c)
+    # A film in another language writes the names in its own script ("Kamala" → "कमला"): match those by age instead,
+    # when exactly one remaining character has the age the prompt gave exactly one remaining person.
+    left = {k: f for k, f in facts.items() if k not in used}
+    for c in unmatched:
+        age = parse_age(c.get("age"))
+        same = [k for k, f in left.items() if f["age"] == age]
+        if age is not None and len(same) == 1 and sum(parse_age(o.get("age")) == age for o in unmatched) == 1:
+            _apply(c, left.pop(same[0]))
     return {**memory, "characters": chars}
+
+
+def _apply(c: dict, fact: dict) -> None:
+    c["age"] = str(fact["age"])
+    if fact["gender"]:
+        c["gender"] = fact["gender"]
 
 
 # ---------- Choosing the portrait ----------
