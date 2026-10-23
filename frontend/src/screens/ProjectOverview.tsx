@@ -130,6 +130,16 @@ export default function ProjectOverview() {
               Open in Director
             </button>
             {f && (
+              <button
+                onClick={() => nav(`/projects/${encodeURIComponent(project.id)}/movie`)}
+                className="px-4 py-2.5 rounded-lg text-xs font-semibold border transition-all hover:opacity-90"
+                style={{ borderColor: 'rgba(212,168,75,0.4)', color: '#d4a84b' }}
+                data-testid="open-full-movie"
+              >
+                Full-length film (10 min – 2 h)
+              </button>
+            )}
+            {f && (
               <label className="flex items-center gap-2 px-3 py-2 rounded-lg border text-xs text-zinc-400" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
                 Make it in
                 <select

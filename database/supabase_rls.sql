@@ -9,6 +9,9 @@ alter table public.project_documents enable row level security;
 alter table public.ai_jobs          enable row level security;
 alter table public.workflow_steps   enable row level security;
 alter table public.usage_events     enable row level security;
+alter table public.film_productions enable row level security;
+alter table public.film_scenes      enable row level security;
+alter table public.film_shots       enable row level security;
 alter table public.alembic_version  enable row level security;
 
 -- Storage: create a PUBLIC bucket named "assets" (Storage → New bucket) so generated

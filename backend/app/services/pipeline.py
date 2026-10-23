@@ -657,6 +657,17 @@ def queue_portraits(db: Session, project: Project, character_ids: list[str] | No
 TASKS = {"plan": task_plan, "edit": task_edit, "translate": task_translate, "generate": task_generate, "regenerate": task_regenerate, "render": task_render, "portraits": task_portraits}
 
 
+def _task(name: str):
+    """The function behind a job; the long-film tasks live in their own modules (loaded on first use)."""
+    if name.startswith("film_") and name not in TASKS:
+        from app.services.film_planner import task_film_plan
+        from app.services.film_renderer import task_film_render
+        from app.services.scene_generator import task_film_generate, task_film_rewrite_scene
+        TASKS.update(film_plan=task_film_plan, film_generate=task_film_generate, film_render=task_film_render,
+                     film_rewrite_scene=task_film_rewrite_scene)
+    return TASKS[name]
+
+
 async def run_job(job_id: str) -> None:
     """Execute one job to completion and record its outcome."""
     db = SessionLocal()
@@ -668,7 +679,7 @@ async def run_job(job_id: str) -> None:
         job.status, job.stage = "running", job.stage or "Starting"
         db.commit()
         try:
-            result = await TASKS[job.task](db, job, project)
+            result = await _task(job.task)(db, job, project)
             job.status, job.progress, job.stage, job.result = "completed", 100, "Done", result or {}
         except NeedsReview as e:
             job.status, job.error = "needs_review", str(e)
@@ -677,13 +688,25 @@ async def run_job(job_id: str) -> None:
         except Exception as e:  # never leave a job hanging in "running"
             log.exception("job %s failed", job_id)
             job.status, job.error = "failed", f"Unexpected error: {e.__class__.__name__}"
+        if job.task.startswith("film_") and job.status != "completed":
+            from app.services.film_production import job_stopped
+            job_stopped(db, job)
         # A freshly planned cast, or characters the AI just changed or added, get photo portraits. The
         # portraits job is saved together with this job's result, so the app sees it as soon as it sees "completed".
         follow_up = None
         if job.status == "completed" and (job.task == "plan" or (job.task == "edit" and job.params.get("target") == "characters")):
             follow_up = queue_portraits(db, project)
+        # A long-film generate job hands over to a fresh job after a while (worker time limits; restarts lose less)
+        if job.status == "completed" and job.task == "film_generate" and (job.result or {}).get("continue"):
+            follow_up = AIJob(project_id=job.project_id, user_id=job.user_id, task="film_generate", params=job.params)
+            db.add(follow_up)
         db.commit()
+        follow_up_id, continued = (follow_up.id if follow_up else None), follow_up is not None and follow_up.task == "film_generate"
     finally:
         db.close()
-    if follow_up:
-        await run_job(follow_up.id)
+    if follow_up_id:
+        if continued and get_settings().REDIS_URL:
+            from app.services.jobs import _enqueue_arq
+            await _enqueue_arq(follow_up_id)
+        else:
+            await run_job(follow_up_id)

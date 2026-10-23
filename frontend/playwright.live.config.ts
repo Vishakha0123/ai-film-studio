@@ -33,6 +33,7 @@ export default defineConfig({
         CORS_ORIGINS: `["${WEB}"]`,
         STORY_PROVIDER: 'mock', IMAGE_PROVIDER: 'mock', VIDEO_PROVIDER: 'mock', TTS_PROVIDER: 'mock',
         REDIS_URL: '',
+        LONG_SHOT_SECONDS: '60',  // long-film e2e: a 10-minute film in ~14 shots, so it renders in seconds
       },
     },
     {

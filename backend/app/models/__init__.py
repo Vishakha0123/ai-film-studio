@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import JSON, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -121,3 +121,71 @@ class UsageEvent(TimestampMixin, Base):
     model: Mapped[str] = mapped_column(String(120), default="")
     usage: Mapped[dict] = mapped_column(JSONType, default=dict)
     cost: Mapped[float] = mapped_column(Float, default=0.0)
+
+
+# ---------------------------------------------------------------- Long film (10 minutes to 2 hours)
+
+class FilmProduction(TimestampMixin, Base):
+    """A full-length version of a planned film: its story bible, budget and overall state (one per project)."""
+    __tablename__ = "film_productions"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), unique=True, index=True)
+    target_seconds: Mapped[int] = mapped_column(Integer)
+    shot_seconds: Mapped[int] = mapped_column(Integer, default=8)  # one provider clip per shot
+    quality: Mapped[str] = mapped_column(String(10), default="draft")
+    # planning | planned | generating | paused | budget_reached | generated | rendering | rendered | failed
+    status: Mapped[str] = mapped_column(String(20), default="planning")
+    story_bible: Mapped[dict] = mapped_column(JSONType, default=dict)
+    budget_cap: Mapped[float] = mapped_column(Float, default=0.0)  # hard per-film cap in USD
+    spent: Mapped[float] = mapped_column(Float, default=0.0)       # recorded provider cost so far
+    pause_requested: Mapped[bool] = mapped_column(Boolean, default=False)
+    error: Mapped[str] = mapped_column(Text, default="")
+    final_asset_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+
+    scenes: Mapped[list["FilmScene"]] = relationship(back_populates="production", cascade="all, delete-orphan",
+                                                      order_by="FilmScene.number")
+
+
+class FilmScene(TimestampMixin, Base):
+    __tablename__ = "film_scenes"
+    __table_args__ = (UniqueConstraint("production_id", "number", name="uq_film_scene_number"),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    production_id: Mapped[str] = mapped_column(ForeignKey("film_productions.id", ondelete="CASCADE"), index=True)
+    number: Mapped[int] = mapped_column(Integer)
+    act: Mapped[int] = mapped_column(Integer, default=1)
+    title: Mapped[str] = mapped_column(String(300), default="")
+    summary: Mapped[str] = mapped_column(Text, default="")          # what happens (from the outline)
+    location: Mapped[str] = mapped_column(String(300), default="")
+    characters: Mapped[list] = mapped_column(JSONType, default=list)
+    target_seconds: Mapped[int] = mapped_column(Integer, default=60)
+    script: Mapped[str] = mapped_column(Text, default="")           # written when the scene is broken into shots
+    continuity: Mapped[str] = mapped_column(Text, default="")       # what's true at the end of this scene (fed to the next)
+    status: Mapped[str] = mapped_column(String(20), default="planned")  # planned | generating | done | failed
+    error: Mapped[str] = mapped_column(Text, default="")
+    preview_asset_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+
+    production: Mapped[FilmProduction] = relationship(back_populates="scenes")
+    shots: Mapped[list["FilmShot"]] = relationship(back_populates="scene", cascade="all, delete-orphan",
+                                                   order_by="FilmShot.number")
+
+
+class FilmShot(TimestampMixin, Base):
+    __tablename__ = "film_shots"
+    __table_args__ = (UniqueConstraint("scene_id", "number", name="uq_film_shot_number"),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    scene_id: Mapped[str] = mapped_column(ForeignKey("film_scenes.id", ondelete="CASCADE"), index=True)
+    number: Mapped[int] = mapped_column(Integer)
+    description: Mapped[str] = mapped_column(Text, default="")
+    camera: Mapped[str] = mapped_column(String(120), default="")
+    movement: Mapped[str] = mapped_column(String(120), default="")
+    characters: Mapped[list] = mapped_column(JSONType, default=list)
+    dialogue: Mapped[list] = mapped_column(JSONType, default=list)  # [{"character", "text"}]
+    seconds: Mapped[float] = mapped_column(Float, default=8.0)
+    status: Mapped[str] = mapped_column(String(20), default="pending")  # pending | generating | done | failed
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    error: Mapped[str] = mapped_column(Text, default="")
+    video_asset_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    audio_asset_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    frame_asset_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+
+    scene: Mapped[FilmScene] = relationship(back_populates="shots")
