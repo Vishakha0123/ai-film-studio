@@ -93,6 +93,8 @@ def _references(prod: FilmProduction, names: list[str]) -> list[bytes]:
 
 async def make_shot(db: Session, job: AIJob, project: Project, prod: FilmProduction, scene: FilmScene, shot: FilmShot) -> None:
     live, w, h = live_providers(), *frame_size(project)
+    timing: dict[str, float] = {}
+    t0 = time.monotonic()
     aspect = (project.brief or {}).get("aspectRatio", "16:9")
     ref = f"{scene.number}-{shot.number}"
     bible_looks = "; ".join(f"{c['name']}: {c.get('appearance', '')}" for c in prod.story_bible.get("characters", [])
@@ -124,6 +126,7 @@ async def make_shot(db: Session, job: AIJob, project: Project, prod: FilmProduct
             if res.data:
                 video_file = tmp / "provider.mp4"
                 video_file.write_bytes(await storage.download(res.data))
+        timing["picture"] = time.monotonic() - t0
         kind = "video" if video_file else "still" if frame_file else "test"
         if kind == "test":
             frame_file = tmp / "card.png"
@@ -139,6 +142,8 @@ async def make_shot(db: Session, job: AIJob, project: Project, prod: FilmProduct
                 prod.spent = round(prod.spent + res.cost, 4)
                 if res.data:
                     wavs.append(res.data)
+        timing["voice"] = time.monotonic() - t0 - timing["picture"]
+        t1 = time.monotonic()
         audio = await voice_track(tmp, wavs)
         if audio:
             a = await store_asset(db, project, "film_voice", ref, ProviderResult(None, provider=get_settings().TTS_PROVIDER, model="tts"),
@@ -148,8 +153,11 @@ async def make_shot(db: Session, job: AIJob, project: Project, prod: FilmProduct
                                still=None if video_file else frame_file, audio=audio)
         asset = await store_asset(db, project, "film_clip", ref, ProviderResult(None, provider="ffmpeg", model=kind),
                                   data=clip.read_bytes(), ext="mp4", meta={"kind": kind, "testClip": kind == "test"})
+        timing["ffmpeg"] = time.monotonic() - t1
     shot.video_asset_id = asset.id
     db.commit()
+    log.info("scene %s shot %s (%s): picture %.1fs · voice %.1fs (%d lines) · ffmpeg %.1fs", scene.number, shot.number, kind,
+             timing["picture"], timing["voice"], len(wavs), timing["ffmpeg"])
 
 
 async def task_film_generate(db: Session, job: AIJob, project: Project) -> dict:
@@ -168,7 +176,9 @@ async def task_film_generate(db: Session, job: AIJob, project: Project) -> dict:
             if not sc.shots:
                 set_progress(db, job, f"Scene {sc.number} of {len(scenes)}: writing the script", progress(prod)["percent"])
                 try:
+                    t = time.monotonic()
                     await break_down(db, job, prod, sc)
+                    log.info("scene %s: script and %d shots written in %.1fs", sc.number, len(sc.shots), time.monotonic() - t)
                 except ProviderError as e:
                     sc.status, sc.error = "failed", f"Script: {e}"
                     db.commit()

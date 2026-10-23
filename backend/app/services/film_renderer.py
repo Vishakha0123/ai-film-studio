@@ -38,7 +38,10 @@ def tools() -> tuple[str, str]:
 
 
 async def _run(args: list[str]) -> None:
-    done = await asyncio.to_thread(subprocess.run, args, capture_output=True, text=True)
+    # -nostdin / DEVNULL: FFmpeg must never wait for keyboard input (it can stall under a server on Windows)
+    if Path(args[0]).stem.lower() == "ffmpeg" and "-nostdin" not in args:
+        args = [args[0], "-nostdin", *args[1:]]
+    done = await asyncio.to_thread(subprocess.run, args, capture_output=True, text=True, stdin=subprocess.DEVNULL)
     if done.returncode != 0:
         raise RenderError((done.stderr or "ffmpeg failed").strip().splitlines()[-1][:300])
 
@@ -47,7 +50,7 @@ def probe(path: Path) -> dict:
     """Duration, size and streams of a media file (ffprobe)."""
     _, ffprobe = tools()
     out = subprocess.run([ffprobe, "-v", "error", "-show_entries", "format=duration:stream=codec_type,width,height",
-                          "-of", "json", str(path)], capture_output=True, text=True)
+                          "-of", "json", str(path)], capture_output=True, text=True, stdin=subprocess.DEVNULL)
     if out.returncode != 0:
         raise RenderError(f"ffprobe could not read {path.name}")
     info = json.loads(out.stdout or "{}")
