@@ -12,6 +12,7 @@ Rules:
     neither (mock)  → a "TEST CLIP" card with the shot description, so the film's timing and assembly can be checked
 """
 
+import json
 import logging
 import tempfile
 import time
@@ -52,8 +53,9 @@ def _clean_shot(raw: object, shot_seconds: int, scene_chars: list[str]) -> dict:
             "dialogue": lines[:4], "seconds": float(shot_seconds)}
 
 
-async def break_down(db: Session, job: AIJob, prod: FilmProduction, scene: FilmScene) -> None:
-    """Write the scene's script and shot list (once; kept for every later run)."""
+async def break_down(db: Session, job: AIJob, prod: FilmProduction, scene: FilmScene, direction: str = "") -> None:
+    """Write the scene's script and shot list (once; kept for every later run). With a direction from the creator,
+    the scene is rewritten: the new shot list replaces the old one."""
     check_budget(prod, story_call_cost())
     count = shots_for(scene.target_seconds, prod.shot_seconds)
     scene_dict = {"number": scene.number, "act": scene.act, "title": scene.title, "summary": scene.summary,
@@ -62,7 +64,7 @@ async def break_down(db: Session, job: AIJob, prod: FilmProduction, scene: FilmS
     res = await with_retry(lambda: story_provider().break_down_scene(
         prod.story_bible, scene_dict, total=total, shot_count=count, shot_seconds=prod.shot_seconds,
         previous=_neighbour(prod, scene.number - 1), next_scene=_neighbour(prod, scene.number + 1),
-        language=prod.story_bible.get("language", "en")), job, db)
+        language=prod.story_bible.get("language", "en"), direction=direction), job, db)
     record_usage(db, job, res)
     prod.spent = round(prod.spent + res.cost, 4)
     data = res.data if isinstance(res.data, dict) else {}
@@ -75,10 +77,46 @@ async def break_down(db: Session, job: AIJob, prod: FilmProduction, scene: FilmS
     # the last shot takes the remainder, so the scene lasts what the outline planned
     shots[-1]["seconds"] = max(2.0, scene.target_seconds - prod.shot_seconds * (count - 1))
     scene.script, scene.continuity = str(data.get("script") or ""), str(data.get("continuity") or "")
+    for old in list(scene.shots):  # a rewrite replaces the old shots (their clips stay in the asset history)
+        db.delete(old)
+    db.flush()
     for i, s in enumerate(shots, start=1):
         db.add(FilmShot(scene_id=scene.id, number=i, **s))
     db.commit()
     db.refresh(scene)
+
+
+def rewrite_direction(scene: FilmScene, instruction: str) -> str:
+    """The creator's words plus the scene as it is now, so the AI changes what was asked and keeps the rest."""
+    current = {"script": scene.script, "shots": [{"description": sh.description, "camera": sh.camera, "movement": sh.movement,
+                                                 "dialogue": sh.dialogue} for sh in scene.shots]}
+    return (f"{instruction.strip()}\n\nThe scene as it is now (change what the direction asks for and keep the rest):\n"
+            + json.dumps(current, ensure_ascii=False)[:6000])
+
+
+async def task_film_rewrite_scene(db: Session, job: AIJob, project: Project) -> dict:
+    """The AI rewrites one scene's script and shots from the creator's direction; only that scene is made again."""
+    prod = production_of(db, project.id)
+    number, instruction = int(job.params.get("scene", 0)), str(job.params.get("instruction", "")).strip()
+    scene = next((s for s in (prod.scenes if prod else []) if s.number == number), None)
+    if scene is None or not instruction:
+        raise NeedsReview("Choose a scene and say what to change.")
+    set_progress(db, job, f"Rewriting scene {number}", 20)
+    try:
+        await break_down(db, job, prod, scene, direction=rewrite_direction(scene, instruction))
+    except BudgetReached as e:
+        raise NeedsReview(str(e)) from e
+    reopen_scene(prod, scene)
+    db.commit()
+    return {"scene": number, "shots": len(scene.shots)}
+
+
+def reopen_scene(prod: FilmProduction, scene: FilmScene) -> None:
+    """A changed scene must be made (and joined) again, and the finished film no longer matches."""
+    scene.status, scene.error, scene.preview_asset_id = "planned", "", None
+    if prod.status in ("generated", "rendered", "failed"):
+        prod.status = "paused"
+    prod.final_asset_id = None
 
 
 def _references(prod: FilmProduction, names: list[str]) -> list[bytes]:

@@ -23,7 +23,7 @@ MIN_SECONDS, MAX_SECONDS = 60, 2 * 60 * 60          # 1 minute (tests/pilots) to
 SCENE_SECONDS = 90                                    # average scene length the outline aims for
 OUTLINE_BATCH = 12                                    # scenes written per story-model call
 MAX_SHOT_ATTEMPTS = 3                                 # per shot, across runs; then it waits for a manual retry
-FILM_TASKS_NAMES = ("film_plan", "film_generate", "film_render")
+FILM_TASKS_NAMES = ("film_plan", "film_generate", "film_render", "film_rewrite_scene")
 FRAME_SIZES = {"16:9": (1280, 720), "9:16": (720, 1280), "1:1": (720, 720)}
 
 

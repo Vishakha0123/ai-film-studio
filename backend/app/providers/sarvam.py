@@ -113,11 +113,13 @@ class SarvamStory(StoryProvider):
         return await self._chat(prompt, effort_setting=get_settings().SARVAM_EDIT_REASONING_EFFORT)
 
     async def break_down_scene(self, bible: dict, scene: dict, *, total: int, shot_count: int, shot_seconds: int,
-                               previous: str, next_scene: str, language: str) -> ProviderResult:
+                               previous: str, next_scene: str, language: str,
+                               direction: str = "") -> ProviderResult:
         prompt = render(SCENE_BREAKDOWN, number=scene["number"], total=total, shot_count=shot_count,
                         shot_seconds=shot_seconds, target_seconds=scene["seconds"], output_language=describe(language),
                         bible=json.dumps(bible, ensure_ascii=False)[:8000], scene=json.dumps(scene, ensure_ascii=False),
-                        previous=previous or "(this is the first scene)", next=next_scene or "(this is the last scene)")
+                        previous=previous or "(this is the first scene)", next=next_scene or "(this is the last scene)",
+                        direction=direction or "(none — write it from the outline)")
         return await self._chat(prompt, effort_setting=get_settings().SARVAM_EDIT_REASONING_EFFORT)
 
     async def translate_film(self, memory: dict, language: str) -> ProviderResult:

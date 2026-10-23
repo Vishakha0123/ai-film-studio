@@ -102,3 +102,31 @@ describe('full-length film page', () => {
     await waitFor(() => expect(screen.getByTestId('movie-download')).toHaveAttribute('href', 'http://x/film.mp4'))
   })
 })
+
+describe('editing a scene of the full-length film', () => {
+  const sceneDetail = {
+    number: 1, title: 'The letter arrives', summary: 'Paati opens it.', location: 'INT. HOUSE', script: 'INT. HOUSE — DAY', continuity: '',
+    status: 'done' as const, error: '', previewUrl: null,
+    shots: [
+      { id: 'a', number: 1, description: 'Wide house', camera: 'Wide', movement: 'Static', characters: [], dialogue: [{ character: 'Paati', text: 'Who is it?' }], seconds: 8, status: 'done' as const, attempts: 1, error: '', clipUrl: null, clipKind: 'test' as const },
+      { id: 'b', number: 2, description: 'Close on letter', camera: 'Close-up', movement: 'Push-in', characters: [], dialogue: [], seconds: 8, status: 'done' as const, attempts: 1, error: '', clipUrl: null, clipKind: 'test' as const },
+    ],
+  }
+
+  it('hand edits send only the shots that changed', async () => {
+    api.getLongFilm.mockResolvedValue(film({ status: 'generated' }))
+    api.getLongFilmScene.mockResolvedValue(sceneDetail)
+    const editApi = vi.spyOn(await import('../api'), 'editLongFilmScene').mockResolvedValue({ ...sceneDetail, script: 'NEW' })
+    show()
+    await userEvent.click((await screen.findByTestId('movie-scene-1')).querySelector('button')!)
+    await userEvent.click(await screen.findByTestId('movie-edit-scene-1'))
+    const line = screen.getByLabelText('Shot 1 line 1')
+    await userEvent.clear(line)
+    await userEvent.type(line, 'Kanna, is that you?')
+    await userEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+    await waitFor(() => expect(editApi).toHaveBeenCalled())
+    const [, n, body] = editApi.mock.calls[0]
+    expect(n).toBe(1)
+    expect(body.shots).toEqual([{ id: 'a', description: 'Wide house', camera: 'Wide', movement: 'Static', dialogue: [{ character: 'Paati', text: 'Kanna, is that you?' }] }])
+  })
+})

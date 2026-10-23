@@ -25,8 +25,14 @@ class MockStory(StoryProvider):
     async def outline_scenes(self, bible, *, first, last, total, target_seconds, story_so_far, language):
         return await _mock_outline(bible, first, last, total, target_seconds)
 
-    async def break_down_scene(self, bible, scene, *, total, shot_count, shot_seconds, previous, next_scene, language):
-        return await _mock_breakdown(scene, shot_count, shot_seconds)
+    async def break_down_scene(self, bible, scene, *, total, shot_count, shot_seconds, previous, next_scene, language, direction=""):
+        res = await _mock_breakdown(scene, shot_count, shot_seconds)
+        if direction:  # stand-in for the AI following the creator's direction
+            mark = f" [Revised: {direction.splitlines()[0][:60]}]"
+            res.data["script"] += mark
+            for s in res.data["shots"]:
+                s["description"] += mark
+        return res
 
     async def plan_film(self, brief: dict) -> ProviderResult:
         if "[slow]" in str(brief.get("prompt", "")):  # lets tests refresh the page while a film is being written

@@ -322,3 +322,84 @@ def test_deleting_the_project_removes_the_film(client):
     from app.models import FilmProduction, FilmScene
     with SessionLocal() as db:
         assert db.query(FilmProduction).count() == 0 and db.query(FilmScene).count() == 0
+
+
+# ---------- editing a scene ----------
+
+def _generated(client):
+    pid = _planned_film(client)
+    client.post(f"/api/v1/projects/{pid}/film/generate", json={}, headers=A)
+    assert _film(client, pid)["status"] == "generated"
+    return pid
+
+
+@needs_ffmpeg
+def test_hand_edit_remakes_only_the_changed_shot(client, monkeypatch):
+    pid = _generated(client)
+    client.post(f"/api/v1/projects/{pid}/film/render", headers=A)
+    assert _film(client, pid)["status"] == "rendered"
+    scene = client.get(f"/api/v1/projects/{pid}/film/scenes/2", headers=A).json()
+    first, second = scene["shots"][0], scene["shots"][1]
+    r = client.patch(f"/api/v1/projects/{pid}/film/scenes/2", headers=A, json={
+        "script": "INT. RIVER — DAWN\nPaati waits.",
+        "shots": [{"id": second["id"], "dialogue": [{"character": "Paati", "text": "Breathe, kanna. The river is a friend."}]},
+                  {"id": first["id"], "description": first["description"]}]})  # unchanged → kept
+    assert r.status_code == 200, r.text
+    edited = r.json()
+    assert edited["script"].startswith("INT. RIVER")
+    assert edited["shots"][1]["dialogue"][0]["text"].startswith("Breathe")
+    assert edited["shots"][1]["status"] == "pending" and edited["shots"][0]["status"] == "done"
+    film = _film(client, pid)
+    assert film["status"] == "paused" and film["final"] is None  # the old film no longer matches
+    assert [s["status"] for s in film["scenes"]] == ["done", "planned", "done"]
+
+    from app.services import scene_generator
+    real, made = scene_generator.make_shot, []
+
+    async def recording(db, job, project, prod, sc, sh):
+        made.append((sc.number, sh.number))
+        return await real(db, job, project, prod, sc, sh)
+
+    monkeypatch.setattr(scene_generator, "make_shot", recording)
+    client.post(f"/api/v1/projects/{pid}/film/generate", json={}, headers=A)
+    assert made == [(2, 2)]
+    assert _film(client, pid)["status"] == "generated"
+
+
+def test_text_only_edit_keeps_the_clips(client):
+    pid = _planned_film(client)
+    from app.db import SessionLocal
+    from app.models import FilmScene
+    with SessionLocal() as db:
+        sc = db.query(FilmScene).filter(FilmScene.number == 1).one()
+        sc.status = "done"
+        db.commit()
+    r = client.patch(f"/api/v1/projects/{pid}/film/scenes/1", headers=A, json={"title": "Paati's River", "summary": "New summary"})
+    assert r.status_code == 200 and r.json()["title"] == "Paati's River" and r.json()["status"] == "done"
+
+
+def test_direct_the_ai_rewrites_one_scene(client):
+    pid = _planned_film(client)
+    r = client.post(f"/api/v1/projects/{pid}/film/scenes/2/rewrite", headers=A, json={"instruction": "Make it rain and more emotional"})
+    assert r.status_code == 202, r.text
+    assert client.get(f"/api/v1/jobs/{r.json()['id']}", headers=A).json()["status"] == "completed"
+    scene = client.get(f"/api/v1/projects/{pid}/film/scenes/2", headers=A).json()
+    assert "[Revised: Make it rain and more emotional]" in scene["script"]
+    assert len(scene["shots"]) == 3 and all("[Revised:" in s["description"] for s in scene["shots"])
+    assert all(s["status"] == "pending" for s in scene["shots"])
+    other = client.get(f"/api/v1/projects/{pid}/film/scenes/1", headers=A).json()
+    assert other["shots"] == []  # other scenes untouched (not written yet)
+
+
+def test_edit_rules(client):
+    pid = _planned_film(client)
+    assert client.post(f"/api/v1/projects/{pid}/film/scenes/1/rewrite", headers=A, json={"instruction": ""}).status_code == 422
+    assert client.patch(f"/api/v1/projects/{pid}/film/scenes/1", headers=A, json={"shots": [{"id": "nope", "description": "x"}]}).status_code == 404
+    assert client.patch(f"/api/v1/projects/{pid}/film/scenes/1", headers=auth("x@y.z"), json={"title": "x"}).status_code == 404
+    from app.db import SessionLocal
+    from app.services.film_production import production_of
+    with SessionLocal() as db:
+        production_of(db, pid).status = "generating"
+        db.commit()
+    assert client.patch(f"/api/v1/projects/{pid}/film/scenes/1", headers=A, json={"title": "x"}).status_code == 409
+    assert client.post(f"/api/v1/projects/{pid}/film/scenes/1/rewrite", headers=A, json={"instruction": "x"}).status_code == 409

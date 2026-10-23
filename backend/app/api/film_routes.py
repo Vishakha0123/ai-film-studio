@@ -19,6 +19,7 @@ from app.schemas import Schema
 from app.services.film_production import (FILM_TASKS_NAMES, MAX_SECONDS, MIN_SECONDS, active_film_job, estimate,
                                           production_of, progress)
 from app.services.jobs import create_job
+from app.services.scene_generator import reopen_scene
 
 router = APIRouter()
 BUSY = ("planning", "generating", "rendering")
@@ -233,9 +234,83 @@ def _reset_shot(sh: FilmShot) -> None:
 
 
 def _reopen_scene(prod: FilmProduction, sc: FilmScene) -> None:
-    sc.status, sc.error, sc.preview_asset_id = "planned", "", None
-    if prod.status in ("generated", "rendered", "failed"):
-        prod.status, prod.final_asset_id = "paused", None
+    reopen_scene(prod, sc)
+
+
+# ---------- Editing a scene ----------
+
+class DialogueLine(Schema):
+    character: str = Field(default="", max_length=120)
+    text: str = Field(max_length=2000)
+
+
+class ShotEdit(Schema):
+    id: str
+    description: str | None = Field(default=None, max_length=2000)
+    camera: str | None = Field(default=None, max_length=100)
+    movement: str | None = Field(default=None, max_length=100)
+    dialogue: list[DialogueLine] | None = Field(default=None, max_length=8)
+
+
+class SceneEdit(Schema):
+    title: str | None = Field(default=None, max_length=300)
+    summary: str | None = Field(default=None, max_length=5000)
+    location: str | None = Field(default=None, max_length=300)
+    script: str | None = Field(default=None, max_length=50000)
+    shots: list[ShotEdit] | None = None
+
+
+class SceneRewrite(Schema):
+    instruction: str = Field(min_length=1, max_length=2000)
+
+
+def _editable(db: Session, project_id: str, number: int, user: CurrentUser) -> tuple[Project, FilmProduction, FilmScene]:
+    project, prod = _production(db, project_id, user)
+    if prod.status in BUSY or active_film_job(db, project.id):
+        raise HTTPException(409, detail="Pause the film (or wait for the current work to finish), then edit")
+    return project, prod, _scene(db, prod, number)
+
+
+@router.patch("/projects/{project_id}/film/scenes/{number}")
+def edit_scene(project_id: str, number: int, body: SceneEdit, db: Session = Depends(get_db),
+               user: CurrentUser = Depends(get_current_user)):
+    """Hand edits to a scene. Shots whose picture or words changed are made again; the rest are kept."""
+    project, prod, sc = _editable(db, project_id, number, user)
+    for field in ("title", "summary", "location", "script"):
+        value = getattr(body, field)
+        if value is not None:
+            setattr(sc, field, value.strip())
+    shots = {sh.id: sh for sh in sc.shots}
+    changed = 0
+    for edit in body.shots or []:
+        sh = shots.get(edit.id)
+        if sh is None:
+            raise HTTPException(404, detail="Shot not found in this scene")
+        new = {"description": edit.description, "camera": edit.camera, "movement": edit.movement,
+               "dialogue": [d.model_dump() for d in edit.dialogue if d.text.strip()] if edit.dialogue is not None else None}
+        diff = {k: v for k, v in new.items() if v is not None and v != getattr(sh, k)}
+        if diff:
+            for k, v in diff.items():
+                setattr(sh, k, v)
+            if sh.status != "pending" or sh.video_asset_id:
+                _reset_shot(sh)
+                sh.video_asset_id = sh.audio_asset_id = sh.frame_asset_id = None
+            changed += 1
+    if changed:  # title, summary and script are the scene's text; the shots are what gets filmed
+        reopen_scene(prod, sc)
+    db.commit()
+    return get_scene(project_id, number, db, user)
+
+
+@router.post("/projects/{project_id}/film/scenes/{number}/rewrite", status_code=202)
+def rewrite_scene(project_id: str, number: int, body: SceneRewrite, background: BackgroundTasks,
+                  db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
+    """Direct the AI: it rewrites this scene's script and shots; only this scene is made again."""
+    project, prod, sc = _editable(db, project_id, number, user)
+    _check_can_start(db, project, user)
+    job = create_job(db, background, project_id=project.id, user_id=user.id, task="film_rewrite_scene",
+                     params={"scene": sc.number, "instruction": body.instruction.strip()})
+    return _job(job)
 
 
 @router.post("/projects/{project_id}/film/shots/{shot_id}/retry", status_code=202)

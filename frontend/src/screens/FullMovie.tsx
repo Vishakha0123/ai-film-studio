@@ -2,8 +2,11 @@ import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   ApiError, DEMO_MODE, generateLongFilm, getLongFilm, getLongFilmScene, getProject, pauseLongFilm, planLongFilm,
-  renderLongFilm, retryLongFilmScene, retryLongFilmShot, updateLongFilm,
+  renderLongFilm, retryLongFilmScene, retryLongFilmShot, updateLongFilm, editLongFilmScene, rewriteLongFilmScene,
+  waitForJob, assertCompleted,
 } from '../api'
+import { fieldCls, SaveCancel } from '../components/DirectAI'
+import type { LongFilmShot } from '../types'
 import type { LongFilm, LongFilmScene, LongFilmSceneSummary, ProjectData } from '../types'
 
 export const LENGTHS = [
@@ -97,8 +100,110 @@ function Setup({ film, busy, onPlan, onCancel }: { film: LongFilm | null; busy: 
   )
 }
 
-function SceneRow({ projectId, scene, canRetry, onChanged, onError }: { projectId: string; scene: LongFilmSceneSummary; canRetry: boolean; onChanged: (f: LongFilm) => void; onError: (m: string) => void }) {
+type DraftShot = Pick<LongFilmShot, 'id' | 'number' | 'description' | 'camera' | 'movement' | 'dialogue'>
+
+/** Hand edit: the scene's text, and each shot's picture (description, camera, movement) and dialogue. */
+function SceneEditor({ projectId, detail, onSaved, onCancel }: { projectId: string; detail: LongFilmScene; onSaved: (s: LongFilmScene) => void; onCancel: () => void }) {
+  const [title, setTitle] = useState(detail.title)
+  const [summary, setSummary] = useState(detail.summary)
+  const [script, setScript] = useState(detail.script)
+  const [shots, setShots] = useState<DraftShot[]>(detail.shots.map(s => ({ ...s, dialogue: s.dialogue.map(d => ({ ...d })) })))
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const setShot = (i: number, patch: Partial<DraftShot>) => setShots(all => all.map((s, j) => (j === i ? { ...s, ...patch } : s)))
+  const setLine = (i: number, k: number, patch: Partial<{ character: string; text: string }>) =>
+    setShot(i, { dialogue: shots[i].dialogue.map((d, j) => (j === k ? { ...d, ...patch } : d)) })
+
+  const save = async () => {
+    setSaving(true)
+    setError(null)
+    try {
+      const before = new Map(detail.shots.map(s => [s.id, s]))
+      const changed = shots.filter(s => {
+        const b = before.get(s.id)!
+        return s.description !== b.description || s.camera !== b.camera || s.movement !== b.movement || JSON.stringify(s.dialogue) !== JSON.stringify(b.dialogue)
+      })
+      onSaved(await editLongFilmScene(projectId, detail.number, {
+        title, summary, script,
+        shots: changed.map(s => ({ id: s.id, description: s.description, camera: s.camera, movement: s.movement, dialogue: s.dialogue.filter(d => d.text.trim()) })),
+      }))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not save.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="mt-4 space-y-3" data-testid={`movie-scene-editor-${detail.number}`}>
+      <label className="block text-[11px] text-zinc-500">Title<input className={fieldCls} value={title} onChange={e => setTitle(e.target.value)} aria-label="Scene title" /></label>
+      <label className="block text-[11px] text-zinc-500">What happens<textarea className={fieldCls} rows={2} value={summary} onChange={e => setSummary(e.target.value)} aria-label="Scene summary" /></label>
+      <label className="block text-[11px] text-zinc-500">Script<textarea className={`${fieldCls} font-mono`} rows={6} value={script} onChange={e => setScript(e.target.value)} aria-label="Scene script" /></label>
+      <p className="text-[11px] text-zinc-500">The shots are what gets filmed. Only the shots you change here are made again.</p>
+      {shots.map((s, i) => (
+        <div key={s.id} className="rounded-lg p-3 space-y-2" style={{ border: '1px solid rgba(255,255,255,0.06)' }} data-testid={`movie-shot-editor-${s.number}`}>
+          <div className="flex gap-2 items-center">
+            <span className="text-[11px] font-mono text-zinc-600 w-14">Shot {s.number}</span>
+            <input className={fieldCls} value={s.camera} onChange={e => setShot(i, { camera: e.target.value })} aria-label={`Shot ${s.number} camera`} />
+            <input className={fieldCls} value={s.movement} onChange={e => setShot(i, { movement: e.target.value })} aria-label={`Shot ${s.number} movement`} />
+          </div>
+          <textarea className={fieldCls} rows={2} value={s.description} onChange={e => setShot(i, { description: e.target.value })} aria-label={`Shot ${s.number} description`} />
+          {s.dialogue.map((d, k) => (
+            <div key={k} className="flex gap-2">
+              <input className={`${fieldCls} !w-36`} value={d.character} placeholder="Who" onChange={e => setLine(i, k, { character: e.target.value })} aria-label={`Shot ${s.number} line ${k + 1} character`} />
+              <input className={fieldCls} value={d.text} placeholder="Line" onChange={e => setLine(i, k, { text: e.target.value })} aria-label={`Shot ${s.number} line ${k + 1}`} />
+              <button type="button" className="text-xs text-zinc-500 hover:text-red-300 px-2" aria-label={`Remove shot ${s.number} line ${k + 1}`} onClick={() => setShot(i, { dialogue: s.dialogue.filter((_, j) => j !== k) })}>✕</button>
+            </div>
+          ))}
+          {s.dialogue.length < 8 && (
+            <button type="button" className="text-[11px]" style={{ color: gold }} onClick={() => setShot(i, { dialogue: [...s.dialogue, { character: s.dialogue[0]?.character ?? '', text: '' }] })}>+ Add a line</button>
+          )}
+        </div>
+      ))}
+      {error && <p role="alert" className="text-xs text-red-300">{error}</p>}
+      <SaveCancel onSave={() => void save()} onCancel={onCancel} saving={saving} saveLabel="Save changes" />
+    </div>
+  )
+}
+
+/** "Direct the AI" for one scene: the AI rewrites its script and shots; only this scene is made again. */
+function SceneDirector({ projectId, number, onDone }: { projectId: string; number: number; onDone: () => void }) {
+  const [text, setText] = useState('')
+  const [working, setWorking] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const apply = async () => {
+    if (!text.trim()) return
+    setError(null)
+    setWorking('Rewriting the scene…')
+    try {
+      assertCompleted(await waitForJob(await rewriteLongFilmScene(projectId, number, text.trim()), j => setWorking(j.stage || 'Rewriting the scene…')))
+      setText('')
+      onDone()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not rewrite the scene.')
+    } finally {
+      setWorking(null)
+    }
+  }
+  return (
+    <form onSubmit={e => { e.preventDefault(); void apply() }} className="mt-4" data-testid={`movie-scene-direct-${number}`}>
+      <p className="text-[11px] text-zinc-500 mb-2">Direct the AI — rewrites this scene's script and shots (in any language)</p>
+      <div className="flex gap-2">
+        <input className={fieldCls} value={text} onChange={e => setText(e.target.value)} disabled={!!working}
+          placeholder="e.g. Make it rain, and let Paati sing softly to calm him" aria-label={`Direct the AI for scene ${number}`} />
+        <button type="submit" disabled={!text.trim() || !!working} className="px-3 py-1.5 rounded-lg text-xs font-medium disabled:opacity-40" style={{ backgroundColor: gold, color: '#09090b' }}>
+          {working ? 'Working…' : 'Apply'}
+        </button>
+      </div>
+      {working && <p className="text-xs mt-2" style={{ color: gold }}>{working}</p>}
+      {error && <p role="alert" className="text-xs text-red-300 mt-2">{error}</p>}
+    </form>
+  )
+}
+
+function SceneRow({ projectId, scene, canRetry, onChanged, onError, onRefresh }: { projectId: string; scene: LongFilmSceneSummary; canRetry: boolean; onChanged: (f: LongFilm) => void; onError: (m: string) => void; onRefresh: () => void }) {
   const [open, setOpen] = useState(false)
+  const [editing, setEditing] = useState(false)
   const [detail, setDetail] = useState<LongFilmScene | null>(null)
   const st = SCENE_STATUS[scene.status] ?? SCENE_STATUS.planned
   const load = useCallback(() => getLongFilmScene(projectId, scene.number).then(setDetail).catch(() => {}), [projectId, scene.number])
@@ -125,7 +230,23 @@ function SceneRow({ projectId, scene, canRetry, onChanged, onError }: { projectI
           {scene.status === 'failed' && canRetry && (
             <div className="mt-3"><Button onClick={() => void retry(() => retryLongFilmScene(projectId, scene.number))} testId={`movie-retry-scene-${scene.number}`}>Retry this scene</Button></div>
           )}
-          {detail && detail.shots.length > 0 && (
+          {detail && canRetry && !editing && (
+            <div className="mt-3 flex gap-2">
+              <Button onClick={() => setEditing(true)} testId={`movie-edit-scene-${scene.number}`}>Edit scene</Button>
+            </div>
+          )}
+          {detail && editing && (
+            <SceneEditor projectId={projectId} detail={detail} onCancel={() => setEditing(false)}
+              onSaved={d => { setDetail(d); setEditing(false); onRefresh() }} />
+          )}
+          {detail && canRetry && !editing && <SceneDirector projectId={projectId} number={scene.number} onDone={() => { void load(); onRefresh() }} />}
+          {detail && !editing && detail.script && (
+            <details className="mt-4">
+              <summary className="text-[11px] text-zinc-500 cursor-pointer">Script</summary>
+              <pre className="mt-2 text-xs text-zinc-400 whitespace-pre-wrap font-mono" data-testid={`movie-scene-script-${scene.number}`}>{detail.script}</pre>
+            </details>
+          )}
+          {detail && !editing && detail.shots.length > 0 && (
             <ol className="mt-4 space-y-2">
               {detail.shots.map(sh => (
                 <li key={sh.id} className="flex items-start gap-3 text-xs" data-testid={`movie-shot-${scene.number}-${sh.number}`}>
@@ -250,6 +371,9 @@ export default function FullMovie() {
               </div>
             )}
             {!busy && film.error && <p className="text-xs text-amber-300 mb-3" data-testid="movie-error">{film.error}</p>}
+            {film.status === 'paused' && film.progress.scenesDone < film.progress.scenes && (
+              <p className="text-xs text-zinc-400 mb-3" data-testid="movie-continue-hint">Click Continue to make the changed or unfinished scenes — finished scenes are kept.</p>
+            )}
             <div className="flex flex-wrap gap-2">
               {['planned', 'paused', 'budget_reached', 'failed'].includes(film.status) && (
                 <Button primary disabled={working} onClick={() => void act(() => generateLongFilm(id))} testId="movie-generate">
@@ -299,7 +423,8 @@ export default function FullMovie() {
           {/* Scenes */}
           <h3 className="text-sm text-zinc-300 mb-3">Scenes <span className="text-zinc-600">· {film.progress.scenesDone}/{film.progress.scenes} ready</span></h3>
           <ol className="space-y-2" data-testid="movie-scenes">
-            {film.scenes.map(sc => <SceneRow key={sc.number} projectId={id} scene={sc} canRetry={canRetry} onChanged={setFilm} onError={setError} />)}
+            {film.scenes.map(sc => <SceneRow key={sc.number} projectId={id} scene={sc} canRetry={canRetry} onChanged={setFilm} onError={setError}
+              onRefresh={() => { getLongFilm(id).then(f => f && setFilm(f)).catch(() => {}) }} />)}
           </ol>
         </>
       )}

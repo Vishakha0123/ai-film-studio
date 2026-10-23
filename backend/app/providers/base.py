@@ -43,7 +43,8 @@ class StoryProvider(ABC):
         raise ProviderError(f"{self.__class__.__name__} can't plan long films")
 
     async def break_down_scene(self, bible: dict, scene: dict, *, total: int, shot_count: int, shot_seconds: int,
-                               previous: str, next_scene: str, language: str) -> ProviderResult:
+                               previous: str, next_scene: str, language: str,
+                               direction: str = "") -> ProviderResult:
         """Return {"script", "continuity", "shots": [...]} for one scene."""
         raise ProviderError(f"{self.__class__.__name__} can't plan long films")
 

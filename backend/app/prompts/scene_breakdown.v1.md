@@ -25,3 +25,6 @@ HOW THE PREVIOUS SCENE ENDED:
 
 NEXT SCENE (so this one leads into it):
 {next}
+
+THE CREATOR'S DIRECTION FOR THIS SCENE (follow it exactly; where it differs from the outline, it wins):
+{direction}

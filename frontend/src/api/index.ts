@@ -420,3 +420,21 @@ export async function retryLongFilmScene(projectId: string, scene: number): Prom
 export async function renderLongFilm(projectId: string): Promise<LongFilm> {
   return request<LongFilm>(filmPath(projectId, '/render'), { method: 'POST' })
 }
+
+export interface LongFilmSceneEdit {
+  title?: string
+  summary?: string
+  location?: string
+  script?: string
+  shots?: { id: string; description?: string; camera?: string; movement?: string; dialogue?: { character: string; text: string }[] }[]
+}
+
+/** Hand edits to one scene; shots whose picture or words changed are made again, the rest are kept. */
+export async function editLongFilmScene(projectId: string, scene: number, edit: LongFilmSceneEdit): Promise<LongFilmScene> {
+  return request<LongFilmScene>(filmPath(projectId, `/scenes/${scene}`), { method: 'PATCH', body: JSON.stringify(edit) })
+}
+
+/** Direct the AI: it rewrites one scene's script and shots from the instruction (a background job). */
+export async function rewriteLongFilmScene(projectId: string, scene: number, instruction: string): Promise<Job> {
+  return request<Job>(filmPath(projectId, `/scenes/${scene}/rewrite`), { method: 'POST', body: JSON.stringify({ instruction }) })
+}
