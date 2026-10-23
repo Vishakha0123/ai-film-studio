@@ -36,6 +36,17 @@ class StoryProvider(ABC):
     async def translate_film(self, memory: dict, language: str) -> ProviderResult:
         """Return the same FilmProject dict with every text value in `language` (a code like "ta")."""
 
+    # Long film (10 minutes – 2 hours): planned in steps because no model writes a feature film in one reply
+    async def outline_scenes(self, bible: dict, *, first: int, last: int, total: int, target_seconds: int,
+                             story_so_far: list[dict], language: str) -> ProviderResult:
+        """Return {"scenes": [...]} for scenes first..last of the film."""
+        raise ProviderError(f"{self.__class__.__name__} can't plan long films")
+
+    async def break_down_scene(self, bible: dict, scene: dict, *, total: int, shot_count: int, shot_seconds: int,
+                               previous: str, next_scene: str, language: str) -> ProviderResult:
+        """Return {"script", "continuity", "shots": [...]} for one scene."""
+        raise ProviderError(f"{self.__class__.__name__} can't plan long films")
+
 
 class ImageProvider(ABC):
     @abstractmethod

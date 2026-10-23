@@ -372,3 +372,51 @@ export async function patchMemory(projectId: string, patch: MemoryPatch): Promis
   if (DEMO_MODE) throw new ApiError('Saving changes needs the studio backend — the demo film can’t be edited.', 400)
   return request<ProjectData>(`/projects/${encodeURIComponent(projectId)}/memory`, { method: 'PATCH', body: JSON.stringify(patch) })
 }
+
+/* ---------- Full-length film (10 minutes – 2 hours) ---------- */
+
+import type { LongFilm, LongFilmScene } from '../types'
+
+const NEEDS_SERVER = 'A full-length film needs the studio backend — it can’t be made in demo mode.'
+const filmPath = (projectId: string, rest = '') => `/projects/${encodeURIComponent(projectId)}/film${rest}`
+
+/** The film's full-length version, or null when none was started. */
+export async function getLongFilm(projectId: string): Promise<LongFilm | null> {
+  if (DEMO_MODE) return null
+  return request<LongFilm | null>(filmPath(projectId))
+}
+
+/** Plan (or re-plan) the full-length version: the scene outline for the target length. */
+export async function planLongFilm(projectId: string, targetMinutes: number, budgetCap: number, quality: 'draft' | 'final' = 'draft'): Promise<LongFilm> {
+  if (DEMO_MODE) throw new ApiError(NEEDS_SERVER, 400)
+  return request<LongFilm>(filmPath(projectId), { method: 'POST', body: JSON.stringify({ targetMinutes, budgetCap, quality }) })
+}
+
+export async function updateLongFilm(projectId: string, change: { budgetCap?: number; quality?: 'draft' | 'final' }): Promise<LongFilm> {
+  return request<LongFilm>(filmPath(projectId), { method: 'PATCH', body: JSON.stringify(change) })
+}
+
+export async function getLongFilmScene(projectId: string, scene: number): Promise<LongFilmScene> {
+  return request<LongFilmScene>(filmPath(projectId, `/scenes/${scene}`))
+}
+
+/** Make the scenes (or continue after a pause or a budget stop). */
+export async function generateLongFilm(projectId: string, confirmCost = false): Promise<LongFilm> {
+  return request<LongFilm>(filmPath(projectId, '/generate'), { method: 'POST', body: JSON.stringify({ confirmCost }) })
+}
+
+export async function pauseLongFilm(projectId: string): Promise<LongFilm> {
+  return request<LongFilm>(filmPath(projectId, '/pause'), { method: 'POST' })
+}
+
+export async function retryLongFilmShot(projectId: string, shotId: string): Promise<LongFilm> {
+  return request<LongFilm>(filmPath(projectId, `/shots/${encodeURIComponent(shotId)}/retry`), { method: 'POST' })
+}
+
+export async function retryLongFilmScene(projectId: string, scene: number): Promise<LongFilm> {
+  return request<LongFilm>(filmPath(projectId, `/scenes/${scene}/retry`), { method: 'POST' })
+}
+
+export async function renderLongFilm(projectId: string): Promise<LongFilm> {
+  return request<LongFilm>(filmPath(projectId, '/render'), { method: 'POST' })
+}
