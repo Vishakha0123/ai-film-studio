@@ -30,6 +30,7 @@ class FilmCreate(Schema):
     target_minutes: float = Field(ge=MIN_SECONDS / 60, le=MAX_SECONDS / 60)
     budget_cap: float | None = Field(default=None, ge=0)
     quality: Literal["draft", "final"] = "draft"
+    write_scripts: bool = False  # straight after planning, write every scene's script too (no video)
 
 
 class FilmUpdate(Schema):
@@ -128,9 +129,10 @@ def _check_can_start(db: Session, project: Project, user: CurrentUser) -> None:
                                         "wait for the other one to finish or pause it")
 
 
-def _start(db: Session, background: BackgroundTasks, project: Project, user: CurrentUser, task: str) -> AIJob:
+def _start(db: Session, background: BackgroundTasks, project: Project, user: CurrentUser, task: str,
+           params: dict | None = None) -> AIJob:
     _check_can_start(db, project, user)
-    return create_job(db, background, project_id=project.id, user_id=user.id, task=task)
+    return create_job(db, background, project_id=project.id, user_id=user.id, task=task, params=params)
 
 
 # ---------- routes ----------
@@ -153,7 +155,7 @@ def create_film(project_id: str, body: FilmCreate, background: BackgroundTasks, 
     prod.target_seconds, prod.budget_cap, prod.quality = round(body.target_minutes * 60), cap, body.quality
     prod.shot_seconds, prod.status, prod.error, prod.final_asset_id = get_settings().LONG_SHOT_SECONDS, "planning", "", None
     db.commit()
-    _start(db, background, project, user, "film_plan")
+    _start(db, background, project, user, "film_plan", {"writeScripts": True} if body.write_scripts else None)
     return _film_out(db, project, prod)
 
 
@@ -175,6 +177,27 @@ def update_film(project_id: str, body: FilmUpdate, db: Session = Depends(get_db)
         prod.quality = body.quality
     db.commit()
     return _film_out(db, project, prod)
+
+
+@router.get("/projects/{project_id}/film/full")
+def full_film(project_id: str, db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
+    """The whole full-length film as text — every scene with its script, shots and dialogue — for the Director's
+    sections (Screenplay, Dialogue, Scenes, Storyboard). None when no full-length film was started."""
+    project = _project(db, project_id, user)
+    prod = production_of(db, project.id, with_shots=True)
+    if prod is None:
+        return None
+    job = active_film_job(db, project.id)
+    return {
+        "status": prod.status, "targetSeconds": prod.target_seconds, "error": prod.error,
+        "job": _job(job), "progress": progress(prod),
+        "scenes": [{
+            "number": sc.number, "act": sc.act, "title": sc.title, "summary": sc.summary, "location": sc.location,
+            "characters": sc.characters, "targetSeconds": sc.target_seconds, "script": sc.script, "status": sc.status,
+            "shots": [{"id": sh.id, "number": sh.number, "camera": sh.camera, "movement": sh.movement, "seconds": sh.seconds,
+                       "description": sh.description, "characters": sh.characters, "dialogue": sh.dialogue} for sh in sc.shots],
+        } for sc in prod.scenes],
+    }
 
 
 @router.get("/projects/{project_id}/film/scenes/{number}")

@@ -865,7 +865,8 @@ test('full stack: full-length film — script only (no video), downloaded as one
   expect(text.match(/^SCENE \d+/gm)).toHaveLength(80)
 })
 
-test('full stack: "I want a 2 hour movie" in the idea → the Director offers the full-length film with 2 hours selected', async ({ page }) => {
+test('full stack: "I want a 2 hour movie" → the full-length film is written straight away and every section shows it', async ({ page, request }) => {
+  test.setTimeout(180_000)
   await preparePage(page)
   await page.goto('/login')
   await page.getByRole('button', { name: 'Continue with Google' }).click()
@@ -873,20 +874,30 @@ test('full stack: "I want a 2 hour movie" in the idea → the Director offers th
   await page.getByRole('button', { name: 'Continue with Drama' }).click()
   await page.getByLabel('Message the AI Director').fill('I want a 2 hour movie: a grandmother teaches her grandson to swim in the river')
   await page.keyboard.press('Enter')
-  const offer = page.getByTestId('card-movie')
-  await expect(offer).toBeVisible({ timeout: 20_000 })
-  await expect(page.getByText(/You asked for a 2-hour film. The story above/)).toBeVisible()
-  await expect(offer).toContainText('2-hour')
-  // the Story tab says this is the short version, with the way to the full story
-  await expect(page.getByTestId('story-short-notice')).toContainText('You asked for a 2-hour film')
-  await offer.getByRole('button', { name: 'Plan it →' }).click()
-  await expect(page.getByTestId('movie-asked')).toBeVisible()
-  await expect(page.getByRole('radio', { name: /2 hours/ })).toHaveAttribute('aria-checked', 'true')
-  await page.getByTestId('movie-plan').click()
-  await expect(page.getByTestId('movie-status')).toHaveText('Scenes planned', { timeout: 30_000 })
-  await expect(page.getByTestId('movie-scenes').locator('li')).toHaveCount(80)
-  // …and once planned, the Story tab shows the full-length story too
+  await expect(page.getByText(/so I'm now writing the full 2-hour version/)).toBeVisible({ timeout: 20_000 })
+  await expect(page.getByTestId('card-movie')).toBeVisible()
+
+  // nothing else to click: the story, cast, scenes and every script are written in the background
+  const auth = { Authorization: 'Bearer dev:google-user@dev.local' }
+  const [p] = await (await request.get(`${API}/api/v1/projects`, { headers: auth })).json()
+  await expect.poll(async () => {
+    const full = await (await request.get(`${API}/api/v1/projects/${p.id}/film/full`, { headers: auth })).json()
+    return full ? full.scenes.filter((s: { script: string }) => s.script).length : 0
+  }, { timeout: 120_000 }).toBe(80)
+
   await page.goto('/director/story')
   await expect(page.getByTestId('story-full-length')).toContainText('Full-length story · 2h 00m')
-  await expect(page.getByTestId('story-short-notice')).toHaveCount(0)
+  await page.goto('/director/characters')
+  await expect(page.getByText('Ravi Kumar')).toBeVisible()  // a character added for the full-length story
+  await page.goto('/director/scenes')
+  await expect(page.getByTestId('full-film-scenes').locator('li')).toHaveCount(80)
+  await page.goto('/director/screenplay')
+  await expect(page.getByTestId('full-film-screenplay')).toContainText('SCENE 80')
+  await page.goto('/director/dialogue')
+  await expect(page.getByTestId('full-film-dialogue')).toContainText('Line 1 of scene 1.')
+  await page.goto('/director/storyboard')
+  await expect(page.getByTestId('full-film-storyboard')).toContainText('Shot 1')
+  // the teaser is still there behind the switch
+  await page.getByTestId('view-teaser').click()
+  await expect(page.getByTestId('panel-storyboard')).toBeVisible()
 })

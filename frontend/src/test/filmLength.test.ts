@@ -33,6 +33,10 @@ describe('film length from the prompt', () => {
     expect(requestedMinutes('a 30 second teaser')).toBeNull()
     expect(requestedMinutes('he waited 2 minutes')).toBeNull()
     expect(requestedMinutes('')).toBeNull()
+    // words that merely start like a unit ("h…", "m…") are not lengths
+    expect(requestedMinutes('A teacher meets her double in a Himalayan school')).toBeNull()
+    expect(requestedMinutes('a man meets a mysterious woman in a hotel')).toBeNull()
+    expect(requestedMinutes('two hunters in a minefield')).toBeNull()
   })
 
   it('maps to the lengths the page offers (2 hours at most)', () => {

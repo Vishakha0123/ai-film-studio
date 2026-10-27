@@ -503,3 +503,24 @@ def test_chat_keeps_the_full_length_film_offer(client):
     assert client.put(f"/api/v1/projects/{pid}/chat", json={"messages": msgs}, headers=A).status_code == 204
     chat = client.get(f"/api/v1/projects/{pid}", headers=A).json()["chat"]
     assert chat[1]["card"] == "movie" and chat[1]["movieMinutes"] == 120
+
+
+def test_plan_and_write_scripts_in_one_go(client):
+    pid, _ = _plan(client)
+    r = client.post(f"/api/v1/projects/{pid}/film", json={"targetMinutes": 120, "writeScripts": True}, headers=A)
+    assert r.status_code == 202, r.text
+    full = client.get(f"/api/v1/projects/{pid}/film/full", headers=A).json()
+    assert full["status"] == "planned" and len(full["scenes"]) == 80
+    assert all(sc["script"] and sc["shots"] for sc in full["scenes"])  # all 80 scene scripts written straight away
+    assert any(sh["dialogue"] for sh in full["scenes"][0]["shots"])
+    from app.db import SessionLocal
+    from app.models import AIJob, Asset
+    with SessionLocal() as db:
+        assert [j.task for j in db.query(AIJob).filter(AIJob.project_id == pid).order_by(AIJob.created_at)] [-2:] == ["film_plan", "film_write_scripts"]
+        assert db.query(Asset).filter(Asset.type == "film_clip").count() == 0  # no video
+
+
+def test_full_film_view_is_owner_only_and_empty_without_a_film(client):
+    pid, _ = _plan(client)
+    assert client.get(f"/api/v1/projects/{pid}/film/full", headers=A).json() is None
+    assert client.get(f"/api/v1/projects/{pid}/film/full", headers=auth("x@y.z")).status_code == 404

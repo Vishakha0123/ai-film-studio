@@ -700,8 +700,13 @@ async def run_job(job_id: str) -> None:
         if job.status == "completed" and job.task == "film_generate" and (job.result or {}).get("continue"):
             follow_up = AIJob(project_id=job.project_id, user_id=job.user_id, task="film_generate", params=job.params)
             db.add(follow_up)
+        # Planned with "write the scripts too" (e.g. the idea asked for a 2-hour film): every scene's script next
+        if job.status == "completed" and job.task == "film_plan" and job.params.get("writeScripts"):
+            follow_up = AIJob(project_id=job.project_id, user_id=job.user_id, task="film_write_scripts",
+                              params={"returnStatus": "planned"})
+            db.add(follow_up)
         db.commit()
-        follow_up_id, continued = (follow_up.id if follow_up else None), follow_up is not None and follow_up.task == "film_generate"
+        follow_up_id, continued = (follow_up.id if follow_up else None), follow_up is not None and follow_up.task.startswith("film_")
     finally:
         db.close()
     if follow_up_id:

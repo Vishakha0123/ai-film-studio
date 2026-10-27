@@ -387,9 +387,15 @@ export async function getLongFilm(projectId: string): Promise<LongFilm | null> {
 }
 
 /** Plan (or re-plan) the full-length version: the scene outline for the target length. */
-export async function planLongFilm(projectId: string, targetMinutes: number, budgetCap: number, quality: 'draft' | 'final' = 'draft'): Promise<LongFilm> {
+export async function planLongFilm(projectId: string, targetMinutes: number, budgetCap: number | null = null, quality: 'draft' | 'final' = 'draft', writeScripts = false): Promise<LongFilm> {
   if (DEMO_MODE) throw new ApiError(NEEDS_SERVER, 400)
-  return request<LongFilm>(filmPath(projectId), { method: 'POST', body: JSON.stringify({ targetMinutes, budgetCap, quality }) })
+  return request<LongFilm>(filmPath(projectId), { method: 'POST', body: JSON.stringify({ targetMinutes, quality, writeScripts, ...(budgetCap === null ? {} : { budgetCap }) }) })
+}
+
+/** Every scene of the full-length film with its script, shots and dialogue (null when there is none). */
+export async function getFullFilm(projectId: string): Promise<import('../types').FullFilmText | null> {
+  if (DEMO_MODE) return null
+  return request<import('../types').FullFilmText | null>(filmPath(projectId, '/full'))
 }
 
 export async function updateLongFilm(projectId: string, change: { budgetCap?: number; quality?: 'draft' | 'final' }): Promise<LongFilm> {

@@ -526,3 +526,24 @@ export interface LongFilmScene {
   previewUrl: string | null
   shots: LongFilmShot[]
 }
+
+/** The whole full-length film as text, for the Director's sections */
+export interface FullFilmText {
+  status: FilmStatus
+  targetSeconds: number
+  error: string
+  job: { id: string; task: string; status: JobStatus; stage: string; progress: number; error: string } | null
+  progress: LongFilmProgress
+  scenes: {
+    number: number
+    act: number
+    title: string
+    summary: string
+    location: string
+    characters: string[]
+    targetSeconds: number
+    script: string
+    status: LongFilmSceneSummary['status']
+    shots: { id: string; number: number; camera: string; movement: string; seconds: number; description: string; characters: string[]; dialogue: { character: string; text: string }[] }[]
+  }[]
+}

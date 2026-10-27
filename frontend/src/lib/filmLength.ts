@@ -6,8 +6,8 @@
 /** The lengths the full-length film page offers (minutes). */
 export const FILM_LENGTHS = [10, 30, 60, 120] as const
 
-const HOUR = /^(hours?|hrs?|h|hour-long|घंटे|घंटा|घंटों|घण्टे|तास|ತಾಸು|மணி\s*நேர\S*|மணிநேர\S*|மணி|గంట\S*|ಗಂಟೆ\S*|മണിക്കൂ\S*|ঘণ্টা\S*|ઘંટા\S*|કલાક\S*|ਘੰਟ\S*)/i
-const MINUTE = /^(minutes?|mins?|m|मिनट\S*|मिनिट\S*|நிமிட\S*|నిమిష\S*|ನಿಮಿಷ\S*|മിനിറ്റ\S*|মিনিট\S*|મિનિટ\S*|ਮਿੰਟ\S*)/i
+const HOUR = /^(hours?|hrs?|h|hour-long|घंट\S*|घण्ट\S*|तास\S*|ತಾಸು|மணி\s*நேர\S*|மணிநேர\S*|மணி|గంట\S*|ಗಂಟೆ\S*|മണിക്കൂ\S*|ঘণ্টা\S*|ઘંટા\S*|કલાક\S*|ਘੰਟ\S*)$/i
+const MINUTE = /^(minutes?|mins?|m|मिनट\S*|मिनिट\S*|நிமிட\S*|నిమిష\S*|ನಿಮಿಷ\S*|മിനിറ്റ\S*|মিনিট\S*|મિનિટ\S*|ਮਿੰਟ\S*)$/i
 
 /** Number words in English and Indian languages (whole and half hours are what people say). */
 const WORDS: Record<string, number> = {

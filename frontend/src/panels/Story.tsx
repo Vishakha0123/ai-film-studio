@@ -33,8 +33,14 @@ export default function Story() {
   useEffect(() => {
     if (DEMO_MODE || !project?.id) return
     let alive = true
-    getLongFilm(project.id).then(f => alive && setLongFilm(f)).catch(() => {})
-    return () => { alive = false }
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const load = () => getLongFilm(project.id).then(f => {
+      if (!alive) return
+      setLongFilm(f)
+      if (f && (!f.story || ['planning', 'writing'].includes(f.status))) timer = setTimeout(load, 4000)  // still being written
+    }).catch(() => {})
+    void load()
+    return () => { alive = false; if (timer) clearTimeout(timer) }
   }, [project?.id])
   const asked = requestedMinutes(String(project?.brief?.prompt ?? ''))
   const askedLength = asked && asked >= 10 ? nearestFilmLength(asked) : null
@@ -165,6 +171,10 @@ export default function Story() {
                 {longFilm.story.newCharacters.length > 0 && (
                   <p className="text-xs text-zinc-500">Characters added for the full-length story: {longFilm.story.newCharacters.join(', ')}</p>
                 )}
+              </div>
+            ) : longFilm && longFilm.status === 'planning' ? (
+              <div className="px-5 py-4 rounded-xl" style={{ backgroundColor: 'rgba(212,168,75,0.06)', border: '1px solid rgba(212,168,75,0.25)' }} data-testid="story-full-writing">
+                <p className="text-sm" style={{ color: '#e4e0da' }}>Writing the full-length {duration(longFilm.targetSeconds)} story and its characters… {longFilm.job?.stage ? `(${longFilm.job.stage})` : ''}</p>
               </div>
             ) : askedLength && !DEMO_MODE ? (
               <div className="px-5 py-4 rounded-xl flex flex-wrap items-center justify-between gap-3" style={{ backgroundColor: 'rgba(212,168,75,0.06)', border: '1px solid rgba(212,168,75,0.25)' }} data-testid="story-short-notice">
