@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import {
   ApiError, DEMO_MODE, generateLongFilm, getLongFilm, getLongFilmScene, getProject, pauseLongFilm, planLongFilm,
   renderLongFilm, retryLongFilmScene, retryLongFilmShot, updateLongFilm, editLongFilmScene, rewriteLongFilmScene,
-  waitForJob, assertCompleted,
+  waitForJob, assertCompleted, writeLongFilmScripts, downloadLongFilmScript,
 } from '../api'
 import { fieldCls, SaveCancel } from '../components/DirectAI'
 import type { LongFilmShot } from '../types'
@@ -15,13 +15,14 @@ export const LENGTHS = [
   { minutes: 60, label: '1 hour', note: 'Feature' },
   { minutes: 120, label: '2 hours', note: 'Full feature' },
 ]
-const BUSY = new Set(['planning', 'generating', 'rendering'])
+const BUSY = new Set(['planning', 'writing', 'generating', 'rendering'])
 const card = { backgroundColor: '#111113', border: '1px solid rgba(255,255,255,0.06)' }
 const gold = '#d4a84b'
 
 const STATUS: Record<string, { label: string; color: string }> = {
   planning: { label: 'Planning scenes', color: gold },
   planned: { label: 'Scenes planned', color: gold },
+  writing: { label: 'Writing the script', color: gold },
   generating: { label: 'Making scenes', color: '#8b7cf6' },
   paused: { label: 'Paused', color: '#a1a1aa' },
   budget_reached: { label: 'Budget cap reached', color: '#f59e0b' },
@@ -323,6 +324,15 @@ export default function FullMovie() {
   const est = film?.estimate
   const noVideo = est ? !est.liveProviders.video : false
   const canRetry = !!film && !busy
+  const written = film ? film.scenes.filter(sc => sc.scripted).length : 0
+  const saveBlob = ({ blob, filename }: { blob: Blob; filename: string }) => {
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.click()
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
+  }
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 pb-16" data-testid="full-movie">
@@ -356,6 +366,31 @@ export default function FullMovie() {
 
       {film && !replanning && film.scenes.length > 0 && est && (
         <>
+          {/* Script only — no video */}
+          <section className="rounded-xl p-5 mb-5" style={card} data-testid="movie-script">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h3 className="text-sm text-zinc-200">Script only</h3>
+                <p className="text-xs text-zinc-500 mt-1">
+                  Write every scene's script, shots and dialogue — no video, pictures or voices are made.
+                  <span className="text-zinc-400" data-testid="movie-script-count"> {written}/{film.scenes.length} scenes written.</span>
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {written < film.scenes.length && !busy && (
+                  <Button primary disabled={working} onClick={() => void act(() => writeLongFilmScripts(id))} testId="movie-write-script">
+                    {written ? 'Write the rest of the script' : 'Write the full script'}
+                  </Button>
+                )}
+                {written > 0 && (
+                  <Button disabled={working} onClick={() => void downloadLongFilmScript(id).then(saveBlob).catch(e => setError(e instanceof Error ? e.message : 'Download failed.'))} testId="movie-download-script">
+                    Download script (.txt)
+                  </Button>
+                )}
+              </div>
+            </div>
+          </section>
+
           {/* Cost and controls */}
           <section className="rounded-xl p-5 mb-5" style={card} data-testid="movie-estimate">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4 text-xs">
@@ -380,9 +415,9 @@ export default function FullMovie() {
                   {film.status === 'planned' ? 'Make the scenes' : 'Continue'}
                 </Button>
               )}
-              {film.status === 'generating' && (
+              {(film.status === 'generating' || film.status === 'writing') && (
                 <Button disabled={film.pauseRequested || working} onClick={() => void act(() => pauseLongFilm(id))} testId="movie-pause">
-                  {film.pauseRequested ? 'Pausing after this shot…' : 'Pause'}
+                  {film.pauseRequested ? (film.status === 'writing' ? 'Pausing after this scene…' : 'Pausing after this shot…') : 'Pause'}
                 </Button>
               )}
               {(film.status === 'generated' || film.status === 'rendered') && (

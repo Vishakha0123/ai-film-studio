@@ -6,7 +6,7 @@ Every route checks that the film belongs to the signed-in creator. Provider keys
 from typing import Literal
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
-from fastapi.responses import RedirectResponse
+from fastapi.responses import PlainTextResponse, RedirectResponse
 from pydantic import Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -19,10 +19,10 @@ from app.schemas import Schema
 from app.services.film_production import (FILM_TASKS_NAMES, MAX_SECONDS, MIN_SECONDS, active_film_job, estimate,
                                           production_of, progress)
 from app.services.jobs import create_job
-from app.services.scene_generator import reopen_scene
+from app.services.scene_generator import reopen_scene, screenplay_text
 
 router = APIRouter()
-BUSY = ("planning", "generating", "rendering")
+BUSY = ("planning", "writing", "generating", "rendering")
 
 
 class FilmCreate(Schema):
@@ -96,7 +96,7 @@ def _film_out(db: Session, project: Project, prod: FilmProduction) -> dict:
         "scenes": [{
             "number": sc.number, "act": sc.act, "title": sc.title, "summary": sc.summary, "location": sc.location,
             "characters": sc.characters, "targetSeconds": sc.target_seconds, "status": sc.status, "error": sc.error,
-            "shots": len(sc.shots), "shotsDone": sum(sh.status == "done" for sh in sc.shots),
+            "scripted": bool(sc.shots), "shots": len(sc.shots), "shotsDone": sum(sh.status == "done" for sh in sc.shots),
             "shotsFailed": sum(sh.status == "failed" for sh in sc.shots),
             "previewUrl": assets[sc.preview_asset_id].url if sc.preview_asset_id in assets else None,
         } for sc in scenes],
@@ -212,11 +212,37 @@ def generate_film(project_id: str, body: FilmGenerate, background: BackgroundTas
     return _film_out(db, project, prod)
 
 
+@router.post("/projects/{project_id}/film/scripts", status_code=202)
+def write_scripts(project_id: str, background: BackgroundTasks, db: Session = Depends(get_db),
+                  user: CurrentUser = Depends(get_current_user)):
+    """Scripts only: write every scene's script and shots — no video, pictures or voices are made."""
+    project, prod = _production(db, project_id, user)
+    if prod.status in BUSY:
+        raise HTTPException(409, detail="This film is already being worked on")
+    if not prod.scenes:
+        raise HTTPException(409, detail="Plan the scenes first")
+    _check_can_start(db, project, user)
+    back = prod.status if prod.status not in ("failed", "budget_reached") else ("paused" if any(sc.shots for sc in prod.scenes) else "planned")
+    job = create_job(db, background, project_id=project.id, user_id=user.id, task="film_write_scripts",
+                     params={"returnStatus": back})
+    db.refresh(prod)
+    return _film_out(db, project, prod) | {"job": _job(job)}
+
+
+@router.get("/projects/{project_id}/film/script")
+def download_script(project_id: str, db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
+    """The whole film's screenplay as a text file."""
+    project, prod = _production(db, project_id, user)
+    name = "".join(c for c in (project.title or "film") if c.isalnum() or c in " -_").strip() or "film"
+    return PlainTextResponse(screenplay_text(prod, project.title or "Untitled"), headers={
+        "Content-Disposition": f'attachment; filename="{name} - script.txt"'})
+
+
 @router.post("/projects/{project_id}/film/pause")
 def pause_film(project_id: str, db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
     """Stop after the shot that's being made now (nothing finished is lost)."""
     project, prod = _production(db, project_id, user)
-    if prod.status != "generating":
+    if prod.status not in ("generating", "writing"):
         raise HTTPException(409, detail="Nothing is being generated")
     prod.pause_requested = True
     db.commit()

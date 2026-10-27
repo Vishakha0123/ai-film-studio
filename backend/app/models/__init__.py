@@ -133,7 +133,7 @@ class FilmProduction(TimestampMixin, Base):
     target_seconds: Mapped[int] = mapped_column(Integer)
     shot_seconds: Mapped[int] = mapped_column(Integer, default=8)  # one provider clip per shot
     quality: Mapped[str] = mapped_column(String(10), default="draft")
-    # planning | planned | generating | paused | budget_reached | generated | rendering | rendered | failed
+    # planning | planned | writing (scripts only) | generating | paused | budget_reached | generated | rendering | rendered | failed
     status: Mapped[str] = mapped_column(String(20), default="planning")
     story_bible: Mapped[dict] = mapped_column(JSONType, default=dict)
     budget_cap: Mapped[float] = mapped_column(Float, default=0.0)  # hard per-film cap in USD

@@ -662,9 +662,9 @@ def _task(name: str):
     if name.startswith("film_") and name not in TASKS:
         from app.services.film_planner import task_film_plan
         from app.services.film_renderer import task_film_render
-        from app.services.scene_generator import task_film_generate, task_film_rewrite_scene
+        from app.services.scene_generator import task_film_generate, task_film_rewrite_scene, task_film_write_scripts
         TASKS.update(film_plan=task_film_plan, film_generate=task_film_generate, film_render=task_film_render,
-                     film_rewrite_scene=task_film_rewrite_scene)
+                     film_rewrite_scene=task_film_rewrite_scene, film_write_scripts=task_film_write_scripts)
     return TASKS[name]
 
 

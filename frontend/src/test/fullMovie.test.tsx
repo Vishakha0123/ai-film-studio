@@ -7,7 +7,7 @@ import { FILM_PROJECT } from '../types'
 
 const api = vi.hoisted(() => ({
   getProject: vi.fn(), getLongFilm: vi.fn(), planLongFilm: vi.fn(), generateLongFilm: vi.fn(), pauseLongFilm: vi.fn(),
-  renderLongFilm: vi.fn(), retryLongFilmScene: vi.fn(), retryLongFilmShot: vi.fn(), updateLongFilm: vi.fn(), getLongFilmScene: vi.fn(),
+  renderLongFilm: vi.fn(), writeLongFilmScripts: vi.fn(), downloadLongFilmScript: vi.fn(), retryLongFilmScene: vi.fn(), retryLongFilmShot: vi.fn(), updateLongFilm: vi.fn(), getLongFilmScene: vi.fn(),
 }))
 vi.mock('../api', async orig => ({ ...(await orig<typeof import('../api')>()), ...api, DEMO_MODE: false }))
 
@@ -24,8 +24,8 @@ function film(over: Partial<LongFilm> = {}): LongFilm {
       fullProviderCost: 126.45, currency: 'USD', budgetCap: 25, spent: 0, liveProviders: live, quality: 'draft' },
     job: null,
     scenes: [
-      { number: 1, act: 1, title: 'The letter arrives', summary: 'Paati opens it.', location: 'INT. HOUSE', characters: ['Paati'], targetSeconds: 1800, status: 'done', error: '', shots: 225, shotsDone: 225, shotsFailed: 0, previewUrl: 'http://x/s1.mp4' },
-      { number: 2, act: 3, title: 'The river', summary: 'They cross.', location: 'EXT. RIVER', characters: ['Paati'], targetSeconds: 1800, status: 'failed', error: '1 shot(s) failed — retry them.', shots: 225, shotsDone: 224, shotsFailed: 1, previewUrl: null },
+      { number: 1, act: 1, title: 'The letter arrives', summary: 'Paati opens it.', location: 'INT. HOUSE', characters: ['Paati'], targetSeconds: 1800, status: 'done', error: '', scripted: true, shots: 225, shotsDone: 225, shotsFailed: 0, previewUrl: 'http://x/s1.mp4' },
+      { number: 2, act: 3, title: 'The river', summary: 'They cross.', location: 'EXT. RIVER', characters: ['Paati'], targetSeconds: 1800, status: 'failed', error: '1 shot(s) failed — retry them.', scripted: true, shots: 225, shotsDone: 224, shotsFailed: 1, previewUrl: null },
     ],
     ...over,
   }
@@ -128,5 +128,21 @@ describe('editing a scene of the full-length film', () => {
     const [, n, body] = editApi.mock.calls[0]
     expect(n).toBe(1)
     expect(body.shots).toEqual([{ id: 'a', description: 'Wide house', camera: 'Wide', movement: 'Static', dialogue: [{ character: 'Paati', text: 'Kanna, is that you?' }] }])
+  })
+})
+
+describe('script only (no video)', () => {
+  it('writes the full script without making video, and offers the script download', async () => {
+    const unwritten = film({ scenes: film().scenes.map(s => ({ ...s, status: 'planned' as const, scripted: false, shots: 0, shotsDone: 0, shotsFailed: 0, previewUrl: null })) })
+    api.getLongFilm.mockResolvedValue(unwritten)
+    api.writeLongFilmScripts.mockResolvedValue({ ...unwritten, status: 'planned', scenes: film().scenes })
+    show()
+    expect(await screen.findByTestId('movie-script-count')).toHaveTextContent('0/2 scenes written')
+    expect(screen.queryByTestId('movie-download-script')).toBeNull()
+    await userEvent.click(screen.getByTestId('movie-write-script'))
+    expect(api.writeLongFilmScripts).toHaveBeenCalledWith('p1')
+    expect(api.generateLongFilm).not.toHaveBeenCalled()
+    expect(await screen.findByTestId('movie-download-script')).toBeInTheDocument()
+    expect(screen.getByTestId('movie-script-count')).toHaveTextContent('2/2 scenes written')
   })
 })

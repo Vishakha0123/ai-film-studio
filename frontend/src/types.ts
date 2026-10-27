@@ -420,7 +420,7 @@ export interface ProjectDocument {
 
 /* ---------- Full-length film (10 minutes – 2 hours) ---------- */
 
-export type FilmStatus = 'planning' | 'planned' | 'generating' | 'paused' | 'budget_reached' | 'generated' | 'rendering' | 'rendered' | 'failed'
+export type FilmStatus = 'planning' | 'planned' | 'writing' | 'generating' | 'paused' | 'budget_reached' | 'generated' | 'rendering' | 'rendered' | 'failed'
 
 export interface LongFilmProgress {
   scenes: number
@@ -460,6 +460,8 @@ export interface LongFilmSceneSummary {
   targetSeconds: number
   status: 'planned' | 'generating' | 'done' | 'failed'
   error: string
+  /** The scene's script and shot list are written */
+  scripted: boolean
   shots: number
   shotsDone: number
   shotsFailed: number

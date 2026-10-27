@@ -438,3 +438,15 @@ export async function editLongFilmScene(projectId: string, scene: number, edit: 
 export async function rewriteLongFilmScene(projectId: string, scene: number, instruction: string): Promise<Job> {
   return request<Job>(filmPath(projectId, `/scenes/${scene}/rewrite`), { method: 'POST', body: JSON.stringify({ instruction }) })
 }
+
+/** Scripts only: write every scene's script and shots, without making any video, pictures or voices. */
+export async function writeLongFilmScripts(projectId: string): Promise<LongFilm> {
+  return request<LongFilm>(filmPath(projectId, '/scripts'), { method: 'POST' })
+}
+
+/** The whole film's screenplay as a text file. */
+export async function downloadLongFilmScript(projectId: string): Promise<{ blob: Blob; filename: string }> {
+  const res = await requestRaw(filmPath(projectId, '/script'))
+  const name = /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') ?? '')?.[1] ?? 'script.txt'
+  return { blob: await res.blob(), filename: name }
+}

@@ -111,6 +111,60 @@ async def task_film_rewrite_scene(db: Session, job: AIJob, project: Project) -> 
     return {"scene": number, "shots": len(scene.shots)}
 
 
+async def task_film_write_scripts(db: Session, job: AIJob, project: Project) -> dict:
+    """Scripts only: write every scene's script and shot list, without making any video, picture or voice.
+    Scenes that already have a script are kept. Costs one story-model call per scene."""
+    prod = production_of(db, project.id)
+    if prod is None or not prod.scenes:
+        raise NeedsReview("Plan the scenes first.")
+    back = job.params.get("returnStatus", "planned")
+    prod.status, prod.error, prod.pause_requested = "writing", "", False
+    db.commit()
+    scenes = list(prod.scenes)
+    todo = [sc for sc in scenes if not sc.shots]
+    written = 0
+    try:
+        for i, sc in enumerate(todo):
+            check_pause(db, prod)
+            set_progress(db, job, f"Writing scene {sc.number} of {len(scenes)}", 5 + int(90 * i / max(1, len(todo))))
+            try:
+                t = time.monotonic()
+                await break_down(db, job, prod, sc)
+                written += 1
+                log.info("scene %s: script and %d shots written in %.1fs", sc.number, len(sc.shots), time.monotonic() - t)
+            except ProviderError as e:
+                sc.error = f"Script: {e}"
+                db.commit()
+    except Paused:
+        prod.status, prod.pause_requested = back, False
+        db.commit()
+        return {"paused": True, "written": written}
+    except BudgetReached as e:
+        prod.status, prod.error = "budget_reached", str(e)
+        db.commit()
+        return {"budgetReached": True, "written": written}
+    missing = [sc.number for sc in scenes if not sc.shots]
+    prod.status = back
+    prod.error = f"{len(missing)} scene script(s) could not be written — try again." if missing else ""
+    db.commit()
+    return {"written": written, "missing": missing}
+
+
+def screenplay_text(prod: FilmProduction, title: str) -> str:
+    """The whole film as one readable screenplay: every scene's script, then its shots and dialogue."""
+    out = [title.upper(), f"{len(prod.scenes)} scenes · {round(prod.target_seconds / 60)} minutes", ""]
+    for sc in prod.scenes:
+        out += ["=" * 60, f"SCENE {sc.number} — {sc.title}  (Act {sc.act} · {sc.location})", "=" * 60, ""]
+        out.append(sc.script.strip() if sc.script.strip() else f"[Not written yet] {sc.summary}")
+        if sc.shots:
+            out += ["", "SHOTS"]
+            for sh in sc.shots:
+                out.append(f"  {sh.number}. {sh.camera} · {sh.movement} · {sh.seconds:g}s — {sh.description}")
+                out += [f"       {d.get('character', '')}: {d.get('text', '')}" for d in sh.dialogue or []]
+        out.append("")
+    return "\n".join(out)
+
+
 def reopen_scene(prod: FilmProduction, scene: FilmScene) -> None:
     """A changed scene must be made (and joined) again, and the finished film no longer matches."""
     scene.status, scene.error, scene.preview_asset_id = "planned", "", None

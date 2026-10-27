@@ -835,3 +835,32 @@ test('full stack: full-length film — edit a scene by hand and with Direct the 
   expect(scene.title).toBe('Rain on the River')
   expect(scene.shots[0].dialogue[0].text).toBe('Breathe slowly, kanna.')
 })
+
+test('full stack: full-length film — script only (no video), downloaded as one file', async ({ page, request }) => {
+  await preparePage(page)
+  await page.goto('/login')
+  await page.getByRole('button', { name: 'Continue with Google' }).click()
+  await page.getByRole('button', { name: /Drama/ }).click()
+  await page.getByRole('button', { name: 'Continue with Drama' }).click()
+  await page.getByLabel('Message the AI Director').fill('A grandmother teaches her grandson to swim in the river')
+  await page.keyboard.press('Enter')
+  await expect(page.getByTestId('panel-story')).toBeVisible({ timeout: 20_000 })
+  const auth = { Authorization: 'Bearer dev:google-user@dev.local' }
+  const [p] = await (await request.get(`${API}/api/v1/projects`, { headers: auth })).json()
+  await page.goto(`/projects/${p.id}/movie`)
+  await page.getByRole('radio', { name: /2 hours/ }).click()
+  await page.getByTestId('movie-plan').click()
+  await expect(page.getByTestId('movie-status')).toHaveText('Scenes planned', { timeout: 30_000 })
+  await expect(page.getByTestId('movie-script-count')).toContainText('0/80 scenes written')
+
+  await page.getByTestId('movie-write-script').click()
+  await expect(page.getByTestId('movie-script-count')).toContainText('80/80 scenes written', { timeout: 60_000 })
+  await expect(page.getByTestId('movie-status')).toHaveText('Scenes planned')  // nothing was filmed
+  await page.getByTestId('movie-scene-80').locator('button').first().click()
+  await expect(page.getByTestId('movie-shot-80-1')).toContainText('pending')
+
+  const [download] = await Promise.all([page.waitForEvent('download'), page.getByTestId('movie-download-script').click()])
+  expect(download.suggestedFilename()).toMatch(/script\.txt$/)
+  const text = readFileSync(await download.path(), 'utf8')
+  expect(text.match(/^SCENE \d+/gm)).toHaveLength(80)
+})

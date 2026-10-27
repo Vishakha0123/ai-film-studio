@@ -23,7 +23,7 @@ MIN_SECONDS, MAX_SECONDS = 60, 2 * 60 * 60          # 1 minute (tests/pilots) to
 SCENE_SECONDS = 90                                    # average scene length the outline aims for
 OUTLINE_BATCH = 12                                    # scenes written per story-model call
 MAX_SHOT_ATTEMPTS = 3                                 # per shot, across runs; then it waits for a manual retry
-FILM_TASKS_NAMES = ("film_plan", "film_generate", "film_render", "film_rewrite_scene")
+FILM_TASKS_NAMES = ("film_plan", "film_generate", "film_render", "film_rewrite_scene", "film_write_scripts")
 FRAME_SIZES = {"16:9": (1280, 720), "9:16": (720, 1280), "1:1": (720, 720)}
 
 
@@ -146,7 +146,11 @@ def progress(prod: FilmProduction) -> dict:
 def job_stopped(db: Session, job: AIJob) -> None:
     """A film job ended with an error: leave the film in a state the creator can act on (never stuck "working")."""
     prod = production_of(db, job.project_id)
-    if prod is None or prod.status not in ("planning", "generating", "rendering"):
+    if prod is None or prod.status not in ("planning", "writing", "generating", "rendering"):
+        return
+    if prod.status == "writing":  # scripts only: nothing was being filmed, go back to where it was
+        prod.status, prod.error = job.params.get("returnStatus", "planned"), job.error or "The job stopped."
+        db.commit()
         return
     for sh in db.scalars(select(FilmShot).join(FilmScene).where(FilmScene.production_id == prod.id, FilmShot.status == "generating")).all():
         sh.status = "pending"

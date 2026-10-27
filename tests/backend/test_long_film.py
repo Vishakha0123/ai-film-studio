@@ -403,3 +403,46 @@ def test_edit_rules(client):
         db.commit()
     assert client.patch(f"/api/v1/projects/{pid}/film/scenes/1", headers=A, json={"title": "x"}).status_code == 409
     assert client.post(f"/api/v1/projects/{pid}/film/scenes/1/rewrite", headers=A, json={"instruction": "x"}).status_code == 409
+
+
+# ---------- scripts only (no video) ----------
+
+def test_write_scripts_only_makes_no_video(client):
+    pid = _planned_film(client)
+    r = client.post(f"/api/v1/projects/{pid}/film/scripts", headers=A)
+    assert r.status_code == 202, r.text
+    film = _film(client, pid)
+    assert film["status"] == "planned", film  # back where it was — nothing was filmed
+    assert all(s["scripted"] and s["shots"] > 0 and s["shotsDone"] == 0 for s in film["scenes"])
+    from app.db import SessionLocal
+    from app.models import Asset
+    with SessionLocal() as db:
+        assert db.query(Asset).filter(Asset.type.in_(("film_clip", "film_voice", "film_frame", "film_scene"))).count() == 0
+    # the whole screenplay downloads as one text file
+    d = client.get(f"/api/v1/projects/{pid}/film/script", headers=A)
+    assert d.status_code == 200 and "attachment" in d.headers["content-disposition"]
+    text = d.text
+    assert text.count("SCENE ") == 3 and "SHOTS" in text and "Line 1 of scene 1." in text
+    # writing again keeps what's written (no extra story calls)
+    from app.services import scene_generator
+    calls = []
+    real = scene_generator.break_down
+
+    async def counting(*a, **k):
+        calls.append(1)
+        return await real(*a, **k)
+
+    import pytest as _p  # noqa
+    scene_generator.break_down, saved = counting, real
+    try:
+        client.post(f"/api/v1/projects/{pid}/film/scripts", headers=A)
+    finally:
+        scene_generator.break_down = saved
+    assert calls == []
+
+
+def test_script_download_before_writing_shows_outline(client):
+    pid = _planned_film(client)
+    text = client.get(f"/api/v1/projects/{pid}/film/script", headers=A).text
+    assert "[Not written yet]" in text
+    assert client.get(f"/api/v1/projects/{pid}/film/script", headers=auth("x@y.z")).status_code == 404
