@@ -12,7 +12,7 @@ from app.providers import story_provider
 from app.services import reference_portraits
 from app.services.film_production import (OUTLINE_BATCH, BudgetReached, check_budget, production_of, scene_count,
                                           story_call_cost)
-from app.services.pipeline import NeedsReview, record_usage, set_progress, with_retry
+from app.services.pipeline import NeedsReview, record_usage, set_progress, validate_film, with_retry
 
 
 def story_bible(project: Project) -> dict:
@@ -62,14 +62,67 @@ def _fit_to_target(scenes: list[dict], target: int, shot_seconds: int) -> None:
             s["act"] = 1 if s["number"] <= acts[0] else 2 if s["number"] <= acts[1] else 3
 
 
+def _new_characters(raw: object, existing: list[dict]) -> list[dict]:
+    """The supporting cast the feature story asked for: named, not already in the film, at most 12."""
+    taken = {str(c.get("name", "")).strip().lower() for c in existing}
+    out = []
+    for c in raw if isinstance(raw, list) else []:
+        if not isinstance(c, dict) or not str(c.get("name", "")).strip():
+            continue
+        name = str(c["name"]).strip()[:120]
+        if name.lower() in taken:
+            continue
+        taken.add(name.lower())
+        out.append({"name": name, **{k: str(c.get(k) or "")[:2000] for k in
+                                     ("age", "gender", "role", "personality", "appearance", "arc", "relationships")}})
+    return out[:12]
+
+
+async def expand_story(db: Session, job: AIJob, project: Project, prod) -> dict:
+    """The teaser's premise grown into a feature-length story, with the extra characters it needs.
+    New characters join the film's cast (Characters section), each with its matched reference portrait."""
+    bible = story_bible(project)
+    check_budget(prod, story_call_cost())
+    res = await with_retry(lambda: story_provider().write_treatment(bible, minutes=round(prod.target_seconds / 60),
+                                                                    language=bible["language"]), job, db)
+    record_usage(db, job, res)
+    prod.spent = round(prod.spent + res.cost, 4)
+    data = res.data if isinstance(res.data, dict) else {}
+    memory = dict(project.memory)
+    chars = list(memory.get("characters", []))
+    added = _new_characters(data.get("characters"), chars)
+    if added:
+        next_id = max([int(c["id"]) for c in chars if str(c.get("id", "")).isdigit()] + [0]) + 1
+        chars += [{"id": str(next_id + i), **c} for i, c in enumerate(added)]
+        memory = reference_portraits.assign(validate_film({**memory, "characters": chars}))
+        project.memory = memory
+        db.commit()
+    bible = story_bible(project)
+    feature = str(data.get("story") or "").strip()
+    if feature:
+        bible["premise"], bible["story"] = bible["story"], feature
+    bible["acts"] = [a for a in data.get("acts") or [] if isinstance(a, dict)][:3]
+    bible["subplots"] = [str(x) for x in data.get("subplots") or [] if str(x).strip()][:5]
+    bible["newCharacters"] = [c["name"] for c in added]
+    return bible
+
+
 async def task_film_plan(db: Session, job: AIJob, project: Project) -> dict:
     prod = production_of(db, project.id)
     if prod is None or not project.memory:
         raise NeedsReview("Plan the film's story first, then make the full-length version.")
-    bible = story_bible(project)
-    prod.story_bible, prod.status, prod.error = bible, "planning", ""
+    prod.status, prod.error = "planning", ""
     for old in list(prod.scenes):  # a new plan replaces the old outline (nothing generated is kept from it)
         db.delete(old)
+    db.commit()
+    set_progress(db, job, "Writing the feature-length story and cast", 3)
+    try:
+        bible = await expand_story(db, job, project, prod)
+    except BudgetReached as e:
+        prod.status, prod.error = "budget_reached", str(e)
+        db.commit()
+        raise NeedsReview(str(e)) from e
+    prod.story_bible = bible
     db.commit()
     total, names = scene_count(prod.target_seconds), [c["name"] for c in bible["characters"]]
     written: list[dict] = []

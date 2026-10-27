@@ -22,6 +22,9 @@ SAMPLE_LYRICS = {
 
 
 class MockStory(StoryProvider):
+    async def write_treatment(self, bible, *, minutes, language):
+        return await _mock_treatment(bible, minutes)
+
     async def outline_scenes(self, bible, *, first, last, total, target_seconds, story_so_far, language):
         return await _mock_outline(bible, first, last, total, target_seconds)
 
@@ -111,6 +114,26 @@ async def _mock_outline(bible: dict, first: int, last: int, total: int, target_s
                        "location": ["INT. HOUSE — NIGHT", "EXT. STREET — DAY", "INT. OLD HALL — DUSK"][n % 3],
                        "characters": who, "seconds": round(target_seconds / total)})
     return ProviderResult({"scenes": scenes}, provider="mock", model="outline")
+
+
+_MOCK_CAST = [("Ravi Kumar", "45", "male", "Ally"), ("Lakshmi", "62", "female", "Mentor"), ("Inspector Rao", "50", "male", "Antagonist"),
+              ("Kavya", "11", "female", "Friend"), ("Arun", "28", "male", "Rival"), ("Meena", "35", "female", "Neighbour"),
+              ("Old Fisherman", "70", "male", "Witness"), ("Priya", "17", "female", "Messenger")]
+
+
+async def _mock_treatment(bible: dict, minutes: int) -> ProviderResult:
+    """Deterministic stand-in: a longer story in three acts and a few supporting characters."""
+    base = bible.get("story", "") or bible.get("logline", "")
+    paragraphs = max(4, min(16, round(minutes / 8)))
+    story = "\n\n".join([base] + [f"[Feature story, part {i + 2} of {paragraphs}: the story moves on — {_MOCK_BEATS[i % len(_MOCK_BEATS)]}.]"
+                                   for i in range(paragraphs - 1)])
+    existing = {c.get("name") for c in bible.get("characters", [])}
+    cast = [{"name": n, "age": a, "gender": g, "role": r, "personality": f"{r} in the longer story",
+             "appearance": f"{a}-year-old {'woman' if g == 'female' else 'man'}", "arc": "", "relationships": ""}
+            for n, a, g, r in _MOCK_CAST if n not in existing][: max(1, min(8, round(minutes / 12)))]
+    return ProviderResult({"story": story, "acts": [{"act": i, "summary": f"Act {i} of the feature."} for i in (1, 2, 3)],
+                           "subplots": ["A family secret", "A rivalry in the village"], "characters": cast},
+                          provider="mock", model="treatment")
 
 
 async def _mock_breakdown(scene: dict, shot_count: int, shot_seconds: int) -> ProviderResult:

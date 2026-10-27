@@ -37,6 +37,10 @@ class StoryProvider(ABC):
         """Return the same FilmProject dict with every text value in `language` (a code like "ta")."""
 
     # Long film (10 minutes – 2 hours): planned in steps because no model writes a feature film in one reply
+    async def write_treatment(self, bible: dict, *, minutes: int, language: str) -> ProviderResult:
+        """Return {"story", "acts", "subplots", "characters"}: the premise grown into a feature-length story and cast."""
+        raise ProviderError(f"{self.__class__.__name__} can't plan long films")
+
     async def outline_scenes(self, bible: dict, *, first: int, last: int, total: int, target_seconds: int,
                              story_so_far: list[dict], language: str) -> ProviderResult:
         """Return {"scenes": [...]} for scenes first..last of the film."""

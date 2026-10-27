@@ -18,7 +18,7 @@ const live = { story: false, image: false, video: false, tts: false }
 function film(over: Partial<LongFilm> = {}): LongFilm {
   return {
     id: 'f1', projectId: 'p1', status: 'planned', error: '', targetSeconds: 3600, shotSeconds: 8, quality: 'draft', budgetCap: 25,
-    spent: 0, pauseRequested: false, hasTestClips: false, final: null,
+    spent: 0, pauseRequested: false, hasTestClips: false, final: null, story: null,
     progress: { scenes: 2, scenesDone: 0, scenesFailed: 0, shots: 450, shotsDone: 0, shotsFailed: 0, percent: 0 },
     estimate: { scenes: 2, shots: 450, remainingShots: 450, videoSeconds: 3600, storyCalls: 2, dialogueLines: 225, estimatedCost: 0,
       fullProviderCost: 126.45, currency: 'USD', budgetCap: 25, spent: 0, liveProviders: live, quality: 'draft' },
@@ -144,5 +144,17 @@ describe('script only (no video)', () => {
     expect(api.generateLongFilm).not.toHaveBeenCalled()
     expect(await screen.findByTestId('movie-download-script')).toBeInTheDocument()
     expect(screen.getByTestId('movie-script-count')).toHaveTextContent('2/2 scenes written')
+  })
+})
+
+describe('feature story', () => {
+  it('shows the feature-length story and marks the characters added for it', async () => {
+    api.getLongFilm.mockResolvedValue(film({ story: { story: 'Part one.\n\nPart two.', acts: [], subplots: ['A family secret'], newCharacters: ['Ravi'],
+      cast: [{ name: 'Paati', age: '72', gender: 'female', role: 'Lead' }, { name: 'Ravi', age: '45', gender: 'male', role: 'Ally' }] } }))
+    show()
+    expect(await screen.findByTestId('movie-story-text')).toHaveTextContent('Part two.')
+    expect(screen.getByTestId('movie-story')).toHaveTextContent('2 characters (1 added for the full-length story)')
+    expect(screen.getByTestId('movie-cast')).toHaveTextContent('Ravi · 45 · new')
+    expect(screen.getByTestId('movie-story')).toHaveTextContent('A family secret')
   })
 })

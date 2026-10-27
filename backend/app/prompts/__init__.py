@@ -8,7 +8,8 @@ PLAN_FILM = "plan_film.v2"  # v2: writes in the chosen film language whatever th
 EDIT = "edit.v2"
 TRANSLATE_FILM = "translate_film.v1"
 FILM_OUTLINE = "film_outline.v1"      # long film: scenes in batches
-SCENE_BREAKDOWN = "scene_breakdown.v1"  # long film: one scene → script + shots
+SCENE_BREAKDOWN = "scene_breakdown.v1"
+FILM_TREATMENT = "film_treatment.v1"  # long film: one scene → script + shots
 
 
 def render(name: str, **values: object) -> str:

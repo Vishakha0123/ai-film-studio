@@ -482,6 +482,14 @@ export interface LongFilm {
   progress: LongFilmProgress
   estimate: LongFilmEstimate
   job: { id: string; task: string; status: JobStatus; stage: string; progress: number; error: string } | null
+  /** The premise grown into a feature-length story, with the cast it needs (null until planned) */
+  story: {
+    story: string
+    acts: { act: number; summary: string }[]
+    subplots: string[]
+    newCharacters: string[]
+    cast: { name: string; age: string; gender: string; role: string }[]
+  } | null
   /** Some clips are labelled placeholders (no video provider connected) */
   hasTestClips: boolean
   final: { url: string; seconds: number } | null

@@ -446,3 +446,39 @@ def test_script_download_before_writing_shows_outline(client):
     text = client.get(f"/api/v1/projects/{pid}/film/script", headers=A).text
     assert "[Not written yet]" in text
     assert client.get(f"/api/v1/projects/{pid}/film/script", headers=auth("x@y.z")).status_code == 404
+
+
+# ---------- feature-length story and cast ----------
+
+def test_two_hour_plan_writes_a_feature_story_and_adds_supporting_cast(client):
+    pid, _ = _plan(client)
+    before = client.get(f"/api/v1/projects/{pid}", headers=A).json()["memory"]
+    client.post(f"/api/v1/projects/{pid}/film", json={"targetMinutes": 120}, headers=A)
+    film = _film(client, pid)
+    assert film["status"] == "planned"
+    story = film["story"]
+    assert story["story"].count("\n\n") >= 10  # a feature story, not the teaser's premise
+    assert story["story"].startswith(before["story"][:40])
+    assert len(story["acts"]) == 3 and story["subplots"]
+    after = client.get(f"/api/v1/projects/{pid}", headers=A).json()["memory"]["characters"]
+    old_names = {c["name"] for c in before["characters"]}
+    new = [c for c in after if c["name"] not in old_names]
+    assert len(new) == 8 and story["newCharacters"] == [c["name"] for c in new]
+    assert all(c["age"] and c["gender"] in ("female", "male") and c["id"] for c in new)
+    assert len({c["id"] for c in after}) == len(after)  # unique ids
+    # the scenes use the new characters too, and the script file starts with the story and cast
+    used = {n for s in film["scenes"] for n in s["characters"]}
+    assert used & {c["name"] for c in new}
+    text = client.get(f"/api/v1/projects/{pid}/film/script", headers=A).text
+    assert text.index("STORY") < text.index("CHARACTERS") < text.index("SCENE 1")
+    # planning again doesn't add the same people twice
+    client.post(f"/api/v1/projects/{pid}/film", json={"targetMinutes": 120}, headers=A)
+    again = client.get(f"/api/v1/projects/{pid}", headers=A).json()["memory"]["characters"]
+    assert len(again) == len(after)
+
+
+def test_ten_minute_plan_adds_only_a_small_cast(client):
+    pid, _ = _plan(client)
+    n = len(client.get(f"/api/v1/projects/{pid}", headers=A).json()["memory"]["characters"])
+    client.post(f"/api/v1/projects/{pid}/film", json={"targetMinutes": 10}, headers=A)
+    assert len(client.get(f"/api/v1/projects/{pid}", headers=A).json()["memory"]["characters"]) == n + 1

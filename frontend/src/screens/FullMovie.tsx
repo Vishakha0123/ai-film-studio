@@ -366,6 +366,32 @@ export default function FullMovie() {
 
       {film && !replanning && film.scenes.length > 0 && est && (
         <>
+          {/* The feature-length story and cast */}
+          {film.story && (
+            <section className="rounded-xl p-5 mb-5" style={card} data-testid="movie-story">
+              <h3 className="text-sm text-zinc-200 mb-1">Feature story</h3>
+              <p className="text-[11px] text-zinc-500 mb-3">Your film's idea, grown into a {duration(film.targetSeconds)} story — the scenes are written from it.</p>
+              <div className="text-sm text-zinc-300 leading-relaxed whitespace-pre-line max-h-72 overflow-y-auto pr-2" data-testid="movie-story-text">{film.story.story}</div>
+              {film.story.subplots.length > 0 && (
+                <p className="text-xs text-zinc-400 mt-3"><span className="text-zinc-500">Subplots: </span>{film.story.subplots.join(' · ')}</p>
+              )}
+              <div className="mt-4">
+                <p className="text-[11px] text-zinc-500 mb-2">Cast · {film.story.cast.length} characters{film.story.newCharacters.length ? ` (${film.story.newCharacters.length} added for the full-length story)` : ''}</p>
+                <div className="flex flex-wrap gap-2" data-testid="movie-cast">
+                  {film.story.cast.map(c => {
+                    const isNew = film.story!.newCharacters.includes(c.name)
+                    return (
+                      <span key={c.name} className="text-xs px-2.5 py-1 rounded-full border" title={c.role}
+                        style={{ borderColor: isNew ? 'rgba(212,168,75,0.4)' : 'rgba(255,255,255,0.1)', color: isNew ? gold : '#d4d4d8' }}>
+                        {c.name}{c.age ? ` · ${c.age}` : ''}{isNew ? ' · new' : ''}
+                      </span>
+                    )
+                  })}
+                </div>
+              </div>
+            </section>
+          )}
+
           {/* Script only — no video */}
           <section className="rounded-xl p-5 mb-5" style={card} data-testid="movie-script">
             <div className="flex flex-wrap items-start justify-between gap-3">

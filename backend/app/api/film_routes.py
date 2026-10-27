@@ -79,6 +79,7 @@ def _check_budget_cap(value: float | None) -> float:
 
 def _film_out(db: Session, project: Project, prod: FilmProduction) -> dict:
     scenes = list(prod.scenes)
+    bible = prod.story_bible or {}
     assets = _urls(db, [sc.preview_asset_id for sc in scenes] + [prod.final_asset_id])
     final = assets.get(prod.final_asset_id or "")
     last = db.scalars(select(AIJob).where(AIJob.project_id == project.id, AIJob.task.in_(FILM_TASKS_NAMES))
@@ -92,6 +93,10 @@ def _film_out(db: Session, project: Project, prod: FilmProduction) -> dict:
         "budgetCap": prod.budget_cap, "spent": round(prod.spent, 4), "pauseRequested": prod.pause_requested,
         "progress": progress(prod), "estimate": estimate(db, prod), "job": _job(active_film_job(db, project.id) or last),
         "hasTestClips": test_clips,
+        "story": {"story": bible.get("story", ""), "acts": bible.get("acts", []), "subplots": bible.get("subplots", []),
+                  "newCharacters": bible.get("newCharacters", []),
+                  "cast": [{"name": c.get("name"), "age": c.get("age", ""), "gender": c.get("gender", ""), "role": c.get("role", "")}
+                           for c in bible.get("characters", [])]} if bible.get("story") else None,
         "final": {"url": final.url, "seconds": final.meta.get("seconds")} if final and final.status == "ready" else None,
         "scenes": [{
             "number": sc.number, "act": sc.act, "title": sc.title, "summary": sc.summary, "location": sc.location,

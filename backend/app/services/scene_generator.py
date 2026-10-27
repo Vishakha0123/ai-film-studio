@@ -153,6 +153,12 @@ async def task_film_write_scripts(db: Session, job: AIJob, project: Project) -> 
 def screenplay_text(prod: FilmProduction, title: str) -> str:
     """The whole film as one readable screenplay: every scene's script, then its shots and dialogue."""
     out = [title.upper(), f"{len(prod.scenes)} scenes · {round(prod.target_seconds / 60)} minutes", ""]
+    bible = prod.story_bible or {}
+    if bible.get("story"):
+        out += ["STORY", "", bible["story"].strip(), ""]
+    if bible.get("characters"):
+        out += ["CHARACTERS"] + [f"  {c.get('name')} ({', '.join(x for x in (c.get('age', ''), c.get('gender', ''), c.get('role', '')) if x)})"
+                                 for c in bible["characters"]] + [""]
     for sc in prod.scenes:
         out += ["=" * 60, f"SCENE {sc.number} — {sc.title}  (Act {sc.act} · {sc.location})", "=" * 60, ""]
         out.append(sc.script.strip() if sc.script.strip() else f"[Not written yet] {sc.summary}")
