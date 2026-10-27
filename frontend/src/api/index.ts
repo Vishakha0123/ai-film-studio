@@ -447,6 +447,8 @@ export async function writeLongFilmScripts(projectId: string): Promise<LongFilm>
 /** The whole film's screenplay as a text file. */
 export async function downloadLongFilmScript(projectId: string): Promise<{ blob: Blob; filename: string }> {
   const res = await requestRaw(filmPath(projectId, '/script'))
-  const name = /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') ?? '')?.[1] ?? 'script.txt'
+  const header = res.headers.get('Content-Disposition') ?? ''
+  const utf8 = /filename\*=UTF-8''([^;]+)/i.exec(header)?.[1]
+  const name = (utf8 && decodeURIComponent(utf8)) || /filename="([^"]+)"/.exec(header)?.[1] || 'script.txt'
   return { blob: await res.blob(), filename: name }
 }

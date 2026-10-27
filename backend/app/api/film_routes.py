@@ -4,6 +4,7 @@ Every route checks that the film belongs to the signed-in creator. Provider keys
 """
 
 from typing import Literal
+from urllib.parse import quote
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from fastapi.responses import PlainTextResponse, RedirectResponse
@@ -238,9 +239,12 @@ def write_scripts(project_id: str, background: BackgroundTasks, db: Session = De
 def download_script(project_id: str, db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
     """The whole film's screenplay as a text file."""
     project, prod = _production(db, project_id, user)
-    name = "".join(c for c in (project.title or "film") if c.isalnum() or c in " -_").strip() or "film"
+    name = "".join(c for c in (project.title or "film") if c.isprintable() and c not in '\\/:*?"<>|').strip() or "film"
+    # HTTP headers are Latin-1 only: an ASCII fallback name, plus the real (e.g. Hindi) name encoded per RFC 6266
+    ascii_name = "".join(c for c in name if c.isascii()).strip() or "film"
     return PlainTextResponse(screenplay_text(prod, project.title or "Untitled"), headers={
-        "Content-Disposition": f'attachment; filename="{name} - script.txt"'})
+        "Content-Disposition": f'attachment; filename="{ascii_name} - script.txt"; '
+                               f"filename*=UTF-8''{quote(name + ' - script.txt')}"})
 
 
 @router.post("/projects/{project_id}/film/pause")

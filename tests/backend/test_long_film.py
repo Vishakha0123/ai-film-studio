@@ -482,3 +482,15 @@ def test_ten_minute_plan_adds_only_a_small_cast(client):
     n = len(client.get(f"/api/v1/projects/{pid}", headers=A).json()["memory"]["characters"])
     client.post(f"/api/v1/projects/{pid}/film", json={"targetMinutes": 10}, headers=A)
     assert len(client.get(f"/api/v1/projects/{pid}", headers=A).json()["memory"]["characters"]) == n + 1
+
+
+def test_script_download_with_a_hindi_title(client):
+    pid = _planned_film(client)
+    client.patch(f"/api/v1/projects/{pid}", json={"title": "मिटा हुआ जीवन"}, headers=A)
+    d = client.get(f"/api/v1/projects/{pid}/film/script", headers=A)
+    assert d.status_code == 200
+    from urllib.parse import unquote
+    cd = d.headers["content-disposition"]
+    assert 'filename="film - script.txt"' in cd
+    assert unquote(cd.split("filename*=UTF-8''")[1]) == "मिटा हुआ जीवन - script.txt"
+    assert d.text.startswith("मिटा हुआ जीवन")
