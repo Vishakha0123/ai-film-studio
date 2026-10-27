@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { nearestFilmLength, requestedMinutes } from '../lib/filmLength'
 import {
   ApiError, DEMO_MODE, generateLongFilm, getLongFilm, getLongFilmScene, getProject, pauseLongFilm, planLongFilm,
   renderLongFilm, retryLongFilmScene, retryLongFilmShot, updateLongFilm, editLongFilmScene, rewriteLongFilmScene,
@@ -56,14 +57,15 @@ function Button({ children, onClick, primary, disabled, testId }: { children: Re
 }
 
 /** Choose the length, budget cap and quality, then plan the scenes. */
-function Setup({ film, busy, onPlan, onCancel }: { film: LongFilm | null; busy: boolean; onPlan: (minutes: number, cap: number, quality: 'draft' | 'final') => void; onCancel?: () => void }) {
-  const [minutes, setMinutes] = useState(film ? Math.round(film.targetSeconds / 60) : 10)
+function Setup({ film, busy, asked, onPlan, onCancel }: { film: LongFilm | null; busy: boolean; asked: number | null; onPlan: (minutes: number, cap: number, quality: 'draft' | 'final') => void; onCancel?: () => void }) {
+  const [minutes, setMinutes] = useState(asked ?? (film ? Math.round(film.targetSeconds / 60) : 10))
   const [cap, setCap] = useState(String(film?.budgetCap ?? 25))
   const [quality, setQuality] = useState<'draft' | 'final'>(film?.quality ?? 'draft')
   const capValue = Number(cap)
   return (
     <section className="rounded-xl p-5 sm:p-6" style={card} data-testid="movie-setup">
       <h3 className="text-lg font-light mb-1" style={{ fontFamily: 'Fraunces, Georgia, serif', color: '#f4f0ea' }}>How long should the film be?</h3>
+      {asked && <p className="text-xs mb-2" style={{ color: gold }} data-testid="movie-asked">You asked for this length in your idea — it's selected below.</p>}
       <p className="text-xs text-zinc-500 mb-4">The story, cast and look come from the film you planned. It's written and made scene by scene, so you can watch each scene as it's ready.</p>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-5" role="radiogroup" aria-label="Film length">
         {LENGTHS.map(l => (
@@ -283,6 +285,7 @@ export default function FullMovie() {
   const [working, setWorking] = useState(false)
   const [replanning, setReplanning] = useState(false)
   const [confirm, setConfirm] = useState<string | null>(null)
+  const [search] = useSearchParams()
 
   useEffect(() => {
     let alive = true
@@ -355,7 +358,11 @@ export default function FullMovie() {
       {error && <p role="alert" className="text-xs text-red-300 mb-4">{error}</p>}
 
       {planned && (!film || replanning || (film.status === 'failed' && film.scenes.length === 0)) && (
-        <Setup film={film} busy={working} onCancel={film && replanning ? () => setReplanning(false) : undefined}
+        <Setup film={film} busy={working} asked={(() => {
+          // the length chosen in the AI Director (?minutes=120), else one written in the idea ("a 2-hour film")
+          const n = Number(search.get('minutes')) || requestedMinutes(String(project.brief?.prompt ?? ''))
+          return n && !replanning ? nearestFilmLength(n) : null
+        })()} onCancel={film && replanning ? () => setReplanning(false) : undefined}
           onPlan={(m, cap, q) => void act(() => planLongFilm(id, m, cap, q)).then(ok => ok && setReplanning(false))} />
       )}
 

@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { lengthLabel, nearestFilmLength, requestedMinutes } from '../lib/filmLength'
 import { isTeaserLocked } from '../features'
 import { ComingSoonButton } from '../components/LockIcon'
 import type { Panel, ChatMessage, FilmProject } from '../types'
@@ -225,6 +227,16 @@ export default function Chat({ progress, onAdvance, onGenerate, onOpenPanel, gen
           card: undefined,
         }
         setMessages(m => [...m, { id: (Date.now() + 1).toString(), role: 'ai', content: response.text, card: response.card }])
+        // "I want a 2-hour movie": the plan is the short version; offer the full-length film (never start it unasked)
+        const asked = !DEMO_MODE && planned ? requestedMinutes(text) : null
+        if (asked && asked >= 10) {
+          const minutes = nearestFilmLength(asked)
+          const capped = asked > 120 ? ' Full-length films go up to 2 hours for now, so I\'ll plan 2 hours.' : ''
+          setMessages(m => [...m, {
+            id: (Date.now() + 2).toString(), role: 'ai', card: 'movie', movieMinutes: minutes,
+            content: `You asked for a ${lengthLabel(asked)} film. The story above is the short version — shall I plan the full ${lengthLabel(minutes)} film? I'll grow it into a full-length story, add the characters it needs and plan every scene. You'll see the scenes and the cost before anything is made.${capped}`,
+          }])
+        }
         setIsTyping(false)
         setStatus('')
         onAdvance()
@@ -323,7 +335,7 @@ export default function Chat({ progress, onAdvance, onGenerate, onOpenPanel, gen
                 )}
               </div>
 
-              {msg.card && <MessageCard card={msg.card} onGenerate={onGenerate} onOpenPanel={onOpenPanel} />}
+              {msg.card && <MessageCard card={msg.card} movieMinutes={msg.movieMinutes} onGenerate={onGenerate} onOpenPanel={onOpenPanel} />}
             </div>
           </div>
         ))}
@@ -484,8 +496,10 @@ const CARD_PANEL: Partial<Record<NonNullable<ChatMessage['card']>, Panel>> = {
   storyboard: 'storyboard',
 }
 
-function MessageCard({ card, onGenerate, onOpenPanel }: { card: NonNullable<ChatMessage['card']>; onGenerate: () => void; onOpenPanel?: (p: Panel) => void }) {
+function MessageCard({ card, movieMinutes, onGenerate, onOpenPanel }: { card: NonNullable<ChatMessage['card']>; movieMinutes?: number; onGenerate: () => void; onOpenPanel?: (p: Panel) => void }) {
   const f = useFilm()
+  const { project } = useStudio()
+  const navigate = useNavigate()
   const secs = filmSeconds(f)
   const configs: Record<string, { label: string; color: string; desc: string }> = {
     story: { label: 'Story Generated', color: '#d4a84b', desc: `${f.title} · ${f.genre}` },
@@ -496,11 +510,13 @@ function MessageCard({ card, onGenerate, onOpenPanel }: { card: NonNullable<Chat
     scenes: { label: 'Scenes Broken Down', color: '#f97316', desc: `${f.scenes.length} scenes · ${secs}s total duration` },
     storyboard: { label: 'Storyboard Ready', color: '#ec4899', desc: `${f.shots.length} shots · Dark Cinema visual style` },
     generate: { label: 'Ready to Generate', color: '#d4a84b', desc: `All components complete · ${secs}s teaser` },
+    movie: { label: 'Full-length film', color: '#d4a84b', desc: `${lengthLabel(movieMinutes ?? 120)} · story, cast and every scene` },
   }
 
   const config = configs[card]
   if (!config) return null
   const target = CARD_PANEL[card]
+  if (card === 'movie' && !project) return null
 
   return (
     <div
@@ -519,11 +535,13 @@ function MessageCard({ card, onGenerate, onOpenPanel }: { card: NonNullable<Chat
       </div>
       {card === 'generate' && isTeaserLocked() ? <ComingSoonButton label="Generate" className="text-xs px-3 py-1.5 flex-shrink-0" /> : (
       <button
-        onClick={card === 'generate' ? onGenerate : target && onOpenPanel ? () => onOpenPanel(target) : undefined}
+        onClick={card === 'generate' ? onGenerate
+          : card === 'movie' ? () => navigate(`/projects/${encodeURIComponent(project!.id)}/movie?minutes=${movieMinutes ?? 120}`)
+          : target && onOpenPanel ? () => onOpenPanel(target) : undefined}
         className="text-xs px-3 py-1.5 rounded-lg border transition-all hover:opacity-80 flex-shrink-0"
         style={{ borderColor: `${config.color}40`, color: config.color, backgroundColor: `${config.color}10` }}
       >
-        {card === 'generate' ? 'Generate ▶' : 'View →'}
+        {card === 'generate' ? 'Generate ▶' : card === 'movie' ? 'Plan it →' : 'View →'}
       </button>
       )}
     </div>

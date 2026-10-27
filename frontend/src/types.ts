@@ -9,7 +9,9 @@ export interface ChatMessage {
   id: string
   role: 'user' | 'ai'
   content: string
-  card?: 'story' | 'characters' | 'screenplay' | 'dialogue' | 'lyrics' | 'scenes' | 'storyboard' | 'generate'
+  card?: 'story' | 'characters' | 'screenplay' | 'dialogue' | 'lyrics' | 'scenes' | 'storyboard' | 'generate' | 'movie'
+  /** card 'movie': the full-length film the creator asked for, in minutes */
+  movieMinutes?: number
   /** File names the creator attached to this message */
   attachments?: string[]
 }

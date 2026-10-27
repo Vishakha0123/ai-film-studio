@@ -494,3 +494,12 @@ def test_script_download_with_a_hindi_title(client):
     assert 'filename="film - script.txt"' in cd
     assert unquote(cd.split("filename*=UTF-8''")[1]) == "मिटा हुआ जीवन - script.txt"
     assert d.text.startswith("मिटा हुआ जीवन")
+
+
+def test_chat_keeps_the_full_length_film_offer(client):
+    pid, _ = _plan(client)
+    msgs = [{"id": "1", "role": "user", "content": "I want a 2 hour movie"},
+            {"id": "2", "role": "ai", "content": "Shall I plan the full 2-hour film?", "card": "movie", "movieMinutes": 120}]
+    assert client.put(f"/api/v1/projects/{pid}/chat", json={"messages": msgs}, headers=A).status_code == 204
+    chat = client.get(f"/api/v1/projects/{pid}", headers=A).json()["chat"]
+    assert chat[1]["card"] == "movie" and chat[1]["movieMinutes"] == 120
