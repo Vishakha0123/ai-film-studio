@@ -524,3 +524,24 @@ def test_full_film_view_is_owner_only_and_empty_without_a_film(client):
     pid, _ = _plan(client)
     assert client.get(f"/api/v1/projects/{pid}/film/full", headers=A).json() is None
     assert client.get(f"/api/v1/projects/{pid}/film/full", headers=auth("x@y.z")).status_code == 404
+
+
+def test_script_pdf_download(client):
+    pid = _planned_film(client)
+    client.post(f"/api/v1/projects/{pid}/film/scripts", headers=A)
+    client.patch(f"/api/v1/projects/{pid}", json={"title": "मिटा हुआ जीवन"}, headers=A)
+    d = client.get(f"/api/v1/projects/{pid}/film/script?format=pdf", headers=A)
+    assert d.status_code == 200 and d.headers["content-type"] == "application/pdf"
+    assert d.content[:5] == b"%PDF-" and "script.pdf" in d.headers["content-disposition"]
+    from io import BytesIO
+    from pypdf import PdfReader
+    text = "".join(p.extract_text() for p in PdfReader(BytesIO(d.content)).pages)
+    assert "SCENE 3" in text and "Line 1 of scene 1." in text
+    assert client.get(f"/api/v1/projects/{pid}/film/script?format=doc", headers=A).status_code == 422
+
+
+def test_pdf_splits_mixed_scripts_into_font_runs():
+    from app.services.film_pdf import runs
+    assert runs("Paati: अप्पा, இதை read") == [("Noto", "Paati: "), ("NotoDevanagari", "अप्पा"), ("Noto", ", "),
+                                               ("NotoTamil", "இதை "), ("Noto", "read")]
+    assert runs("सुनीता नाव की रस्सी कसती है।") == [("NotoDevanagari", "सुनीता नाव की रस्सी कसती है।")]

@@ -7,6 +7,8 @@ import {
   waitForJob, assertCompleted, writeLongFilmScripts, downloadLongFilmScript,
 } from '../api'
 import { fieldCls, SaveCancel } from '../components/DirectAI'
+import LockIcon, { ComingSoonButton } from '../components/LockIcon'
+import { isVideoLocked } from '../features'
 import type { LongFilmShot } from '../types'
 import type { LongFilm, LongFilmScene, LongFilmSceneSummary, ProjectData } from '../types'
 
@@ -66,7 +68,7 @@ function Setup({ film, busy, asked, onPlan, onCancel }: { film: LongFilm | null;
     <section className="rounded-xl p-5 sm:p-6" style={card} data-testid="movie-setup">
       <h3 className="text-lg font-light mb-1" style={{ fontFamily: 'Fraunces, Georgia, serif', color: '#f4f0ea' }}>How long should the film be?</h3>
       {asked && <p className="text-xs mb-2" style={{ color: gold }} data-testid="movie-asked">You asked for this length in your idea — it's selected below.</p>}
-      <p className="text-xs text-zinc-500 mb-4">The story, cast and look come from the film you planned. It's written and made scene by scene, so you can watch each scene as it's ready.</p>
+      <p className="text-xs text-zinc-500 mb-4">The story, cast and look come from the film you planned. {isVideoLocked() ? "It's grown into a full-length story with its cast, then written scene by scene." : "It's written and made scene by scene, so you can watch each scene as it's ready."}</p>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-5" role="radiogroup" aria-label="Film length">
         {LENGTHS.map(l => (
           <button key={l.minutes} type="button" role="radio" aria-checked={minutes === l.minutes} onClick={() => setMinutes(l.minutes)}
@@ -77,6 +79,11 @@ function Setup({ film, busy, asked, onPlan, onCancel }: { film: LongFilm | null;
           </button>
         ))}
       </div>
+      {isVideoLocked() ? (
+        <p className="flex items-center gap-2 text-xs text-zinc-500 mb-5" data-testid="movie-budget-locked">
+          <LockIcon /> Budget cap and video quality — <span className="uppercase tracking-wider text-[10px] text-zinc-600">Coming soon</span> (with video). Planning writes the story, cast and scenes only.
+        </p>
+      ) : (
       <div className="flex flex-wrap gap-4 mb-5">
         <label className="text-xs text-zinc-400">
           <span className="block mb-1">Budget cap (USD) — work stops before going over it</span>
@@ -92,6 +99,7 @@ function Setup({ film, busy, asked, onPlan, onCancel }: { film: LongFilm | null;
           </select>
         </label>
       </div>
+      )}
       {film && film.scenes.length > 0 && <p className="text-[11px] text-amber-300/80 mb-3">Planning again replaces the current scenes and everything made from them.</p>}
       <div className="flex gap-2">
         <Button primary disabled={busy || !(capValue >= 0) || cap === ''} onClick={() => onPlan(minutes, capValue, quality)} testId="movie-plan">
@@ -222,15 +230,24 @@ function SceneRow({ projectId, scene, canRetry, onChanged, onError, onRefresh }:
           <span className="block text-sm text-zinc-200 truncate">{scene.title}</span>
           <span className="block text-[11px] text-zinc-500 truncate">Act {scene.act} · {scene.location || 'Location TBD'} · {duration(scene.targetSeconds)}</span>
         </span>
-        <span className="text-[11px] text-zinc-500 hidden sm:block">{scene.shots ? `${scene.shotsDone}/${scene.shots} shots` : ''}</span>
-        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0" style={{ backgroundColor: `${st.color}22`, color: st.color }}>{st.label}</span>
+        {isVideoLocked() ? (
+          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0"
+            style={scene.scripted ? { backgroundColor: '#10b98122', color: '#10b981' } : { backgroundColor: '#71717a22', color: '#71717a' }}>
+            {scene.scripted ? `Script ready · ${scene.shots} shots` : 'Outline'}
+          </span>
+        ) : (
+          <>
+            <span className="text-[11px] text-zinc-500 hidden sm:block">{scene.shots ? `${scene.shotsDone}/${scene.shots} shots` : ''}</span>
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0" style={{ backgroundColor: `${st.color}22`, color: st.color }}>{st.label}</span>
+          </>
+        )}
       </button>
       {open && (
         <div className="px-4 pb-4 border-t" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
           <p className="text-xs text-zinc-400 leading-relaxed mt-3">{scene.summary}</p>
           {scene.error && <p className="text-xs text-red-300 mt-2">{scene.error}</p>}
           {scene.previewUrl && <video controls preload="none" src={scene.previewUrl} className="w-full max-w-xl mt-3 rounded-lg bg-black" data-testid={`movie-scene-preview-${scene.number}`} />}
-          {scene.status === 'failed' && canRetry && (
+          {scene.status === 'failed' && canRetry && !isVideoLocked() && (
             <div className="mt-3"><Button onClick={() => void retry(() => retryLongFilmScene(projectId, scene.number))} testId={`movie-retry-scene-${scene.number}`}>Retry this scene</Button></div>
           )}
           {detail && canRetry && !editing && (
@@ -260,9 +277,9 @@ function SceneRow({ projectId, scene, canRetry, onChanged, onError, onRefresh }:
                     {sh.dialogue.map((d, i) => <span key={i} className="block text-zinc-400 italic">{d.character}: “{d.text}”</span>)}
                     {sh.error && <span className="block text-red-300">{sh.error}</span>}
                   </span>
-                  {sh.clipKind === 'test' && <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400">Test clip</span>}
-                  <span className="text-[10px] text-zinc-500 w-14 text-right">{sh.status}</span>
-                  {sh.status === 'failed' && canRetry && (
+                  {!isVideoLocked() && sh.clipKind === 'test' && <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400">Test clip</span>}
+                  {!isVideoLocked() && <span className="text-[10px] text-zinc-500 w-14 text-right">{sh.status}</span>}
+                  {sh.status === 'failed' && canRetry && !isVideoLocked() && (
                     <button type="button" onClick={() => void retry(() => retryLongFilmShot(projectId, sh.id))} className="text-[11px]" style={{ color: gold }} data-testid={`movie-retry-shot-${scene.number}-${sh.number}`}>Retry</button>
                   )}
                 </li>
@@ -285,6 +302,7 @@ export default function FullMovie() {
   const [working, setWorking] = useState(false)
   const [replanning, setReplanning] = useState(false)
   const [confirm, setConfirm] = useState<string | null>(null)
+  const [downloading, setDownloading] = useState<'pdf' | 'txt' | null>(null)
   const [search] = useSearchParams()
 
   useEffect(() => {
@@ -348,7 +366,7 @@ export default function FullMovie() {
 
       {!planned && <p className="text-sm text-zinc-400">Plan the film’s story in the AI Director first — the full-length version is built from it.</p>}
 
-      {planned && (noVideo || !film) && (
+      {planned && (noVideo || !film) && !isVideoLocked() && (
         <div className="rounded-lg px-4 py-3 mb-5 text-xs leading-relaxed" style={{ backgroundColor: 'rgba(245,158,11,0.07)', border: '1px solid rgba(245,158,11,0.25)', color: '#fcd34d' }} data-testid="movie-test-notice">
           No video model is connected, so every shot is a labelled <b>TEST CLIP</b> card (the shot’s description, with test voice tones) — not real footage.
           It shows the film’s scenes, timing and assembly. Real footage needs a video model and an image model set up on the server.
@@ -415,16 +433,47 @@ export default function FullMovie() {
                     {written ? 'Write the rest of the script' : 'Write the full script'}
                   </Button>
                 )}
-                {written > 0 && (
-                  <Button disabled={working} onClick={() => void downloadLongFilmScript(id).then(saveBlob).catch(e => setError(e instanceof Error ? e.message : 'Download failed.'))} testId="movie-download-script">
-                    Download script (.txt)
+                {written > 0 && (['pdf', 'txt'] as const).map(fmt => (
+                  <Button key={fmt} disabled={working || downloading === fmt}
+                    onClick={() => {
+                      setDownloading(fmt)
+                      void downloadLongFilmScript(id, fmt).then(saveBlob)
+                        .catch(e => setError(e instanceof Error ? e.message : 'Download failed.'))
+                        .finally(() => setDownloading(null))
+                    }}
+                    testId={`movie-download-script-${fmt}`}>
+                    {downloading === fmt ? 'Preparing…' : `Download ${fmt.toUpperCase()}`}
                   </Button>
-                )}
+                ))}
               </div>
             </div>
           </section>
 
+          {/* While video is locked: progress, pause and length only — no cost, budget or video controls */}
+          {isVideoLocked() && (
+            <section className="rounded-xl p-5 mb-5" style={card} data-testid="movie-video-locked">
+              {busy && film.job && (
+                <div className="mb-4">
+                  <div className="flex justify-between text-[11px] text-zinc-500 mb-1"><span data-testid="movie-stage">{film.job.stage || 'Starting…'}</span><span>{film.job.progress}%</span></div>
+                  <div className="h-1.5 rounded-full bg-zinc-800 overflow-hidden"><div className="h-full rounded-full transition-all" style={{ width: `${film.job.progress}%`, backgroundColor: gold }} /></div>
+                </div>
+              )}
+              {!busy && film.error && <p className="text-xs text-amber-300 mb-3" data-testid="movie-error">{film.error}</p>}
+              <div className="flex flex-wrap items-center gap-2">
+                <ComingSoonButton label="Make the video" className="px-4 py-2 text-xs" testId="movie-generate-locked" />
+                {film.status === 'writing' && (
+                  <Button disabled={film.pauseRequested || working} onClick={() => void act(() => pauseLongFilm(id))} testId="movie-pause">
+                    {film.pauseRequested ? 'Pausing after this scene…' : 'Pause'}
+                  </Button>
+                )}
+                {!busy && <Button disabled={working} onClick={() => setReplanning(true)} testId="movie-replan">Change length</Button>}
+              </div>
+              <p className="text-[11px] text-zinc-600 mt-3">Video, voices, cost estimate and budget cap are coming soon. The story, cast, scenes and scripts are ready to use now.</p>
+            </section>
+          )}
+
           {/* Cost and controls */}
+          {!isVideoLocked() && (
           <section className="rounded-xl p-5 mb-5" style={card} data-testid="movie-estimate">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4 text-xs">
               <div><span className="block text-zinc-500">Still to make</span><span className="text-zinc-200 text-sm">{est.remainingShots} shots · {duration(est.videoSeconds)}</span></div>
@@ -476,6 +525,7 @@ export default function FullMovie() {
               </div>
             )}
           </section>
+          )}
 
           {/* The finished film */}
           {film.final && (
@@ -489,7 +539,7 @@ export default function FullMovie() {
           )}
 
           {/* Scenes */}
-          <h3 className="text-sm text-zinc-300 mb-3">Scenes <span className="text-zinc-600">· {film.progress.scenesDone}/{film.progress.scenes} ready</span></h3>
+          <h3 className="text-sm text-zinc-300 mb-3">Scenes <span className="text-zinc-600">· {isVideoLocked() ? `${written}/${film.scenes.length} scripts written` : `${film.progress.scenesDone}/${film.progress.scenes} ready`}</span></h3>
           <ol className="space-y-2" data-testid="movie-scenes">
             {film.scenes.map(sc => <SceneRow key={sc.number} projectId={id} scene={sc} canRetry={canRetry} onChanged={setFilm} onError={setError}
               onRefresh={() => { getLongFilm(id).then(f => f && setFilm(f)).catch(() => {}) }} />)}

@@ -859,10 +859,14 @@ test('full stack: full-length film — script only (no video), downloaded as one
   await page.getByTestId('movie-scene-80').locator('button').first().click()
   await expect(page.getByTestId('movie-shot-80-1')).toContainText('pending')
 
-  const [download] = await Promise.all([page.waitForEvent('download'), page.getByTestId('movie-download-script').click()])
+  const [download] = await Promise.all([page.waitForEvent('download'), page.getByTestId('movie-download-script-txt').click()])
   expect(download.suggestedFilename()).toMatch(/script\.txt$/)
   const text = readFileSync(await download.path(), 'utf8')
   expect(text.match(/^SCENE \d+/gm)).toHaveLength(80)
+  // …and the same screenplay as a PDF
+  const [pdf] = await Promise.all([page.waitForEvent('download'), page.getByTestId('movie-download-script-pdf').click()])
+  expect(pdf.suggestedFilename()).toMatch(/script\.pdf$/)
+  expect(readFileSync(await pdf.path()).subarray(0, 5).toString()).toBe('%PDF-')
 })
 
 test('full stack: "I want a 2 hour movie" → the full-length film is written straight away and every section shows it', async ({ page, request }) => {

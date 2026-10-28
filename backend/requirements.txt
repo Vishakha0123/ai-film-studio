@@ -11,3 +11,5 @@ arq>=0.26
 python-multipart>=0.0.9
 pypdf>=4
 Pillow>=10.1
+fpdf2>=2.8
+uharfbuzz>=0.39

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
@@ -44,7 +44,9 @@ beforeEach(() => {
   api.getProject.mockResolvedValue({ id: 'p1', title: 'Paati', genre: 'Drama', status: 'planned', memory: FILM_PROJECT, assets: [] })
 })
 
-describe('full-length film page', () => {
+describe('full-length film page (video unlocked)', () => {
+  beforeEach(() => { vi.stubEnv('VITE_UNLOCK_PREVIEW', 'true') })
+  afterEach(() => { vi.unstubAllEnvs() })
   it('formats film lengths', () => {
     expect(duration(7200)).toBe('2h 00m')
     expect(duration(600)).toBe('10m 00s')
@@ -138,11 +140,12 @@ describe('script only (no video)', () => {
     api.writeLongFilmScripts.mockResolvedValue({ ...unwritten, status: 'planned', scenes: film().scenes })
     show()
     expect(await screen.findByTestId('movie-script-count')).toHaveTextContent('0/2 scenes written')
-    expect(screen.queryByTestId('movie-download-script')).toBeNull()
+    expect(screen.queryByTestId('movie-download-script-pdf')).toBeNull()
     await userEvent.click(screen.getByTestId('movie-write-script'))
     expect(api.writeLongFilmScripts).toHaveBeenCalledWith('p1')
     expect(api.generateLongFilm).not.toHaveBeenCalled()
-    expect(await screen.findByTestId('movie-download-script')).toBeInTheDocument()
+    expect(await screen.findByTestId('movie-download-script-pdf')).toBeInTheDocument()
+    expect(screen.getByTestId('movie-download-script-txt')).toBeInTheDocument()
     expect(screen.getByTestId('movie-script-count')).toHaveTextContent('2/2 scenes written')
   })
 })
@@ -156,5 +159,32 @@ describe('feature story', () => {
     expect(screen.getByTestId('movie-story')).toHaveTextContent('2 characters (1 added for the full-length story)')
     expect(screen.getByTestId('movie-cast')).toHaveTextContent('Ravi · 45 · new')
     expect(screen.getByTestId('movie-story')).toHaveTextContent('A family secret')
+  })
+})
+
+describe('video and payment are locked (coming soon)', () => {
+  it('hides budget, quality, cost and video controls; scripts and both downloads stay', async () => {
+    api.getLongFilm.mockResolvedValue(null)
+    const { unmount } = show()
+    expect(await screen.findByTestId('movie-budget-locked')).toHaveTextContent('Coming soon')
+    expect(screen.queryByLabelText('Budget cap in US dollars')).toBeNull()
+    expect(screen.queryByLabelText('Video quality')).toBeNull()
+    expect(screen.queryByTestId('movie-test-notice')).toBeNull()
+    unmount()
+
+    api.getLongFilm.mockResolvedValue(film())
+    api.downloadLongFilmScript.mockResolvedValue({ blob: new Blob(['x']), filename: 'film - script.pdf' })
+    URL.createObjectURL = vi.fn(() => 'blob:x')
+    URL.revokeObjectURL = vi.fn()
+    show()
+    expect(await screen.findByTestId('movie-video-locked')).toHaveTextContent('coming soon')
+    expect(screen.queryByTestId('movie-estimate')).toBeNull()
+    expect(screen.queryByText('$126.45')).toBeNull()
+    expect(screen.queryByTestId('movie-generate')).toBeNull()
+    expect(screen.getByTestId('movie-scene-1')).toHaveTextContent('Script ready')
+    await userEvent.click(screen.getByTestId('movie-download-script-pdf'))
+    expect(api.downloadLongFilmScript).toHaveBeenCalledWith('p1', 'pdf')
+    await userEvent.click(screen.getByTestId('movie-download-script-txt'))
+    expect(api.downloadLongFilmScript).toHaveBeenLastCalledWith('p1', 'txt')
   })
 })
