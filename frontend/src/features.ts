@@ -9,11 +9,16 @@ import type { Panel } from './types'
  */
 const LOCKED_PANELS: Panel[] = ['audio', 'music']
 const TEASER_LOCKED = true
+/** Full-length film: making video, voices, budget/cost and rendering (scripts stay available). */
+const VIDEO_LOCKED = true
 
 const unlocked = () => import.meta.env.VITE_UNLOCK_PREVIEW === 'true'
 
 export const isPanelLocked = (p: Panel) => !unlocked() && LOCKED_PANELS.includes(p)
 /** Generate Teaser, plus the screens behind it (generation progress, teaser player, export). */
 export const isTeaserLocked = () => !unlocked() && TEASER_LOCKED
+
+/** The paid part of the full-length film: video, voices, budget cap, cost estimate, render. */
+export const isVideoLocked = () => !unlocked() && VIDEO_LOCKED
 
 export const COMING_SOON = 'Coming soon'

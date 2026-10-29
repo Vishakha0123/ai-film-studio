@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.auth import CurrentUser, get_current_user
 from app.config import Settings, get_settings
 from app.db import get_db
-from app.models import AIJob, Asset, Project, ProjectDocument, UsageEvent, User, WorkflowStep
+from app.models import AIJob, Asset, FilmProduction, Project, ProjectDocument, UsageEvent, User, WorkflowStep
 from app.schemas import (ApproveRequest, AssetListItem, AssetOut, Brief, CostEstimate, DocumentOut, EditRequest, FilmProject, Transcript,
                          BulkDeleteRequest, BulkDeleteResult, CharacterInput, MemoryPatch, GenerateRequest, JobOut, LanguageVersionOut, LanguageVersionRequest, Me, PlanRequest, Preferences, ProjectCreate, ProjectOut, ProjectSummary,
                          ProjectUpdate, RenderRequest, VoicePreviewRequest, ChatLog)
@@ -182,6 +182,8 @@ def _remove_project(db: Session, project: Project) -> None:
     db.query(AIJob).filter(AIJob.project_id == project.id).delete()
     db.query(WorkflowStep).filter(WorkflowStep.project_id == project.id).delete()
     db.query(ProjectDocument).filter(ProjectDocument.project_id == project.id).delete()
+    for prod in db.scalars(select(FilmProduction).where(FilmProduction.project_id == project.id)).all():
+        db.delete(prod)  # its scenes and shots go with it
     db.delete(project)  # assets cascade
 
 

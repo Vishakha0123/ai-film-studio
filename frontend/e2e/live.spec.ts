@@ -762,3 +762,146 @@ test('full stack: shots without a frame show "No frame yet" (not one shared phot
   await expect.poll(() => frames.first().evaluate(el => getComputedStyle(el).backgroundImage)).not.toBe(before)
   await expect(page.getByTestId('style-note')).toContainText('Character portraits stay photorealistic')
 })
+
+test('full stack: full-length film — 10-minute pilot planned, made scene by scene, rendered and downloadable', async ({ page, request }) => {
+  test.setTimeout(330_000)
+  await preparePage(page)
+  await page.goto('/login')
+  await page.getByRole('button', { name: 'Continue with Google' }).click()
+  await page.getByRole('button', { name: /Drama/ }).click()
+  await page.getByRole('button', { name: 'Continue with Drama' }).click()
+  await page.getByLabel('Message the AI Director').fill('A grandmother teaches her grandson to swim in the river')
+  await page.keyboard.press('Enter')
+  await expect(page.getByTestId('panel-story')).toBeVisible({ timeout: 20_000 })
+  const auth = { Authorization: 'Bearer dev:google-user@dev.local' }
+  const [p] = await (await request.get(`${API}/api/v1/projects`, { headers: auth })).json()
+
+  // Project page → Full-length film
+  await page.goto(`/projects/${p.id}`)
+  await page.getByTestId('open-full-movie').click()
+  await expect(page.getByTestId('movie-setup')).toBeVisible()
+  await expect(page.getByTestId('movie-test-notice')).toContainText('TEST CLIP')
+  await page.getByRole('radio', { name: /10 min/ }).click()
+  await page.getByTestId('movie-plan').click()
+  await expect(page.getByTestId('movie-status')).toHaveText('Scenes planned', { timeout: 30_000 })
+  await expect(page.getByTestId('movie-scenes').locator('li')).toHaveCount(7)
+  await expect(page.getByTestId('movie-cost')).toHaveText('$0.00')  // test providers are free
+
+  await page.getByTestId('movie-generate').click()
+  await expect(page.getByTestId('movie-status')).toHaveText('All scenes ready', { timeout: 200_000 })
+  await page.getByTestId('movie-scene-1').locator('button').first().click()
+  await expect(page.getByTestId('movie-scene-preview-1')).toBeVisible()
+  await expect(page.getByTestId('movie-shot-1-1')).toContainText('Test clip')
+
+  await page.getByTestId('movie-render').click()
+  await expect(page.getByTestId('movie-status')).toHaveText('Rendered', { timeout: 60_000 })
+  await expect(page.getByTestId('movie-final')).toContainText('10m 00s')
+  await expect(page.getByTestId('movie-final')).toContainText('contains test clips')
+  const href = await page.getByTestId('movie-download').getAttribute('href')
+  const file = await request.get(href!)
+  expect(file.ok()).toBeTruthy()
+  expect((await file.body()).length).toBeGreaterThan(100_000)
+})
+
+test('full stack: full-length film — edit a scene by hand and with Direct the AI', async ({ page, request }) => {
+  await preparePage(page)
+  await page.goto('/login')
+  await page.getByRole('button', { name: 'Continue with Google' }).click()
+  await page.getByRole('button', { name: /Drama/ }).click()
+  await page.getByRole('button', { name: 'Continue with Drama' }).click()
+  await page.getByLabel('Message the AI Director').fill('A grandmother teaches her grandson to swim in the river')
+  await page.keyboard.press('Enter')
+  await expect(page.getByTestId('panel-story')).toBeVisible({ timeout: 20_000 })
+  const auth = { Authorization: 'Bearer dev:google-user@dev.local' }
+  const [p] = await (await request.get(`${API}/api/v1/projects`, { headers: auth })).json()
+  await page.goto(`/projects/${p.id}/movie`)
+  await page.getByTestId('movie-plan').click()
+  await expect(page.getByTestId('movie-status')).toHaveText('Scenes planned', { timeout: 30_000 })
+
+  // Direct the AI on scene 2 → its script and shots are (re)written
+  await page.getByTestId('movie-scene-2').locator('button').first().click()
+  await page.getByLabel('Direct the AI for scene 2').fill('Make it rain and more emotional')
+  await page.getByTestId('movie-scene-direct-2').getByRole('button', { name: 'Apply' }).click()
+  await expect(page.getByTestId('movie-shot-2-1')).toContainText('[Revised: Make it rain and more emotional]')
+
+  // Hand edit a dialogue line
+  await page.getByTestId('movie-edit-scene-2').click()
+  await page.getByLabel('Shot 1 line 1', { exact: true }).fill('Breathe slowly, kanna.')
+  await page.getByLabel('Scene title').fill('Rain on the River')
+  await page.getByRole('button', { name: 'Save changes' }).click()
+  await expect(page.getByTestId('movie-shot-2-1')).toContainText('Breathe slowly, kanna.')
+  await expect(page.getByTestId('movie-scene-2')).toContainText('Rain on the River')
+  const scene = await (await request.get(`${API}/api/v1/projects/${p.id}/film/scenes/2`, { headers: auth })).json()
+  expect(scene.title).toBe('Rain on the River')
+  expect(scene.shots[0].dialogue[0].text).toBe('Breathe slowly, kanna.')
+})
+
+test('full stack: full-length film — script only (no video), downloaded as one file', async ({ page, request }) => {
+  await preparePage(page)
+  await page.goto('/login')
+  await page.getByRole('button', { name: 'Continue with Google' }).click()
+  await page.getByRole('button', { name: /Drama/ }).click()
+  await page.getByRole('button', { name: 'Continue with Drama' }).click()
+  await page.getByLabel('Message the AI Director').fill('A grandmother teaches her grandson to swim in the river')
+  await page.keyboard.press('Enter')
+  await expect(page.getByTestId('panel-story')).toBeVisible({ timeout: 20_000 })
+  const auth = { Authorization: 'Bearer dev:google-user@dev.local' }
+  const [p] = await (await request.get(`${API}/api/v1/projects`, { headers: auth })).json()
+  await page.goto(`/projects/${p.id}/movie`)
+  await page.getByRole('radio', { name: /2 hours/ }).click()
+  await page.getByTestId('movie-plan').click()
+  await expect(page.getByTestId('movie-status')).toHaveText('Scenes planned', { timeout: 30_000 })
+  await expect(page.getByTestId('movie-script-count')).toContainText('0/80 scenes written')
+
+  await page.getByTestId('movie-write-script').click()
+  await expect(page.getByTestId('movie-script-count')).toContainText('80/80 scenes written', { timeout: 60_000 })
+  await expect(page.getByTestId('movie-status')).toHaveText('Scenes planned')  // nothing was filmed
+  await page.getByTestId('movie-scene-80').locator('button').first().click()
+  await expect(page.getByTestId('movie-shot-80-1')).toContainText('pending')
+
+  const [download] = await Promise.all([page.waitForEvent('download'), page.getByTestId('movie-download-script-txt').click()])
+  expect(download.suggestedFilename()).toMatch(/script\.txt$/)
+  const text = readFileSync(await download.path(), 'utf8')
+  expect(text.match(/^SCENE \d+/gm)).toHaveLength(80)
+  // …and the same screenplay as a PDF
+  const [pdf] = await Promise.all([page.waitForEvent('download'), page.getByTestId('movie-download-script-pdf').click()])
+  expect(pdf.suggestedFilename()).toMatch(/script\.pdf$/)
+  expect(readFileSync(await pdf.path()).subarray(0, 5).toString()).toBe('%PDF-')
+})
+
+test('full stack: "I want a 2 hour movie" → the full-length film is written straight away and every section shows it', async ({ page, request }) => {
+  test.setTimeout(180_000)
+  await preparePage(page)
+  await page.goto('/login')
+  await page.getByRole('button', { name: 'Continue with Google' }).click()
+  await page.getByRole('button', { name: /Drama/ }).click()
+  await page.getByRole('button', { name: 'Continue with Drama' }).click()
+  await page.getByLabel('Message the AI Director').fill('I want a 2 hour movie: a grandmother teaches her grandson to swim in the river')
+  await page.keyboard.press('Enter')
+  await expect(page.getByText(/so I'm now writing the full 2-hour version/)).toBeVisible({ timeout: 20_000 })
+  await expect(page.getByTestId('card-movie')).toBeVisible()
+
+  // nothing else to click: the story, cast, scenes and every script are written in the background
+  const auth = { Authorization: 'Bearer dev:google-user@dev.local' }
+  const [p] = await (await request.get(`${API}/api/v1/projects`, { headers: auth })).json()
+  await expect.poll(async () => {
+    const full = await (await request.get(`${API}/api/v1/projects/${p.id}/film/full`, { headers: auth })).json()
+    return full ? full.scenes.filter((s: { script: string }) => s.script).length : 0
+  }, { timeout: 120_000 }).toBe(80)
+
+  await page.goto('/director/story')
+  await expect(page.getByTestId('story-full-length')).toContainText('Full-length story · 2h 00m')
+  await page.goto('/director/characters')
+  await expect(page.getByText('Ravi Kumar')).toBeVisible()  // a character added for the full-length story
+  await page.goto('/director/scenes')
+  await expect(page.getByTestId('full-film-scenes').locator('li')).toHaveCount(80)
+  await page.goto('/director/screenplay')
+  await expect(page.getByTestId('full-film-screenplay')).toContainText('SCENE 80')
+  await page.goto('/director/dialogue')
+  await expect(page.getByTestId('full-film-dialogue')).toContainText('Line 1 of scene 1.')
+  await page.goto('/director/storyboard')
+  await expect(page.getByTestId('full-film-storyboard')).toContainText('Shot 1')
+  // the teaser is still there behind the switch
+  await page.getByTestId('view-teaser').click()
+  await expect(page.getByTestId('panel-storyboard')).toBeVisible()
+})

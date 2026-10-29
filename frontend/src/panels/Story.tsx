@@ -1,4 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { getLongFilm } from '../api'
+import type { LongFilm } from '../types'
+import { lengthLabel, nearestFilmLength, requestedMinutes } from '../lib/filmLength'
+import { duration } from '../screens/FullMovie'
 import { DEMO_MODE, approveStep, assertCompleted, editProject, waitForJob, type EditAction } from '../api'
 import { useFilm, useStudio } from '../studio'
 import { useFilmEdit } from '../lib/useFilmEdit'
@@ -22,6 +27,24 @@ export default function Story() {
   const [working, setWorking] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const { project, refreshProject } = useStudio()
+  const navigate = useNavigate()
+  // The full-length version (if one was planned) and the length the creator asked for in the idea
+  const [longFilm, setLongFilm] = useState<LongFilm | null>(null)
+  useEffect(() => {
+    if (DEMO_MODE || !project?.id) return
+    let alive = true
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const load = () => getLongFilm(project.id).then(f => {
+      if (!alive) return
+      setLongFilm(f)
+      if (f && (!f.story || ['planning', 'writing'].includes(f.status))) timer = setTimeout(load, 4000)  // still being written
+    }).catch(() => {})
+    void load()
+    return () => { alive = false; if (timer) clearTimeout(timer) }
+  }, [project?.id])
+  const asked = requestedMinutes(String(project?.brief?.prompt ?? ''))
+  const askedLength = asked && asked >= 10 ? nearestFilmLength(asked) : null
+  const openMovie = () => project && navigate(`/projects/${encodeURIComponent(project.id)}/movie${askedLength ? `?minutes=${askedLength}` : ''}`)
 
   const handleAction = async (action: string) => {
     setActiveAction(action)
@@ -92,7 +115,7 @@ export default function Story() {
           {[
             { label: 'Genre', value: f.genre },
             { label: 'Tone', value: f.tone },
-            { label: 'Duration', value: '10 seconds' },
+            { label: 'Duration', value: longFilm?.story ? `${duration(longFilm.targetSeconds)} full-length · 10 s teaser` : '10 seconds (teaser)' },
           ].map(m => (
             <div key={m.label} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg" style={{ backgroundColor: '#111113', border: '1px solid rgba(255,255,255,0.06)' }}>
               <span className="text-xs text-zinc-600">{m.label}</span>
@@ -134,6 +157,36 @@ export default function Story() {
                 <p key={i} className="text-sm leading-relaxed" style={{ color: '#a1a1aa' }}>{para}</p>
               ))}
             </div>
+
+            {/* The full-length story, or the way to it */}
+            {longFilm?.story ? (
+              <div className="px-5 py-5 rounded-xl space-y-4" style={{ backgroundColor: '#111113', border: '1px solid rgba(212,168,75,0.2)' }} data-testid="story-full-length">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs font-semibold tracking-widest uppercase" style={{ color: '#d4a84b' }}>Full-length story · {duration(longFilm.targetSeconds)}</p>
+                  <button type="button" onClick={openMovie} className="text-xs whitespace-nowrap" style={{ color: '#d4a84b' }}>Open the full-length film →</button>
+                </div>
+                {longFilm.story.story.split('\n\n').map((para, i) => (
+                  <p key={i} className="text-sm leading-relaxed" style={{ color: '#a1a1aa' }}>{para}</p>
+                ))}
+                {longFilm.story.newCharacters.length > 0 && (
+                  <p className="text-xs text-zinc-500">Characters added for the full-length story: {longFilm.story.newCharacters.join(', ')}</p>
+                )}
+              </div>
+            ) : longFilm && longFilm.status === 'planning' ? (
+              <div className="px-5 py-4 rounded-xl" style={{ backgroundColor: 'rgba(212,168,75,0.06)', border: '1px solid rgba(212,168,75,0.25)' }} data-testid="story-full-writing">
+                <p className="text-sm" style={{ color: '#e4e0da' }}>Writing the full-length {duration(longFilm.targetSeconds)} story and its characters… {longFilm.job?.stage ? `(${longFilm.job.stage})` : ''}</p>
+              </div>
+            ) : askedLength && !DEMO_MODE ? (
+              <div className="px-5 py-4 rounded-xl flex flex-wrap items-center justify-between gap-3" style={{ backgroundColor: 'rgba(212,168,75,0.06)', border: '1px solid rgba(212,168,75,0.25)' }} data-testid="story-short-notice">
+                <p className="text-sm leading-relaxed" style={{ color: '#e4e0da' }}>
+                  You asked for a {lengthLabel(asked!)} film. This is the short version (the teaser's premise).
+                  Plan the full-length film to grow it into the complete {lengthLabel(askedLength)} story, with every character it needs.
+                </p>
+                <button type="button" onClick={openMovie} className="px-4 py-2 rounded-lg text-xs font-semibold whitespace-nowrap" style={{ backgroundColor: '#d4a84b', color: '#09090b' }} data-testid="story-plan-full">
+                  Plan the {lengthLabel(askedLength)} film →
+                </button>
+              </div>
+            ) : null}
           </>
         )}
 

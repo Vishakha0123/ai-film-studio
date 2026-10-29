@@ -1,9 +1,11 @@
 import { useState, useRef, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { lengthLabel, nearestFilmLength, requestedMinutes } from '../lib/filmLength'
 import { isTeaserLocked } from '../features'
 import { ComingSoonButton } from '../components/LockIcon'
 import type { Panel, ChatMessage, FilmProject } from '../types'
 import { filmSeconds } from '../types'
-import { ATTACHMENT_ACCEPT, DEMO_MODE, MAX_ATTACHMENTS, MAX_ATTACHMENT_BYTES, assertCompleted, createProject, getProject, makeLanguageVersion, planProject, saveBrief, uploadDocument, waitForJob } from '../api'
+import { ATTACHMENT_ACCEPT, DEMO_MODE, MAX_ATTACHMENTS, MAX_ATTACHMENT_BYTES, assertCompleted, createProject, getProject, makeLanguageVersion, planProject, planLongFilm, getLongFilm, saveBrief, uploadDocument, waitForJob } from '../api'
 import { FILM_LANGUAGES, languageName } from '../lib/languages'
 import { useDictation } from '../lib/useDictation'
 import { useFilm, useStudio } from '../studio'
@@ -114,6 +116,8 @@ export default function Chat({ progress, onAdvance, onGenerate, onOpenPanel, gen
   const [isTyping, setIsTyping] = useState(false)
   const [status, setStatus] = useState('')
   const { project, setProject, openProject, preferences } = useStudio()
+  const currentProjectId = useRef<string | null>(null)
+  currentProjectId.current = project?.id ?? null
   // The film's language is separate from the prompt's: write the idea in any language, get the film in this one.
   const [newFilmLanguage, setNewFilmLanguage] = useState(preferences.language)
   useEffect(() => setNewFilmLanguage(preferences.language), [preferences.language])
@@ -193,11 +197,13 @@ export default function Chat({ progress, onAdvance, onGenerate, onOpenPanel, gen
     }
 
     // Live mode: the first idea creates the project, saves the brief and runs the plan job.
+    let createdId: string | null = null
     const backendCall: Promise<FilmProject | null> =
       !DEMO_MODE && progress === 0
         ? (async () => {
             setStatus('Creating your project')
             const created = await createProject(genres ?? [], newFilmLanguage)
+            createdId = created.id
             // Remember the film right away: a refresh while it's being written reopens it and waits.
             if (alive.current) setProject(created)
             await uploadAll(created.id)
@@ -225,6 +231,37 @@ export default function Chat({ progress, onAdvance, onGenerate, onOpenPanel, gen
           card: undefined,
         }
         setMessages(m => [...m, { id: (Date.now() + 1).toString(), role: 'ai', content: response.text, card: response.card }])
+        // "I want a 2-hour movie": the plan above is the short version — write the full-length film straight away
+        // (story, cast, every scene and its script; no video). Every section switches to it as it's written.
+        const asked = !DEMO_MODE && planned && createdId ? requestedMinutes(text) : null
+        if (asked && asked >= 10 && createdId) {
+          const minutes = nearestFilmLength(asked)
+          const capped = asked > 120 ? ' (Full-length films go up to 2 hours for now.)' : ''
+          const filmId = createdId
+          planLongFilm(filmId, minutes, null, 'draft', true)
+            .then(() => {
+              // when the full-length story is ready, reload the film so the new characters appear everywhere
+              void (async () => {
+                for (let i = 0; i < 900 && alive.current; i++) {
+                  await new Promise(r => setTimeout(r, 4000))
+                  const f = await getLongFilm(filmId).catch(() => null)
+                  if (f && f.status !== 'planning') {
+                    const fresh = await getProject(filmId).catch(() => null)
+                    if (fresh && alive.current && currentProjectId.current === filmId) setProject(fresh)  // still on this film
+                    return
+                  }
+                }
+              })()
+            })
+            .then(() => alive.current && setMessages(m => [...m, {
+              id: (Date.now() + 2).toString(), role: 'ai', card: 'movie', movieMinutes: minutes,
+              content: `You asked for a ${lengthLabel(asked)} film, so I'm now writing the full ${lengthLabel(minutes)} version: the complete story, the characters it needs, and every scene with its script and dialogue.${capped} It takes a while — Story, Characters, Screenplay, Dialogue, Scenes and Storyboard switch to the full film as it's written. No video is made.`,
+            }]))
+            .catch((err: unknown) => alive.current && setMessages(m => [...m, {
+              id: (Date.now() + 2).toString(), role: 'ai', card: 'movie', movieMinutes: minutes,
+              content: `You asked for a ${lengthLabel(asked)} film, but I couldn't start the full-length version: ${err instanceof Error ? err.message : 'unknown error'}. You can start it from the full-length film page.`,
+            }]))
+        }
         setIsTyping(false)
         setStatus('')
         onAdvance()
@@ -323,7 +360,7 @@ export default function Chat({ progress, onAdvance, onGenerate, onOpenPanel, gen
                 )}
               </div>
 
-              {msg.card && <MessageCard card={msg.card} onGenerate={onGenerate} onOpenPanel={onOpenPanel} />}
+              {msg.card && <MessageCard card={msg.card} movieMinutes={msg.movieMinutes} onGenerate={onGenerate} onOpenPanel={onOpenPanel} />}
             </div>
           </div>
         ))}
@@ -484,8 +521,10 @@ const CARD_PANEL: Partial<Record<NonNullable<ChatMessage['card']>, Panel>> = {
   storyboard: 'storyboard',
 }
 
-function MessageCard({ card, onGenerate, onOpenPanel }: { card: NonNullable<ChatMessage['card']>; onGenerate: () => void; onOpenPanel?: (p: Panel) => void }) {
+function MessageCard({ card, movieMinutes, onGenerate, onOpenPanel }: { card: NonNullable<ChatMessage['card']>; movieMinutes?: number; onGenerate: () => void; onOpenPanel?: (p: Panel) => void }) {
   const f = useFilm()
+  const { project } = useStudio()
+  const navigate = useNavigate()
   const secs = filmSeconds(f)
   const configs: Record<string, { label: string; color: string; desc: string }> = {
     story: { label: 'Story Generated', color: '#d4a84b', desc: `${f.title} · ${f.genre}` },
@@ -496,11 +535,13 @@ function MessageCard({ card, onGenerate, onOpenPanel }: { card: NonNullable<Chat
     scenes: { label: 'Scenes Broken Down', color: '#f97316', desc: `${f.scenes.length} scenes · ${secs}s total duration` },
     storyboard: { label: 'Storyboard Ready', color: '#ec4899', desc: `${f.shots.length} shots · Dark Cinema visual style` },
     generate: { label: 'Ready to Generate', color: '#d4a84b', desc: `All components complete · ${secs}s teaser` },
+    movie: { label: 'Full-length film', color: '#d4a84b', desc: `${lengthLabel(movieMinutes ?? 120)} · story, cast and every scene` },
   }
 
   const config = configs[card]
   if (!config) return null
   const target = CARD_PANEL[card]
+  if (card === 'movie' && !project) return null
 
   return (
     <div
@@ -519,11 +560,13 @@ function MessageCard({ card, onGenerate, onOpenPanel }: { card: NonNullable<Chat
       </div>
       {card === 'generate' && isTeaserLocked() ? <ComingSoonButton label="Generate" className="text-xs px-3 py-1.5 flex-shrink-0" /> : (
       <button
-        onClick={card === 'generate' ? onGenerate : target && onOpenPanel ? () => onOpenPanel(target) : undefined}
+        onClick={card === 'generate' ? onGenerate
+          : card === 'movie' ? () => navigate(`/projects/${encodeURIComponent(project!.id)}/movie?minutes=${movieMinutes ?? 120}`)
+          : target && onOpenPanel ? () => onOpenPanel(target) : undefined}
         className="text-xs px-3 py-1.5 rounded-lg border transition-all hover:opacity-80 flex-shrink-0"
         style={{ borderColor: `${config.color}40`, color: config.color, backgroundColor: `${config.color}10` }}
       >
-        {card === 'generate' ? 'Generate ▶' : 'View →'}
+        {card === 'generate' ? 'Generate ▶' : card === 'movie' ? 'Open →' : 'View →'}
       </button>
       )}
     </div>

@@ -10,7 +10,7 @@ import json
 import httpx
 
 from app.config import get_settings
-from app.prompts import EDIT, PLAN_FILM, TRANSLATE_FILM, render
+from app.prompts import EDIT, FILM_OUTLINE, PLAN_FILM, SCENE_BREAKDOWN, FILM_TREATMENT, TRANSLATE_FILM, render
 from app.providers._json import extract_json
 from app.providers.base import ProviderError, ProviderResult, STTProvider, StoryProvider, TTSProvider
 from app.services.languages import describe
@@ -99,6 +99,34 @@ class SarvamStory(StoryProvider):
             raise ProviderError("Sarvam edit reply had no 'value'", transient=True)
         res.data = res.data["value"]
         return res
+
+    async def write_treatment(self, bible: dict, *, minutes: int, language: str) -> ProviderResult:
+        prompt = render(FILM_TREATMENT, minutes=minutes, output_language=describe(language),
+                        paragraphs=max(4, min(16, round(minutes / 8))), subplots=2 if minutes < 45 else 3,
+                        new_characters=max(1, min(12, round(minutes / 12))), bible=json.dumps(bible, ensure_ascii=False)[:8000])
+        return await self._chat(prompt, effort_setting=get_settings().SARVAM_EDIT_REASONING_EFFORT)
+
+    async def outline_scenes(self, bible: dict, *, first: int, last: int, total: int, target_seconds: int,
+                             story_so_far: list[dict], language: str) -> ProviderResult:
+        act1, act2 = max(1, round(total * 0.25)), max(2, round(total * 0.75))
+        recent = story_so_far[-12:]
+        prompt = render(FILM_OUTLINE, first=first, last=last, total=total, minutes=round(target_seconds / 60),
+                        avg_seconds=round(target_seconds / total), output_language=describe(language),
+                        act1_end=act1, act2_start=act1 + 1, act2_end=act2, act3_start=act2 + 1,
+                        ending_note="These are the final scenes: resolve every storyline and end the film." if last == total else "",
+                        bible=json.dumps(bible, ensure_ascii=False)[:14000],
+                        story_so_far="\n".join(f"{s['number']}. {s['title']}: {s['summary']}" for s in recent) or "(this is the start)")
+        return await self._chat(prompt, effort_setting=get_settings().SARVAM_EDIT_REASONING_EFFORT)
+
+    async def break_down_scene(self, bible: dict, scene: dict, *, total: int, shot_count: int, shot_seconds: int,
+                               previous: str, next_scene: str, language: str,
+                               direction: str = "") -> ProviderResult:
+        prompt = render(SCENE_BREAKDOWN, number=scene["number"], total=total, shot_count=shot_count,
+                        shot_seconds=shot_seconds, target_seconds=scene["seconds"], output_language=describe(language),
+                        bible=json.dumps(bible, ensure_ascii=False)[:14000], scene=json.dumps(scene, ensure_ascii=False),
+                        previous=previous or "(this is the first scene)", next=next_scene or "(this is the last scene)",
+                        direction=direction or "(none — write it from the outline)")
+        return await self._chat(prompt, effort_setting=get_settings().SARVAM_EDIT_REASONING_EFFORT)
 
     async def translate_film(self, memory: dict, language: str) -> ProviderResult:
         prompt = render(TRANSLATE_FILM, output_language=describe(language),

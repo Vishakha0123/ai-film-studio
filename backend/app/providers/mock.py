@@ -22,6 +22,21 @@ SAMPLE_LYRICS = {
 
 
 class MockStory(StoryProvider):
+    async def write_treatment(self, bible, *, minutes, language):
+        return await _mock_treatment(bible, minutes)
+
+    async def outline_scenes(self, bible, *, first, last, total, target_seconds, story_so_far, language):
+        return await _mock_outline(bible, first, last, total, target_seconds)
+
+    async def break_down_scene(self, bible, scene, *, total, shot_count, shot_seconds, previous, next_scene, language, direction=""):
+        res = await _mock_breakdown(scene, shot_count, shot_seconds)
+        if direction:  # stand-in for the AI following the creator's direction
+            mark = f" [Revised: {direction.splitlines()[0][:60]}]"
+            res.data["script"] += mark
+            for s in res.data["shots"]:
+                s["description"] += mark
+        return res
+
     async def plan_film(self, brief: dict) -> ProviderResult:
         if "[slow]" in str(brief.get("prompt", "")):  # lets tests refresh the page while a film is being written
             import asyncio
@@ -81,6 +96,56 @@ class MockStory(StoryProvider):
         if isinstance(value, str) and instruction:
             value = f"{value}\n\n[Revised: {instruction}]"
         return ProviderResult(value, provider="mock", model="echo")
+
+
+# Long-film mock: a deterministic outline and shot list, so the whole pipeline runs without a story model
+_MOCK_BEATS = ["arrives", "discovers a clue", "argues", "is followed", "hides something", "confesses",
+               "is trapped", "escapes", "faces the truth", "makes a choice"]
+
+
+async def _mock_outline(bible: dict, first: int, last: int, total: int, target_seconds: int) -> ProviderResult:
+    names = [c["name"] for c in bible.get("characters", [])] or ["The hero"]
+    scenes = []
+    for n in range(first, last + 1):
+        who = [names[(n - 1) % len(names)]] + ([names[n % len(names)]] if len(names) > 1 else [])
+        act = 1 if n <= max(1, round(total * 0.25)) else 2 if n <= max(2, round(total * 0.75)) else 3
+        scenes.append({"number": n, "act": act, "title": f"Scene {n}: {who[0]} {_MOCK_BEATS[(n - 1) % len(_MOCK_BEATS)]}",
+                       "summary": f"{' and '.join(who)} — {bible.get('logline', '')[:80]} (beat {n} of {total}).",
+                       "location": ["INT. HOUSE — NIGHT", "EXT. STREET — DAY", "INT. OLD HALL — DUSK"][n % 3],
+                       "characters": who, "seconds": round(target_seconds / total)})
+    return ProviderResult({"scenes": scenes}, provider="mock", model="outline")
+
+
+_MOCK_CAST = [("Ravi Kumar", "45", "male", "Ally"), ("Lakshmi", "62", "female", "Mentor"), ("Inspector Rao", "50", "male", "Antagonist"),
+              ("Kavya", "11", "female", "Friend"), ("Arun", "28", "male", "Rival"), ("Meena", "35", "female", "Neighbour"),
+              ("Old Fisherman", "70", "male", "Witness"), ("Priya", "17", "female", "Messenger")]
+
+
+async def _mock_treatment(bible: dict, minutes: int) -> ProviderResult:
+    """Deterministic stand-in: a longer story in three acts and a few supporting characters."""
+    base = bible.get("story", "") or bible.get("logline", "")
+    paragraphs = max(4, min(16, round(minutes / 8)))
+    story = "\n\n".join([base] + [f"[Feature story, part {i + 2} of {paragraphs}: the story moves on — {_MOCK_BEATS[i % len(_MOCK_BEATS)]}.]"
+                                   for i in range(paragraphs - 1)])
+    existing = {c.get("name") for c in bible.get("characters", [])}
+    cast = [{"name": n, "age": a, "gender": g, "role": r, "personality": f"{r} in the longer story",
+             "appearance": f"{a}-year-old {'woman' if g == 'female' else 'man'}", "arc": "", "relationships": ""}
+            for n, a, g, r in _MOCK_CAST if n not in existing][: max(1, min(8, round(minutes / 12)))]
+    return ProviderResult({"story": story, "acts": [{"act": i, "summary": f"Act {i} of the feature."} for i in (1, 2, 3)],
+                           "subplots": ["A family secret", "A rivalry in the village"], "characters": cast},
+                          provider="mock", model="treatment")
+
+
+async def _mock_breakdown(scene: dict, shot_count: int, shot_seconds: int) -> ProviderResult:
+    who = scene.get("characters") or ["The hero"]
+    shots = [{"description": f"{scene.get('location', '')}: {who[i % len(who)]} — {scene.get('title', '')}, shot {i + 1}",
+              "camera": ["Wide", "Medium", "Close-up"][i % 3], "movement": ["Static", "Slow push-in", "Pan"][i % 3],
+              "characters": [who[i % len(who)]],
+              "dialogue": [{"character": who[i % len(who)], "text": f"Line {i + 1} of scene {scene['number']}."}] if i % 2 == 0 else [],
+              "seconds": shot_seconds} for i in range(shot_count)]
+    return ProviderResult({"script": f"{scene.get('location', '')}\n\n{scene.get('summary', '')}",
+                           "continuity": f"After scene {scene['number']}: {scene.get('title', '')}.", "shots": shots},
+                          provider="mock", model="breakdown")
 
 
 class MockImage(ImageProvider):

@@ -91,6 +91,13 @@ class Settings(BaseSettings):
     MAX_PROMPT_CHARS: int = 4000
     MAX_PROJECTS_PER_USER: int = Field(default=100)
 
+    # --- Long film (10 minutes – 2 hours, made scene by scene) ---
+    LONG_SHOT_SECONDS: int = 8              # length of one generated shot (Seedance accepts 2–12 s)
+    LONG_FILM_DEFAULT_BUDGET: float = 25.0  # default hard spending cap per film (USD)
+    LONG_FILM_MAX_BUDGET: float = 2000.0    # the highest cap a creator may set
+    LONG_FILM_MAX_ACTIVE: int = 1           # long films one creator may generate at the same time
+    LONG_FILM_SLICE_SECONDS: int = 600      # a generate job hands over to a fresh job after this long
+
 
 @lru_cache
 def get_settings() -> Settings:

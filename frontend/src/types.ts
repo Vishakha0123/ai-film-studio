@@ -9,7 +9,9 @@ export interface ChatMessage {
   id: string
   role: 'user' | 'ai'
   content: string
-  card?: 'story' | 'characters' | 'screenplay' | 'dialogue' | 'lyrics' | 'scenes' | 'storyboard' | 'generate'
+  card?: 'story' | 'characters' | 'screenplay' | 'dialogue' | 'lyrics' | 'scenes' | 'storyboard' | 'generate' | 'movie'
+  /** card 'movie': the full-length film the creator asked for, in minutes */
+  movieMinutes?: number
   /** File names the creator attached to this message */
   attachments?: string[]
 }
@@ -416,4 +418,132 @@ export interface ProjectDocument {
   sourceReference: string
   preview: string
   createdAt: string
+}
+
+/* ---------- Full-length film (10 minutes – 2 hours) ---------- */
+
+export type FilmStatus = 'planning' | 'planned' | 'writing' | 'generating' | 'paused' | 'budget_reached' | 'generated' | 'rendering' | 'rendered' | 'failed'
+
+export interface LongFilmProgress {
+  scenes: number
+  scenesDone: number
+  scenesFailed: number
+  shots: number
+  shotsDone: number
+  shotsFailed: number
+  percent: number
+}
+
+export interface LongFilmEstimate {
+  scenes: number
+  shots: number
+  remainingShots: number
+  videoSeconds: number
+  storyCalls: number
+  dialogueLines: number
+  /** With the providers switched on now (0 with the free test providers) */
+  estimatedCost: number
+  /** The same work with every paid provider switched on */
+  fullProviderCost: number
+  currency: string
+  budgetCap: number
+  spent: number
+  liveProviders: { story: boolean; image: boolean; video: boolean; tts: boolean }
+  quality: 'draft' | 'final'
+}
+
+export interface LongFilmSceneSummary {
+  number: number
+  act: number
+  title: string
+  summary: string
+  location: string
+  characters: string[]
+  targetSeconds: number
+  status: 'planned' | 'generating' | 'done' | 'failed'
+  error: string
+  /** The scene's script and shot list are written */
+  scripted: boolean
+  shots: number
+  shotsDone: number
+  shotsFailed: number
+  previewUrl: string | null
+}
+
+export interface LongFilm {
+  id: string
+  projectId: string
+  status: FilmStatus
+  error: string
+  targetSeconds: number
+  shotSeconds: number
+  quality: 'draft' | 'final'
+  budgetCap: number
+  spent: number
+  pauseRequested: boolean
+  progress: LongFilmProgress
+  estimate: LongFilmEstimate
+  job: { id: string; task: string; status: JobStatus; stage: string; progress: number; error: string } | null
+  /** The premise grown into a feature-length story, with the cast it needs (null until planned) */
+  story: {
+    story: string
+    acts: { act: number; summary: string }[]
+    subplots: string[]
+    newCharacters: string[]
+    cast: { name: string; age: string; gender: string; role: string }[]
+  } | null
+  /** Some clips are labelled placeholders (no video provider connected) */
+  hasTestClips: boolean
+  final: { url: string; seconds: number } | null
+  scenes: LongFilmSceneSummary[]
+}
+
+export interface LongFilmShot {
+  id: string
+  number: number
+  description: string
+  camera: string
+  movement: string
+  characters: string[]
+  dialogue: { character: string; text: string }[]
+  seconds: number
+  status: 'pending' | 'generating' | 'done' | 'failed'
+  attempts: number
+  error: string
+  clipUrl: string | null
+  clipKind: 'video' | 'still' | 'test' | null
+}
+
+export interface LongFilmScene {
+  number: number
+  title: string
+  summary: string
+  location: string
+  script: string
+  continuity: string
+  status: LongFilmSceneSummary['status']
+  error: string
+  previewUrl: string | null
+  shots: LongFilmShot[]
+}
+
+/** The whole full-length film as text, for the Director's sections */
+export interface FullFilmText {
+  status: FilmStatus
+  targetSeconds: number
+  error: string
+  job: { id: string; task: string; status: JobStatus; stage: string; progress: number; error: string } | null
+  progress: LongFilmProgress
+  scenes: {
+    number: number
+    act: number
+    title: string
+    summary: string
+    location: string
+    characters: string[]
+    targetSeconds: number
+    script: string
+    status: LongFilmSceneSummary['status']
+    shots: { id: string; number: number; camera: string; movement: string; seconds: number; description: string; characters: string[]; dialogue: { character: string; text: string }[] }[]
+  }[]
 }

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import FullFilmGate from '../components/FullFilmGate'
 import { useNavigate } from 'react-router-dom'
 import type { Panel, NavFn, ChatMessage } from '../types'
 import Sidebar from '../components/Sidebar'
@@ -176,11 +177,11 @@ export default function Director({ navigate, panel, setPanel, progress, setProgr
               {needsFilm && <EmptyPanel title={PANEL_TITLES[panel]} onStart={() => setPanel('chat')} onOpenProjects={() => routerNavigate('/projects')} />}
               {!needsFilm && panel === 'story' && <Story />}
               {!needsFilm && panel === 'characters' && <Characters />}
-              {!needsFilm && panel === 'screenplay' && <Screenplay />}
-              {!needsFilm && panel === 'dialogue' && <Dialogue />}
+              {!needsFilm && panel === 'screenplay' && <FullFilmGate kind="screenplay"><Screenplay /></FullFilmGate>}
+              {!needsFilm && panel === 'dialogue' && <FullFilmGate kind="dialogue"><Dialogue /></FullFilmGate>}
               {!needsFilm && panel === 'lyrics' && <Lyrics />}
-              {!needsFilm && panel === 'scenes' && <Scenes onGenerate={handleGenerate} />}
-              {!needsFilm && panel === 'storyboard' && <Storyboard onGenerate={handleGenerate} />}
+              {!needsFilm && panel === 'scenes' && <FullFilmGate kind="scenes"><Scenes onGenerate={handleGenerate} /></FullFilmGate>}
+              {!needsFilm && panel === 'storyboard' && <FullFilmGate kind="storyboard"><Storyboard onGenerate={handleGenerate} /></FullFilmGate>}
               {!needsFilm && panel === 'audio' && <Audio />}
               <div className={panel === 'music' ? 'h-full' : 'hidden'}><Music active={panel === 'music'} /></div>
             </div>
