@@ -344,7 +344,7 @@ export async function makeLanguageVersion(projectId: string, language: string, o
 
 /* ---------- Characters ---------- */
 
-export type CharacterInput = Partial<Pick<import('../types').Character, 'name' | 'age' | 'gender' | 'role' | 'personality' | 'appearance' | 'arc' | 'relationships'>>
+export type CharacterInput = Partial<Pick<import('../types').Character, 'name' | 'age' | 'gender' | 'role' | 'personality' | 'appearance' | 'arc' | 'relationships' | 'family' | 'language'>>
 
 const NEEDS_BACKEND = 'Changing characters needs the studio backend — the demo film can’t be edited.'
 

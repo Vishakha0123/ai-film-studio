@@ -50,6 +50,23 @@ def normalize_gender(value: object) -> str:
     return "female" if v in _FEMALE else "male" if v in _MALE else ""
 
 
+_LANGUAGE_NAMES = {"english": "en", "hindi": "hi", "tamil": "ta", "telugu": "te", "kannada": "kn", "malayalam": "ml",
+                   "bengali": "bn", "bangla": "bn", "marathi": "mr", "gujarati": "gu", "punjabi": "pa",
+                   "हिन्दी": "hi", "हिंदी": "hi", "தமிழ்": "ta", "తెలుగు": "te", "ಕನ್ನಡ": "kn", "മലയാളം": "ml",
+                   "বাংলা": "bn", "मराठी": "mr", "ગુજરાતી": "gu", "ਪੰਜਾਬੀ": "pa"}
+_LANGUAGE_CODES = set(_LANGUAGE_NAMES.values())
+
+
+def normalize_language(value: object) -> str:
+    """'Tamil', 'தமிழ்', 'ta', 'ta-IN' → 'ta'; empty or unknown → '' (speaks the film's language)."""
+    v = str(value or "").strip().lower()
+    if not v:
+        return ""
+    if v.split("-")[0] in _LANGUAGE_CODES:
+        return v.split("-")[0]
+    return _LANGUAGE_NAMES.get(v, _LANGUAGE_NAMES.get(v.split()[0], "") if v.split() else "")
+
+
 class Character(FilmPart):
     id: str = ""
     name: str
@@ -60,11 +77,15 @@ class Character(FilmPart):
     appearance: str = ""
     arc: str = ""
     relationships: str = ""
+    family: str = ""    # the family or group they belong to, e.g. "Malhotra family"
+    language: str = ""  # what they speak (en, hi, ta, …); "" = the film's language
 
     @field_validator("gender", mode="before")
     @classmethod
     def _gender(cls, v: object) -> str:
         return normalize_gender(v)
+
+    _language = field_validator("language", mode="before")(lambda v: normalize_language(v))
     image_id: str = ""  # Unsplash fallback id used by the design
     image_url: str | None = None
     # Closest of the 10 reference portraits for this age and gender (picked automatically; see reference_portraits)
@@ -150,6 +171,10 @@ class DialogueLine(FilmPart):
     text: str
     tone: str = ""
     scene: int | None = None  # the scene this line belongs to (number)
+    language: str = ""   # the language this line is spoken in when it isn't the film's (a family's own language)
+    subtitle: str = ""   # that line in the film's language
+
+    _language = field_validator("language", mode="before")(lambda v: normalize_language(v))
 
     @model_validator(mode="before")
     @classmethod
@@ -409,6 +434,8 @@ class CharacterInput(Schema):
     role: str | None = Field(default=None, max_length=200)
     personality: str | None = Field(default=None, max_length=2000)
     appearance: str | None = Field(default=None, max_length=2000)
+    family: str | None = Field(default=None, max_length=120)
+    language: str | None = Field(default=None, max_length=20)
     arc: str | None = Field(default=None, max_length=2000)
     relationships: str | None = Field(default=None, max_length=2000)
 

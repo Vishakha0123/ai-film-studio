@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import LanguageFix from '../components/LanguageFix'
-import { useFilm } from '../studio'
+import { useFilm, useStudio } from '../studio'
+import { speaksLabel } from '../lib/languages'
 import { useFilmEdit } from '../lib/useFilmEdit'
 import type { DialogueLine } from '../types'
 
@@ -16,6 +17,7 @@ const COMMANDS = ['Make it emotional', 'Make it scarier', 'Make it quieter', 'Ad
 const clean = (t: string) => t.replace(/^"|"$/g, '')
 
 export default function Dialogue() {
+  const { project } = useStudio()
   const film = useFilm()
   const live = !!film.dialogue && film.dialogue.length > 0
   const lines: DialogueLine[] = live ? film.dialogue! : SAMPLE
@@ -98,7 +100,7 @@ export default function Dialogue() {
           {scene && <p className="text-sm text-zinc-500">{scene.description} · Mood: {scene.mood}</p>}
         </div>
 
-        {live && <LanguageFix target="dialogue" text={lines.map(l => l.text).join(' ')} what="dialogue" />}
+        {live && <LanguageFix target="dialogue" text={lines.filter(l => !l.language || l.language === project?.language).map(l => l.text).join(' ')} what="dialogue" />}
 
         {/* One tab per scene, with how many lines it has */}
         {scenes.length > 1 && (
@@ -185,7 +187,15 @@ export default function Dialogue() {
                       </div>
                     </div>
                   ) : (
-                    <p className="text-sm italic leading-relaxed" style={{ color: '#d4d4d8', fontFamily: 'Fraunces, Georgia, serif' }}>“{clean(s.text)}”</p>
+                    <>
+                      <p className="text-sm italic leading-relaxed" style={{ color: '#d4d4d8', fontFamily: 'Fraunces, Georgia, serif' }}>“{clean(s.text)}”</p>
+                      {s.language && s.language !== project?.language && (
+                        <p className="text-xs mt-1.5 text-zinc-500" data-testid="dialogue-subtitle">
+                          <span className="text-[10px] uppercase tracking-wider mr-2 px-1.5 py-0.5 rounded" style={{ backgroundColor: 'rgba(212,168,75,0.1)', color: '#d4a84b' }}>{speaksLabel(s.language)}</span>
+                          {s.subtitle}
+                        </p>
+                      )}
+                    </>
                   )}
 
                   {isSel && editing !== i && (

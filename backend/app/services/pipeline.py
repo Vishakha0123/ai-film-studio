@@ -193,6 +193,22 @@ async def task_plan(db: Session, job: AIJob, project: Project) -> dict:
     return {"title": project.title}
 
 
+def spoken_language(memory: dict, line: dict, film_language: str) -> str:
+    """The language a line is voiced in: the line's own, else its speaker's (a family's language), else the film's."""
+    if line.get("language"):
+        return line["language"]
+    who = str(line.get("character", "")).strip().lower()
+    for c in memory.get("characters", []):
+        if c.get("language") and who and (who == str(c.get("name", "")).lower() or who.split()[0] == str(c.get("name", "")).lower().split()[0]):
+            return c["language"]
+    return film_language
+
+
+def _own_language(line: dict, language: str) -> bool:
+    """A dialogue line deliberately spoken in another language (a family's own language) — never 'corrected'."""
+    return bool(line.get("language")) and line.get("language") != language
+
+
 async def fix_language(db: Session, job: AIJob, memory: dict, language: str, only: tuple[str, ...] = CHECKED) -> dict:
     """If the model wrote some parts in the wrong language (often the screenplay in English), translate just those.
 
@@ -214,7 +230,8 @@ async def fix_language(db: Session, job: AIJob, memory: dict, language: str, onl
         new, old = data.get(k), memory[k]
         if isinstance(old, list):
             if isinstance(new, list) and len(new) == len(old):
-                fixed[k] = [{**o, **n} if isinstance(o, dict) and isinstance(n, dict) else o for o, n in zip(old, new)]
+                fixed[k] = [{**o, **n} if isinstance(o, dict) and isinstance(n, dict) and not _own_language(o, language) else o
+                            for o, n in zip(old, new)]
         elif isinstance(old, dict):
             if isinstance(new, dict):
                 fixed[k] = {**old, **new}
@@ -296,7 +313,8 @@ def edit_context(memory: dict, target: str, value: object) -> dict:
     if target != "story" and memory.get("story"):
         ctx["story"] = memory["story"][:1500]
     if target != "characters":
-        ctx["characters"] = [{k: c.get(k, "") for k in ("id", "name", "role", "personality")} for c in memory.get("characters", [])]
+        ctx["characters"] = [{k: c.get(k, "") for k in ("id", "name", "role", "personality", "family", "language") if c.get(k, "") or k in ("id", "name")}
+                             for c in memory.get("characters", [])]
     if target == "dialogue":
         ctx["scenes"] = [{k: s.get(k, "") for k in ("number", "location", "description", "characters")} for s in memory.get("scenes", [])]
     ctx[target] = value
@@ -425,7 +443,7 @@ async def _video_clip(db, job, project, shot: dict, frame: Asset, quality: str, 
 
 async def _voice(db, job, project, i: int, line: dict) -> Asset:
     prefs = user_preferences(db, project.user_id)
-    res = await with_retry(lambda: tts_provider().generate_voice(line["text"], language=project.language,
+    res = await with_retry(lambda: tts_provider().generate_voice(line["text"], language=spoken_language(project.memory or {}, line, project.language),
                                                                  speaker=prefs.voice or None, pace=prefs.voice_pace), job, db)
     record_usage(db, job, res)
     return await store_asset(db, project, "voice", str(i), res, data=res.data, ext="wav",

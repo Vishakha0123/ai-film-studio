@@ -10,7 +10,9 @@ export default function LanguageFix({ target, text, what }: { target: EditTarget
   const { project } = useStudio()
   const { working, error, ai } = useFilmEdit()
   const lang = project?.language
-  if (!lang || isInFilmLanguage(text, lang)) return null
+  // languages the film's characters speak on purpose (e.g. a Tamil family in a Hindi film)
+  const spoken = target !== 'screenplay' && target !== 'dialogue' ? [] : [...new Set((project?.memory?.characters ?? []).map(c => c.language).filter((l): l is string => !!l))]
+  if (!lang || isInFilmLanguage(text, lang, spoken)) return null
   const name = languageName(lang)
   const native = FILM_LANGUAGES.find(l => l.code === lang)?.native ?? name
 

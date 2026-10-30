@@ -24,12 +24,14 @@ from app.config import get_settings
 from app.models import AIJob, FilmProduction, FilmScene, FilmShot, Project
 from app.providers import ProviderError, image_provider, story_provider, tts_provider, video_provider
 from app.providers.base import ProviderResult
+from app.schemas import normalize_language
+from app.services.languages import LANGUAGES
 from app.services import reference_portraits, storage
 from app.services.film_production import (MAX_SHOT_ATTEMPTS, BudgetReached, Paused, check_budget, check_pause,
                                           frame_size, live_providers, production_of, progress, shot_cost, shots_for,
                                           story_call_cost)
 from app.services.film_renderer import RenderError, scene_preview, shot_clip, test_card, voice_track
-from app.services.pipeline import (ASPECT_SIZES, NeedsReview, record_usage, set_progress, store_asset, style_prompt,
+from app.services.pipeline import (ASPECT_SIZES, spoken_language, NeedsReview, record_usage, set_progress, store_asset, style_prompt,
                                    user_preferences, with_retry)
 
 log = logging.getLogger("cineai.film")
@@ -45,7 +47,9 @@ def _neighbour(prod: FilmProduction, number: int) -> dict | None:
 
 def _clean_shot(raw: object, shot_seconds: int, scene_chars: list[str]) -> dict:
     s = raw if isinstance(raw, dict) else {}
-    lines = [{"character": str(d.get("character") or ""), "text": str(d.get("text") or "").strip()}
+    lines = [{"character": str(d.get("character") or ""), "text": str(d.get("text") or "").strip(),
+              **({"language": normalize_language(d.get("language")), "subtitle": str(d.get("subtitle") or "").strip()}
+                 if normalize_language(d.get("language")) else {})}
              for d in (s.get("dialogue") or []) if isinstance(d, dict) and str(d.get("text") or "").strip()]
     chars = [str(c) for c in s.get("characters") or [] if str(c).strip()] if isinstance(s.get("characters"), list) else []
     return {"description": str(s.get("description") or "")[:2000], "camera": str(s.get("camera") or "Medium")[:100],
@@ -150,6 +154,10 @@ async def task_film_write_scripts(db: Session, job: AIJob, project: Project) -> 
     return {"written": written, "missing": missing}
 
 
+def language_name(code: str) -> str:
+    return f"speaks {LANGUAGES[code][0]}" if code in LANGUAGES else ""
+
+
 def screenplay_text(prod: FilmProduction, title: str) -> str:
     """The whole film as one readable screenplay: every scene's script, then its shots and dialogue."""
     out = [title.upper(), f"{len(prod.scenes)} scenes · {round(prod.target_seconds / 60)} minutes", ""]
@@ -157,7 +165,7 @@ def screenplay_text(prod: FilmProduction, title: str) -> str:
     if bible.get("story"):
         out += ["STORY", "", bible["story"].strip(), ""]
     if bible.get("characters"):
-        out += ["CHARACTERS"] + [f"  {c.get('name')} ({', '.join(x for x in (c.get('age', ''), c.get('gender', ''), c.get('role', '')) if x)})"
+        out += ["CHARACTERS"] + [f"  {c.get('name')} ({', '.join(x for x in (c.get('age', ''), c.get('gender', ''), c.get('role', ''), c.get('family', ''), language_name(c.get('language', '')) if c.get('language') else '') if x)})"
                                  for c in bible["characters"]] + [""]
     for sc in prod.scenes:
         out += ["=" * 60, f"SCENE {sc.number} — {sc.title}  (Act {sc.act} · {sc.location})", "=" * 60, ""]
@@ -166,7 +174,10 @@ def screenplay_text(prod: FilmProduction, title: str) -> str:
             out += ["", "SHOTS"]
             for sh in sc.shots:
                 out.append(f"  {sh.number}. {sh.camera} · {sh.movement} · {sh.seconds:g}s — {sh.description}")
-                out += [f"       {d.get('character', '')}: {d.get('text', '')}" for d in sh.dialogue or []]
+                for d in sh.dialogue or []:
+                    out.append(f"       {d.get('character', '')}: {d.get('text', '')}")
+                    if d.get("subtitle"):
+                        out.append(f"         [{d['subtitle']}]")
         out.append("")
     return "\n".join(out)
 
@@ -234,7 +245,7 @@ async def make_shot(db: Session, job: AIJob, project: Project, prod: FilmProduct
         if shot.dialogue:
             prefs = user_preferences(db, project.user_id)
             for line in shot.dialogue:
-                res = await with_retry(lambda: tts_provider().generate_voice(line["text"], language=project.language,
+                res = await with_retry(lambda: tts_provider().generate_voice(line["text"], language=spoken_language(prod.story_bible, line, project.language),
                                                                              speaker=prefs.voice or None, pace=prefs.voice_pace), job, db)
                 record_usage(db, job, res)
                 prod.spent = round(prod.spent + res.cost, 4)

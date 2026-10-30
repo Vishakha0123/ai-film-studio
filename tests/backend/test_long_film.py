@@ -545,3 +545,64 @@ def test_pdf_splits_mixed_scripts_into_font_runs():
     assert runs("Paati: अप्पा, இதை read") == [("Noto", "Paati: "), ("NotoDevanagari", "अप्पा"), ("Noto", ", "),
                                                ("NotoTamil", "இதை "), ("Noto", "read")]
     assert runs("सुनीता नाव की रस्सी कसती है।") == [("NotoDevanagari", "सुनीता नाव की रस्सी कसती है।")]
+
+
+# ---------- two families, two languages ----------
+
+def _two_family_film(client, language="en"):
+    p = client.post("/api/v1/projects", json={"genres": ["Drama"], "language": language}, headers=A).json()
+    prompt = "A Punjabi family from Delhi and a Tamil family from Chennai fight over their children's wedding"
+    client.post(f"/api/v1/projects/{p['id']}/brief", json={"prompt": prompt, "language": language}, headers=A)
+    client.post(f"/api/v1/projects/{p['id']}/plan", json={"prompt": prompt}, headers=A)
+    return p["id"]
+
+
+def test_two_families_each_speak_their_language(client):
+    pid = _two_family_film(client)
+    mem = client.get(f"/api/v1/projects/{pid}", headers=A).json()["memory"]
+    by_lang = {c["language"] for c in mem["characters"]}
+    assert by_lang == {"pa", "ta"} and len({c["family"] for c in mem["characters"]}) == 2
+    tamil = [l for l in mem["dialogue"] if l.get("language") == "ta"] + [l for l in mem["dialogue"] if l.get("language") == "pa"]
+    assert tamil and all(l["subtitle"] for l in tamil)
+
+
+def test_language_check_leaves_another_familys_lines_alone():
+    from app.services.script_check import wrong_language_fields
+    hindi_line = "रोहन, यह नाव हमारी है। हमेशा रहेगी। सुनीता बोली और चुप हो गई, धुंध में घंटियाँ बज रही थीं।"
+    tamil_line = "அப்பா இதை எழுதினாரா? நான் நம்பவே முடியவில்லை, இந்த நாட்குறிப்பு உண்மையா என்று பார்க்கணும்."
+    memory = {"characters": [{"name": "Sunita", "language": ""}, {"name": "Murugan", "language": "ta", "family": "Iyer family"}],
+              "dialogue": [{"character": "Murugan", "text": tamil_line * 3, "language": "ta", "subtitle": "…"},
+                           {"character": "Sunita", "text": hindi_line}],
+              "screenplay": (hindi_line + "\n" + tamil_line + "\n") * 2}
+    assert wrong_language_fields(memory, "hi") == []
+    # …but an English screenplay in a Hindi film is still caught
+    memory["screenplay"] = "She walks to the river and looks at the boats for a long time in silence. " * 3
+    assert wrong_language_fields(memory, "hi") == ["screenplay"]
+
+
+def test_voice_uses_the_speakers_language():
+    from app.services.pipeline import spoken_language
+    memory = {"characters": [{"name": "Murugan Iyer", "language": "ta"}, {"name": "Rohan", "language": ""}]}
+    assert spoken_language(memory, {"character": "Murugan", "text": "x"}, "hi") == "ta"
+    assert spoken_language(memory, {"character": "Rohan", "text": "x"}, "hi") == "hi"
+    assert spoken_language(memory, {"character": "Rohan", "text": "x", "language": "en"}, "hi") == "en"
+
+
+def test_character_family_and_language_can_be_edited(client):
+    pid, _ = _plan(client)
+    r = client.patch(f"/api/v1/projects/{pid}/characters/1", json={"family": "Iyer family", "language": "Tamil"}, headers=A)
+    c = next(c for c in r.json()["memory"]["characters"] if c["id"] == "1")
+    assert c["family"] == "Iyer family" and c["language"] == "ta"
+
+
+def test_full_length_film_keeps_each_familys_language(client):
+    pid = _two_family_film(client)
+    client.post(f"/api/v1/projects/{pid}/film", json={"targetMinutes": 10, "writeScripts": True}, headers=A)
+    full = client.get(f"/api/v1/projects/{pid}/film/full", headers=A).json()
+    lines = [d for sc in full["scenes"] for sh in sc["shots"] for d in sh["dialogue"]]
+    assert {d.get("language") for d in lines} >= {"pa", "ta"}
+    assert all(d["subtitle"] for d in lines if d.get("language"))
+    text = client.get(f"/api/v1/projects/{pid}/film/script", headers=A).text
+    assert "speaks Punjabi" in text and "speaks Tamil" in text and "[Line 1 of scene 1.]" in text
+    pdf = client.get(f"/api/v1/projects/{pid}/film/script?format=pdf", headers=A)
+    assert pdf.status_code == 200 and pdf.content[:5] == b"%PDF-"

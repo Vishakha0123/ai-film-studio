@@ -274,7 +274,11 @@ function SceneRow({ projectId, scene, canRetry, onChanged, onError, onRefresh }:
                   <span className="flex-1 min-w-0">
                     <span className="text-zinc-300">{sh.camera} · {sh.movement} · {sh.seconds}s</span>
                     <span className="block text-zinc-500">{sh.description}</span>
-                    {sh.dialogue.map((d, i) => <span key={i} className="block text-zinc-400 italic">{d.character}: “{d.text}”</span>)}
+                    {sh.dialogue.map((d, i) => (
+                      <span key={i} className="block text-zinc-400 italic">{d.character}: “{d.text}”
+                        {d.subtitle && <span className="block not-italic text-zinc-600">[{d.subtitle}]</span>}
+                      </span>
+                    ))}
                     {sh.error && <span className="block text-red-300">{sh.error}</span>}
                   </span>
                   {!isVideoLocked() && sh.clipKind === 'test' && <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400">Test clip</span>}
