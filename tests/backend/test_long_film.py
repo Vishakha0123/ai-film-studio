@@ -606,3 +606,49 @@ def test_full_length_film_keeps_each_familys_language(client):
     assert "speaks Punjabi" in text and "speaks Tamil" in text and "[Line 1 of scene 1.]" in text
     pdf = client.get(f"/api/v1/projects/{pid}/film/script?format=pdf", headers=A)
     assert pdf.status_code == 200 and pdf.content[:5] == b"%PDF-"
+
+
+def test_lines_written_in_the_wrong_language_are_put_into_the_speakers_language(client, monkeypatch):
+    """The real case: the story model set the families' languages but wrote every line in English."""
+    import asyncio
+    from app.providers.base import ProviderResult
+    from app.providers.mock import MockStory
+    from app.services.pipeline import fix_family_lines
+    calls = []
+
+    async def translate(self, memory, language):
+        calls.append(language)
+        return ProviderResult({"dialogue": [{"character": d["character"], "text": f"<{language}>{d['text']}"} for d in memory["dialogue"]]},
+                              provider="mock", model="t")
+
+    monkeypatch.setattr(MockStory, "translate_film", translate)
+    chars = [{"name": "Harpreet Malhotra", "language": "pa"}, {"name": "Krishnan Iyer", "language": "ta"}, {"name": "Rohan", "language": ""}]
+    lines = [{"character": "Harpreet Malhotra", "text": "Arre, come in, come in!"},
+             {"character": "Krishnan Iyer", "text": "That is very generous."},
+             {"character": "Harpreet", "text": "We ordered 50 kilos of paneer."},
+             {"character": "Rohan", "text": "Mom, please."},
+             {"character": "Krishnan", "text": "அது மிகவும் தாராளமானது.", "language": "ta"}]  # already Tamil: kept
+    from app.db import SessionLocal
+    from app.models import AIJob, Project, User
+    with SessionLocal() as db:
+        u = User(id="u-test", email="t@t.t"); db.add(u); db.commit()
+        p = Project(user_id=u.id, title="x"); db.add(p); db.commit()
+        job = AIJob(project_id=p.id, user_id=u.id, task="plan"); db.add(job); db.commit()
+        out = asyncio.run(fix_family_lines(db, job, lines, chars, "en"))
+    assert sorted(calls) == ["pa", "ta"]  # one call per language
+    assert out[0] == {"character": "Harpreet Malhotra", "text": "<pa>Arre, come in, come in!", "language": "pa", "subtitle": "Arre, come in, come in!"}
+    assert out[1]["language"] == "ta" and out[1]["subtitle"] == "That is very generous."
+    assert out[2]["text"].startswith("<pa>")  # matched by first name
+    assert out[3] == lines[3]  # speaks the film's language: unchanged
+    assert out[4]["text"] == "அது மிகவும் தாராளமானது." and "subtitle" not in out[4]
+
+
+def test_changing_who_speaks_what_rewrites_their_lines(client):
+    pid, _ = _plan(client)
+    mem = client.get(f"/api/v1/projects/{pid}", headers=A).json()["memory"]
+    elena = next(c for c in mem["characters"] if c["name"].startswith("Elena"))
+    client.patch(f"/api/v1/projects/{pid}/characters/{elena['id']}", json={"language": "Tamil", "family": "Iyer family"}, headers=A)
+    jobs = client.get(f"/api/v1/projects/{pid}/jobs", headers=A).json()
+    assert any(j["task"] == "family_lines" and j["status"] == "completed" for j in jobs)
+    lines = client.get(f"/api/v1/projects/{pid}", headers=A).json()["memory"]["dialogue"]
+    assert all(l["language"] == "ta" and l["subtitle"] for l in lines if l["character"].startswith("Elena"))

@@ -27,7 +27,7 @@ from app.providers import ProviderError, image_provider, story_provider, tts_pro
 from app.providers.base import ProviderResult
 from app.schemas import FilmProject, Preferences
 from app.services import reference_portraits, storage
-from app.services.script_check import CHECKED, wrong_language_fields
+from app.services.script_check import CHECKED, written_in, wrong_language_fields
 from app.services.portraits import PORTRAIT_SIZE, negative_prompt, portrait_prompt, portraits_enabled
 
 log = logging.getLogger("cineai.pipeline")
@@ -184,6 +184,10 @@ async def task_plan(db: Session, job: AIJob, project: Project) -> dict:
     if prefs.visual_style and not memory.get("visualStyle"):
         memory["visualStyle"] = prefs.visual_style  # Settings → Visual style is where every new film starts
     memory = await fix_language(db, job, memory, brief["language"])
+    if any(c.get("language") for c in memory.get("characters", [])):  # a family that speaks its own language
+        set_progress(db, job, "Writing each family's lines in its own language", 90)
+        memory = validate_film({**memory, "dialogue": await fix_family_lines(db, job, memory.get("dialogue", []),
+                                                                             memory["characters"], brief["language"])})
     project.memory = memory
     project.title = memory["title"][:300]
     project.genre = memory.get("genre", project.genre)[:200]
@@ -207,6 +211,49 @@ def spoken_language(memory: dict, line: dict, film_language: str) -> str:
 def _own_language(line: dict, language: str) -> bool:
     """A dialogue line deliberately spoken in another language (a family's own language) — never 'corrected'."""
     return bool(line.get("language")) and line.get("language") != language
+
+
+def speaker_language(characters: list, who: str) -> str:
+    who = str(who or "").strip().lower()
+    for c in characters:
+        name = str(c.get("name", "")).lower()
+        if c.get("language") and who and name and (who == name or who.split()[0] == name.split()[0]):
+            return c["language"]
+    return ""
+
+
+async def fix_family_lines(db: Session, job: AIJob, lines: list, characters: list, film_language: str) -> list:
+    """Story models often write every line in the film's language even when a family speaks its own.
+    Lines whose speaker speaks another language, but which aren't written in it, are translated into it here
+    (one call per language); the original becomes the subtitle. Best effort: a failure keeps the lines as they were."""
+    todo: dict[str, list[int]] = {}
+    for i, line in enumerate(lines):
+        if not isinstance(line, dict) or not str(line.get("text", "")).strip():
+            continue
+        lang = line.get("language") or speaker_language(characters, line.get("character", ""))
+        if not lang or lang == film_language:
+            continue
+        if written_in(str(line["text"]), lang):
+            line.setdefault("language", lang)
+            continue
+        todo.setdefault(lang, []).append(i)
+    out = [dict(l) if isinstance(l, dict) else l for l in lines]
+    for lang, idx in todo.items():
+        try:
+            res = await with_retry(lambda: story_provider().translate_film(
+                {"dialogue": [{"character": lines[i].get("character", ""), "text": lines[i]["text"]} for i in idx]}, lang), job, db)
+        except ProviderError as e:
+            log.warning("could not put %d lines into %s: %s", len(idx), lang, e)
+            continue
+        record_usage(db, job, res)
+        got = (res.data or {}).get("dialogue") if isinstance(res.data, dict) else None
+        if not isinstance(got, list) or len(got) != len(idx):
+            continue
+        for i, new in zip(idx, got):
+            text = str(new.get("text", "") if isinstance(new, dict) else new).strip()
+            if text:
+                out[i] = {**out[i], "subtitle": out[i].get("subtitle") or lines[i]["text"], "text": text, "language": lang}
+    return out
 
 
 async def fix_language(db: Session, job: AIJob, memory: dict, language: str, only: tuple[str, ...] = CHECKED) -> dict:
@@ -672,7 +719,17 @@ def queue_portraits(db: Session, project: Project, character_ids: list[str] | No
     return job
 
 
-TASKS = {"plan": task_plan, "edit": task_edit, "translate": task_translate, "generate": task_generate, "regenerate": task_regenerate, "render": task_render, "portraits": task_portraits}
+async def task_family_lines(db: Session, job: AIJob, project: Project) -> dict:
+    """After a character's language was changed by hand: their existing lines are put into that language."""
+    memory = project.memory or {}
+    set_progress(db, job, "Writing each family's lines in its own language", 30)
+    fixed = await fix_family_lines(db, job, memory.get("dialogue", []), memory.get("characters", []), project.language or "en")
+    project.memory = validate_film({**memory, "dialogue": fixed})
+    db.commit()
+    return {"lines": sum(1 for a, b in zip(memory.get("dialogue", []), fixed) if a != b)}
+
+
+TASKS = {"plan": task_plan, "family_lines": task_family_lines, "edit": task_edit, "translate": task_translate, "generate": task_generate, "regenerate": task_regenerate, "render": task_render, "portraits": task_portraits}
 
 
 def _task(name: str):

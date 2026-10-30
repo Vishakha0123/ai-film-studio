@@ -6,7 +6,7 @@ import { NoPortrait, StockBadge } from '../components/CharacterPortrait'
 import { useFilm, useStudio } from '../studio'
 import { FILM_LANGUAGES, speaksLabel } from '../lib/languages'
 import type { Character } from '../types'
-import { DEMO_MODE, addCharacter, assertCompleted, editProject, removeCharacter, updateCharacter, waitForJob, type CharacterInput } from '../api'
+import { DEMO_MODE, listProjectJobs, addCharacter, assertCompleted, editProject, removeCharacter, updateCharacter, waitForJob, type CharacterInput } from '../api'
 
 type Mode = { kind: 'view' } | { kind: 'add' } | { kind: 'edit'; field?: 'appearance' }
 
@@ -107,6 +107,16 @@ export default function Characters() {
   const save = (c: Character, data: CharacterInput) => run('Saving…', async () => {
     setProject(await updateCharacter(project!.id, c.id, data))
     setMode({ kind: 'view' })
+    if (data.language !== undefined && (data.language || '') !== (c.language || '') && data.language) {
+      // their lines are being rewritten in the language they now speak — show them once that's done
+      setWorking(`Writing ${c.name}'s lines in ${speaksLabel(data.language)}…`)
+      for (let i = 0; i < 90; i++) {
+        await new Promise(r => setTimeout(r, 1000))
+        const active = await listProjectJobs(project!.id, true).catch(() => [])
+        if (!active.some(j => j.task === 'family_lines')) break
+      }
+      await refreshProject()
+    }
   })
 
   const regenerate = (c: Character) => run(`Rewriting ${c.name}…`, async () => {

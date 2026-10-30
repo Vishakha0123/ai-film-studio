@@ -62,3 +62,16 @@ def wrong_language_fields(memory: dict, language: str, only: tuple[str, ...] = C
     if "en" in spoken:  # an English-speaking character: their lines make an English-looking screenplay legitimate
         checked = [k for k in checked if k != "screenplay"]
     return [k for k in checked if not in_language(_text_of(k, memory[k], language), language, spoken)]
+
+
+def written_in(text: str, language: str) -> bool:
+    """Is this (short) text written in the language's script? English = mostly Latin letters."""
+    letters = [ch for ch in text if ch.isalpha()]
+    if len(letters) < 4:
+        return True
+    if language == "en":
+        return sum(1 for ch in letters if ch.isascii()) / len(letters) >= 0.5
+    block = SCRIPTS.get(language)
+    if not block:
+        return True
+    return sum(1 for ch in letters if block[0] <= ord(ch) <= block[1]) / len(letters) >= 0.5

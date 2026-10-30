@@ -31,7 +31,7 @@ from app.services.film_production import (MAX_SHOT_ATTEMPTS, BudgetReached, Paus
                                           frame_size, live_providers, production_of, progress, shot_cost, shots_for,
                                           story_call_cost)
 from app.services.film_renderer import RenderError, scene_preview, shot_clip, test_card, voice_track
-from app.services.pipeline import (ASPECT_SIZES, spoken_language, NeedsReview, record_usage, set_progress, store_asset, style_prompt,
+from app.services.pipeline import (ASPECT_SIZES, fix_family_lines, spoken_language, NeedsReview, record_usage, set_progress, store_asset, style_prompt,
                                    user_preferences, with_retry)
 
 log = logging.getLogger("cineai.film")
@@ -76,6 +76,15 @@ async def break_down(db: Session, job: AIJob, prod: FilmProduction, scene: FilmS
     if not raw:
         raise ProviderError(f"The story model returned no shots for scene {scene.number}.")
     shots = [_clean_shot(x, prod.shot_seconds, scene.characters) for x in raw[:count]]
+    chars = prod.story_bible.get("characters", [])
+    if any(c.get("language") for c in chars):  # each family's lines in its own language
+        film_language = prod.story_bible.get("language", "en")
+        flat = [(n, line) for n, sh in enumerate(shots) for line in sh["dialogue"]]  # one call per language per scene
+        fixed = await fix_family_lines(db, job, [line for _, line in flat], chars, film_language)
+        for sh in shots:
+            sh["dialogue"] = []
+        for (n, _), line in zip(flat, fixed):
+            shots[n]["dialogue"].append(line)
     while len(shots) < count:  # a short reply: hold the scene's last shot so the timing still adds up
         shots.append({**shots[-1], "dialogue": [], "description": shots[-1]["description"] + " (continues)"})
     # the last shot takes the remainder, so the scene lasts what the outline planned

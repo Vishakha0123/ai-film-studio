@@ -338,6 +338,7 @@ def update_character(project_id: str, character_id: str, body: CharacterInput, b
         raise HTTPException(422, detail="A character needs a name.")
     # A new look, age or gender means the portrait (and frames it appears in) no longer match
     looks_changed = any(k in changes and changes[k] != chars[idx].get(k, "") for k in LOOK_FIELDS if k != "name")
+    language_changed = "language" in changes and changes["language"] != chars[idx].get("language", "")
     chars[idx] = {**chars[idx], **changes}
     project.memory = validate_film({**project.memory, "characters": chars})
     if looks_changed:
@@ -345,6 +346,9 @@ def update_character(project_id: str, character_id: str, body: CharacterInput, b
     db.commit()
     if looks_changed and (job := queue_portraits(db, project, [character_id])):  # a new photo to match
         dispatch(background, job)
+    if language_changed and next((c for c in project.memory["characters"] if str(c.get("id")) == character_id), {}).get("language"):
+        # their existing lines are rewritten in the language they now speak (subtitles keep the old text)
+        create_job(db, background, project_id=project.id, user_id=user.id, task="family_lines")
     db.refresh(project)
     return _project_out(project)
 
