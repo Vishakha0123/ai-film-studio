@@ -10,14 +10,17 @@ Write in {output_language}; keep JSON keys in English.
 3. "subplots": the {subplots} secondary storylines that keep the middle of the film alive.
 4. "characters": the NEW characters this longer story needs — about {new_characters} of them (supporting roles,
    antagonists, family, friends, colleagues). Never repeat or rename the bible's characters. Give each a real
-   name that fits the setting, an age in years, and a gender ("female" or "male").
+   name that fits the setting, an age in years, and a gender ("female" or "male"). Put each in a "family" (an
+   existing family from the bible or a new one) and give their "language" ("" for {output_language}; a member of a
+   family that speaks another language speaks it too — use the bible's codes: en, hi, ta, te, kn, ml, bn, mr, gu, pa).
 
 Return ONLY this JSON:
 {"story": string,
  "acts": [ {"act": 1, "summary": string}, {"act": 2, "summary": string}, {"act": 3, "summary": string} ],
  "subplots": [string],
  "characters": [ {"name": string, "age": string, "gender": "female|male", "role": string,
-                  "personality": string, "appearance": string, "arc": string, "relationships": string} ] }
+                  "personality": string, "appearance": string, "arc": string, "relationships": string,
+                  "family": string, "language": string} ] }
 
 STORY BIBLE:
 {bible}

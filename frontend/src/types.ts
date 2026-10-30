@@ -27,6 +27,10 @@ export interface Character {
   relationships: string
   /** "female" or "male" — picks the portrait (with the age) until a generated one exists */
   gender?: string
+  /** The family or group they belong to, e.g. "Malhotra family" */
+  family?: string
+  /** What they speak (en, hi, ta, …); empty = the film's language */
+  language?: string
   imageId: string
   /** Generated portrait (backend asset), falls back to imageId photo */
   imageUrl?: string
@@ -77,6 +81,10 @@ export interface DialogueLine {
   tone: string
   /** Number of the scene this line belongs to */
   scene?: number | null
+  /** Set when the line is spoken in another language than the film's (a family's own language) */
+  language?: string
+  /** The line in the film's language */
+  subtitle?: string
 }
 
 /** The film's theme song, written in the film's language. */
@@ -505,7 +513,7 @@ export interface LongFilmShot {
   camera: string
   movement: string
   characters: string[]
-  dialogue: { character: string; text: string }[]
+  dialogue: { character: string; text: string; language?: string; subtitle?: string }[]
   seconds: number
   status: 'pending' | 'generating' | 'done' | 'failed'
   attempts: number
@@ -544,6 +552,6 @@ export interface FullFilmText {
     targetSeconds: number
     script: string
     status: LongFilmSceneSummary['status']
-    shots: { id: string; number: number; camera: string; movement: string; seconds: number; description: string; characters: string[]; dialogue: { character: string; text: string }[] }[]
+    shots: { id: string; number: number; camera: string; movement: string; seconds: number; description: string; characters: string[]; dialogue: { character: string; text: string; language?: string; subtitle?: string }[] }[]
   }[]
 }

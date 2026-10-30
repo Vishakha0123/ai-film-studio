@@ -5,6 +5,7 @@ import { useStudio } from '../studio'
 import type { FullFilmText } from '../types'
 import { duration } from '../screens/FullMovie'
 import { classifyLine, LINE_STYLES } from '../panels/Screenplay'
+import { speaksLabel } from '../lib/languages'
 
 export type FullFilmKind = 'screenplay' | 'dialogue' | 'scenes' | 'storyboard'
 
@@ -105,7 +106,10 @@ function FullView({ kind, film, onOpenScene }: { kind: FullFilmKind; film: FullF
               {lines.length ? (
                 <div className="rounded-xl px-5 py-4 space-y-2" style={card}>
                   {lines.map((d, i) => (
-                    <p key={i} className="text-sm"><span className="text-xs font-semibold mr-2" style={{ color: gold }}>{d.character}</span><span className="text-zinc-300">{d.text}</span></p>
+                    <div key={i}>
+                      <p className="text-sm"><span className="text-xs font-semibold mr-2" style={{ color: gold }}>{d.character}</span><span className="text-zinc-300">{d.text}</span></p>
+                      {d.subtitle && <p className="text-xs text-zinc-500 ml-1" data-testid="full-film-subtitle">{d.language ? `${speaksLabel(d.language)} — ` : ''}{d.subtitle}</p>}
+                    </div>
                   ))}
                 </div>
               ) : <p className="text-xs text-zinc-600 italic">{sc.script ? 'No dialogue in this scene.' : 'Not written yet.'}</p>}
