@@ -17,7 +17,7 @@ SCRIPTS: dict[str, tuple[int, int]] = {
 _FORMAT_LINE = re.compile(r"^\s*(INT\.|EXT\.|INT/EXT|EXT/INT|I/E|FADE |FADE$|FADE IN|FADE OUT|CUT TO|SMASH CUT|DISSOLVE|MATCH CUT|THE END)", re.I)
 
 # Fields whose words should be in the film's language (shots/visual prompts are excluded on purpose)
-CHECKED = ("logline", "story", "screenplay", "dialogue", "lyrics", "scenes", "characters")
+CHECKED = ("logline", "story", "screenplay", "dialogue", "lyrics", "songs", "scenes", "characters")
 
 
 def _text_of(key: str, value, language: str = "") -> str:
@@ -31,6 +31,8 @@ def _text_of(key: str, value, language: str = "") -> str:
                         if isinstance(l, dict) and l.get("language", "") in ("", language))
     if key == "lyrics" and isinstance(value, dict):
         return " ".join(str(value.get(k, "")) for k in ("verse", "preChorus", "chorus", "bridge"))
+    if key == "songs" and isinstance(value, list):
+        return " ".join(_text_of("lyrics", song) for song in value if isinstance(song, dict))
     if key == "scenes" and isinstance(value, list):
         return " ".join(str(s.get("description", "")) for s in value if isinstance(s, dict))
     if key == "characters" and isinstance(value, list):

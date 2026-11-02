@@ -1464,3 +1464,29 @@ def test_portraits_folder_is_backend_portraits_wherever_the_server_starts(monkey
     assert portraits_dir() == BACKEND_DIR / "portraits" and BACKEND_DIR.name == "backend"
     monkeypatch.setattr(get_settings(), "REFERENCE_PORTRAITS_DIR", "my-faces")
     assert portraits_dir() == BACKEND_DIR / "my-faces"
+
+
+# ---------- Several songs ----------
+
+def test_requested_songs_are_read_from_the_film_idea():
+    from app.services.pipeline import requested_songs
+    assert requested_songs("A love story with 3 songs") == 3
+    assert requested_songs("film with two romantic songs") == 2
+    assert requested_songs("a story about songs of the sea") == 1
+    assert requested_songs("20 songs") == 8 and requested_songs("") == 1
+
+
+def _songs_of(client, prompt, **plan):
+    p = client.post("/api/v1/projects", json={}, headers=auth()).json()
+    client.post(f"/api/v1/projects/{p['id']}/brief", json={"prompt": prompt}, headers=auth())
+    job = client.post(f"/api/v1/projects/{p['id']}/plan", json=plan, headers=auth()).json()
+    assert client.get(f"/api/v1/jobs/{job['id']}", headers=auth()).json()["status"] == "completed"
+    return client.get(f"/api/v1/projects/{p['id']}", headers=auth()).json()["memory"]
+
+
+def test_film_gets_the_theme_song_plus_the_other_songs_asked_for(client):
+    mem = _songs_of(client, "A wedding drama with 3 songs")
+    assert mem["lyrics"]["title"] and [s["scene"] for s in mem["songs"]] == [2, 3]
+    assert all(s["chorus"] for s in mem["songs"])
+    assert _songs_of(client, "A quiet drama")["songs"] == []  # one song: just the theme
+    assert len(_songs_of(client, "A quiet drama", songs=4)["songs"]) == 3  # explicit count wins

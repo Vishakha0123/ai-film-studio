@@ -21,6 +21,9 @@ SAMPLE_LYRICS = {
 }
 
 
+MOCK_SONG_STYLES = ["Love Ballad", "Folk Chorus", "Farewell Lament", "Dance Number"]
+
+
 class MockStory(StoryProvider):
     async def write_treatment(self, bible, *, minutes, language):
         return await _mock_treatment(bible, minutes)
@@ -50,6 +53,8 @@ class MockStory(StoryProvider):
             {"character": "Elena", "text": "The notation changed. This isn't what I wrote.", "tone": "Horror"},
         ]
         film["lyrics"] = copy.deepcopy(SAMPLE_LYRICS)
+        film["songs"] = [{**copy.deepcopy(SAMPLE_LYRICS), "title": f"Song {n}", "style": style, "scene": n, "singer": ""}
+                         for n, style in zip(range(2, int(brief.get("songs") or 1) + 1), MOCK_SONG_STYLES * 4)]
         _mock_families(film, str(brief.get("prompt", "")), brief.get("language") or "en")
         return ProviderResult(film, provider="mock", model="sample-film")
 
