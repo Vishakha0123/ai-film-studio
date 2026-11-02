@@ -7,6 +7,7 @@ with `needs_review` + an explanation when no safe result is possible.
 """
 
 import asyncio
+import re
 import logging
 import shutil
 import subprocess
@@ -155,6 +156,19 @@ def _image_ext(data: bytes) -> str:
 
 # ---------------------------------------------------------------- tasks
 
+_NUMBER_WORDS = {"two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8}
+_SONGS = re.compile(r"\b(\d{1,2}|two|three|four|five|six|seven|eight)\s+(?:\w+\s+)?(?:songs|gaane|gaano|paatu|pattu|paadalgal|geetalu)\b", re.I)
+
+
+def requested_songs(prompt: str) -> int:
+    """How many songs the creator asked for in the film idea ("a film with 3 songs"); 1 (the theme song) otherwise."""
+    m = _SONGS.search(prompt or "")
+    if not m:
+        return 1
+    n = m.group(1).lower()
+    return max(1, min(8, int(n) if n.isdigit() else _NUMBER_WORDS[n]))
+
+
 async def task_plan(db: Session, job: AIJob, project: Project) -> dict:
     set_progress(db, job, "Understanding the brief", 10)
     brief = dict(project.brief or {})
@@ -163,6 +177,9 @@ async def task_plan(db: Session, job: AIJob, project: Project) -> dict:
     brief.setdefault("filmLength", prefs.film_length)  # Settings → Film length decides the scene count
     if job.params.get("prompt"):
         brief["prompt"] = job.params["prompt"]
+    songs = job.params.get("songs") or requested_songs(brief.get("prompt", ""))
+    if songs > 1:
+        brief["songs"] = songs  # the theme song plus songs-1 more
     docs = db.scalars(select(ProjectDocument).where(ProjectDocument.project_id == project.id)
                       .order_by(ProjectDocument.created_at)).all()
     if docs:
@@ -181,6 +198,7 @@ async def task_plan(db: Session, job: AIJob, project: Project) -> dict:
         memory = validate_film(reference_portraits.apply_prompt_facts(res.data, brief.get("prompt", "")) if isinstance(res.data, dict) else res.data)
     except ValidationError as e:
         raise NeedsReview(f"The story model returned an incomplete plan ({_problems(e)}). Try again.") from e
+    memory["songs"] = memory.get("songs", [])[:max(songs - 1, 0)]  # never more songs than were asked for
     if prefs.visual_style and not memory.get("visualStyle"):
         memory["visualStyle"] = prefs.visual_style  # Settings → Visual style is where every new film starts
     memory = await fix_language(db, job, memory, brief["language"])

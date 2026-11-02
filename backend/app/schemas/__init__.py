@@ -210,6 +210,10 @@ class Lyrics(FilmPart):
     pre_chorus: str = ""
     chorus: str = ""
     bridge: str = ""
+    scene: int | None = None  # the scene the song plays in (extra songs)
+    singer: str = ""          # who sings it, if a character does
+
+    _scene = field_validator("scene", mode="before")(lambda v: _to_int(v) or None if v not in (None, "") else None)
 
 
 class FilmProject(FilmPart):
@@ -225,6 +229,7 @@ class FilmProject(FilmPart):
     audio_tracks: list[AudioTrack] = []
     dialogue: list[DialogueLine] = []
     lyrics: Lyrics | None = None
+    songs: list[Lyrics] = []  # the film's other songs (the theme song is `lyrics`)
     visual_style: str = ""  # Storyboard look: Photorealistic, Dark Cinema, Anime, 3D Render, Vintage or the creator's own words
 
 
@@ -251,6 +256,7 @@ class LanguageVersionRequest(Schema):
 
 class PlanRequest(Schema):
     prompt: str | None = Field(default=None, max_length=4000)
+    songs: int | None = Field(default=None, ge=1, le=8)  # how many songs the film has, theme song included
 
 
 class EditRequest(Schema):

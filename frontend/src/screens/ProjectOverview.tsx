@@ -1,3 +1,4 @@
+import MoreSongs from '../components/MoreSongs'
 import { useEffect, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { getProject, listDocuments, makeLanguageVersion } from '../api'
@@ -254,6 +255,12 @@ export default function ProjectOverview() {
                       </div>
                     ))}
                 </div>
+              </Section>
+            )}
+
+            {!!f.songs?.length && (
+              <Section id="songs" title="More songs" count={`${f.songs.length}`} onEdit={() => openIn('lyrics')}>
+                <MoreSongs songs={f.songs} />
               </Section>
             )}
 

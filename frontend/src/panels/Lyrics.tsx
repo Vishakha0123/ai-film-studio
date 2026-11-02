@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { DEMO_MODE, assertCompleted, editProject, waitForJob, type EditAction } from '../api'
 import { useFilm, useStudio } from '../studio'
 import type { Lyrics as LyricsData } from '../types'
+import MoreSongs from '../components/MoreSongs'
 import { useFilmEdit } from '../lib/useFilmEdit'
 import DirectAI from '../components/DirectAI'
 import LanguageFix from '../components/LanguageFix'
@@ -170,6 +171,7 @@ export default function Lyrics() {
             />
           </>
         )}
+        <MoreSongs songs={film.songs} />
         {working && song && <p className="text-xs" style={{ color: '#d4a84b' }} data-testid="lyrics-working">Rewriting the song…</p>}
         {error && <p role="alert" className="text-xs text-red-300">{error}</p>}
       </div>

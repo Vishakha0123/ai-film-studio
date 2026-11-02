@@ -4,7 +4,7 @@ from pathlib import Path
 
 _DIR = Path(__file__).parent
 
-PLAN_FILM = "plan_film.v3"  # v3: families/characters may speak their own language (dialogue + subtitles)
+PLAN_FILM = "plan_film.v4"  # v4: several songs; v3: families/characters may speak their own language (dialogue + subtitles)
 EDIT = "edit.v2"
 TRANSLATE_FILM = "translate_film.v1"
 FILM_OUTLINE = "film_outline.v1"      # long film: scenes in batches

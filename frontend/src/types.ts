@@ -95,6 +95,9 @@ export interface Lyrics {
   preChorus: string
   chorus: string
   bridge: string
+  /** Extra songs: the scene it plays in and who sings it */
+  scene?: number
+  singer?: string
 }
 
 export interface FilmProject {
@@ -110,6 +113,8 @@ export interface FilmProject {
   audioTracks: AudioTrack[]
   dialogue?: DialogueLine[]
   lyrics?: Lyrics
+  /** The film's other songs (the theme song is `lyrics`) */
+  songs?: Lyrics[]
   /** Storyboard look picked by the creator (Dark Cinema by default) */
   visualStyle?: string
 }
