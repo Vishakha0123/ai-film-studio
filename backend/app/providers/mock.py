@@ -29,7 +29,8 @@ class MockStory(StoryProvider):
         return await _mock_outline(bible, first, last, total, target_seconds)
 
     async def break_down_scene(self, bible, scene, *, total, shot_count, shot_seconds, previous, next_scene, language, direction=""):
-        res = await _mock_breakdown(scene, shot_count, shot_seconds)
+        res = await _mock_breakdown(scene, shot_count, shot_seconds,
+                                    {c["name"]: c["language"] for c in bible.get("characters", []) if c.get("language")})
         if direction:  # stand-in for the AI following the creator's direction
             mark = f" [Revised: {direction.splitlines()[0][:60]}]"
             res.data["script"] += mark
@@ -49,6 +50,7 @@ class MockStory(StoryProvider):
             {"character": "Elena", "text": "The notation changed. This isn't what I wrote.", "tone": "Horror"},
         ]
         film["lyrics"] = copy.deepcopy(SAMPLE_LYRICS)
+        _mock_families(film, str(brief.get("prompt", "")), brief.get("language") or "en")
         return ProviderResult(film, provider="mock", model="sample-film")
 
     async def translate_film(self, memory: dict, language: str) -> ProviderResult:
@@ -98,6 +100,32 @@ class MockStory(StoryProvider):
         return ProviderResult(value, provider="mock", model="echo")
 
 
+_MOCK_LANGS = {"punjabi": "pa", "tamil": "ta", "hindi": "hi", "telugu": "te", "kannada": "kn", "malayalam": "ml",
+               "bengali": "bn", "marathi": "mr", "gujarati": "gu", "english": "en"}
+
+
+def _mock_families(film: dict, prompt: str, film_language: str) -> None:
+    """Stand-in for the AI reading "a Punjabi family and a Tamil family": two families, each speaking its language;
+    their lines are marked with that language and keep the original as the subtitle."""
+    import re
+    found = [code for word, code in sorted(((m.start(), _MOCK_LANGS[m.group(1)]) for m in
+                                            re.finditer(r"\b(" + "|".join(_MOCK_LANGS) + r")\b", prompt.lower())))]
+    langs = list(dict.fromkeys(found))
+    if len(langs) < 2 or "famil" not in prompt.lower():
+        return
+    chars = film["characters"]
+    half = (len(chars) + 1) // 2
+    for i, c in enumerate(chars):
+        lang = langs[0] if i < half else langs[1]
+        c["family"] = f"{c['name'].split()[-1]} family" if i < half else f"{chars[half]['name'].split()[-1]} family"
+        c["language"] = "" if lang == film_language else lang
+    speaks = {c["name"].split()[0]: c["language"] for c in chars}
+    for line in film["dialogue"]:
+        lang = speaks.get(str(line.get("character", "")).split()[0], "")
+        if lang:
+            line["subtitle"], line["language"], line["text"] = line["text"], lang, f"({lang}) {line['text']}"
+
+
 # Long-film mock: a deterministic outline and shot list, so the whole pipeline runs without a story model
 _MOCK_BEATS = ["arrives", "discovers a clue", "argues", "is followed", "hides something", "confesses",
                "is trapped", "escapes", "faces the truth", "makes a choice"]
@@ -136,12 +164,18 @@ async def _mock_treatment(bible: dict, minutes: int) -> ProviderResult:
                           provider="mock", model="treatment")
 
 
-async def _mock_breakdown(scene: dict, shot_count: int, shot_seconds: int) -> ProviderResult:
+def _mock_line(who: str, text: str, languages: dict) -> dict:
+    lang = languages.get(who, "")
+    return {"character": who, "text": f"({lang}) {text}", "language": lang, "subtitle": text} if lang else {"character": who, "text": text}
+
+
+async def _mock_breakdown(scene: dict, shot_count: int, shot_seconds: int, languages: dict | None = None) -> ProviderResult:
+    languages = languages or {}
     who = scene.get("characters") or ["The hero"]
     shots = [{"description": f"{scene.get('location', '')}: {who[i % len(who)]} — {scene.get('title', '')}, shot {i + 1}",
               "camera": ["Wide", "Medium", "Close-up"][i % 3], "movement": ["Static", "Slow push-in", "Pan"][i % 3],
               "characters": [who[i % len(who)]],
-              "dialogue": [{"character": who[i % len(who)], "text": f"Line {i + 1} of scene {scene['number']}."}] if i % 2 == 0 else [],
+              "dialogue": [_mock_line(who[i % len(who)], f"Line {i + 1} of scene {scene['number']}.", languages)] if i % 2 == 0 else [],
               "seconds": shot_seconds} for i in range(shot_count)]
     return ProviderResult({"script": f"{scene.get('location', '')}\n\n{scene.get('summary', '')}",
                            "continuity": f"After scene {scene['number']}: {scene.get('title', '')}.", "shots": shots},

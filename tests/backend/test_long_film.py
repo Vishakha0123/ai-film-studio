@@ -545,3 +545,146 @@ def test_pdf_splits_mixed_scripts_into_font_runs():
     assert runs("Paati: अप्पा, இதை read") == [("Noto", "Paati: "), ("NotoDevanagari", "अप्पा"), ("Noto", ", "),
                                                ("NotoTamil", "இதை "), ("Noto", "read")]
     assert runs("सुनीता नाव की रस्सी कसती है।") == [("NotoDevanagari", "सुनीता नाव की रस्सी कसती है।")]
+
+
+# ---------- two families, two languages ----------
+
+def _two_family_film(client, language="en"):
+    p = client.post("/api/v1/projects", json={"genres": ["Drama"], "language": language}, headers=A).json()
+    prompt = "A Punjabi family from Delhi and a Tamil family from Chennai fight over their children's wedding"
+    client.post(f"/api/v1/projects/{p['id']}/brief", json={"prompt": prompt, "language": language}, headers=A)
+    client.post(f"/api/v1/projects/{p['id']}/plan", json={"prompt": prompt}, headers=A)
+    return p["id"]
+
+
+def test_two_families_each_speak_their_language(client):
+    pid = _two_family_film(client)
+    mem = client.get(f"/api/v1/projects/{pid}", headers=A).json()["memory"]
+    by_lang = {c["language"] for c in mem["characters"]}
+    assert by_lang == {"pa", "ta"} and len({c["family"] for c in mem["characters"]}) == 2
+    tamil = [l for l in mem["dialogue"] if l.get("language") == "ta"] + [l for l in mem["dialogue"] if l.get("language") == "pa"]
+    assert tamil and all(l["subtitle"] for l in tamil)
+
+
+def test_language_check_leaves_another_familys_lines_alone():
+    from app.services.script_check import wrong_language_fields
+    hindi_line = "रोहन, यह नाव हमारी है। हमेशा रहेगी। सुनीता बोली और चुप हो गई, धुंध में घंटियाँ बज रही थीं।"
+    tamil_line = "அப்பா இதை எழுதினாரா? நான் நம்பவே முடியவில்லை, இந்த நாட்குறிப்பு உண்மையா என்று பார்க்கணும்."
+    memory = {"characters": [{"name": "Sunita", "language": ""}, {"name": "Murugan", "language": "ta", "family": "Iyer family"}],
+              "dialogue": [{"character": "Murugan", "text": tamil_line * 3, "language": "ta", "subtitle": "…"},
+                           {"character": "Sunita", "text": hindi_line}],
+              "screenplay": (hindi_line + "\n" + tamil_line + "\n") * 2}
+    assert wrong_language_fields(memory, "hi") == []
+    # …but an English screenplay in a Hindi film is still caught
+    memory["screenplay"] = "She walks to the river and looks at the boats for a long time in silence. " * 3
+    assert wrong_language_fields(memory, "hi") == ["screenplay"]
+
+
+def test_voice_uses_the_speakers_language():
+    from app.services.pipeline import spoken_language
+    memory = {"characters": [{"name": "Murugan Iyer", "language": "ta"}, {"name": "Rohan", "language": ""}]}
+    assert spoken_language(memory, {"character": "Murugan", "text": "x"}, "hi") == "ta"
+    assert spoken_language(memory, {"character": "Rohan", "text": "x"}, "hi") == "hi"
+    assert spoken_language(memory, {"character": "Rohan", "text": "x", "language": "en"}, "hi") == "en"
+
+
+def test_character_family_and_language_can_be_edited(client):
+    pid, _ = _plan(client)
+    r = client.patch(f"/api/v1/projects/{pid}/characters/1", json={"family": "Iyer family", "language": "Tamil"}, headers=A)
+    c = next(c for c in r.json()["memory"]["characters"] if c["id"] == "1")
+    assert c["family"] == "Iyer family" and c["language"] == "ta"
+
+
+def test_full_length_film_keeps_each_familys_language(client):
+    pid = _two_family_film(client)
+    client.post(f"/api/v1/projects/{pid}/film", json={"targetMinutes": 10, "writeScripts": True}, headers=A)
+    full = client.get(f"/api/v1/projects/{pid}/film/full", headers=A).json()
+    lines = [d for sc in full["scenes"] for sh in sc["shots"] for d in sh["dialogue"]]
+    assert {d.get("language") for d in lines} >= {"pa", "ta"}
+    assert all(d["subtitle"] for d in lines if d.get("language"))
+    text = client.get(f"/api/v1/projects/{pid}/film/script", headers=A).text
+    assert "speaks Punjabi" in text and "speaks Tamil" in text and "[Line 1 of scene 1.]" in text
+    pdf = client.get(f"/api/v1/projects/{pid}/film/script?format=pdf", headers=A)
+    assert pdf.status_code == 200 and pdf.content[:5] == b"%PDF-"
+
+
+def test_lines_written_in_the_wrong_language_are_put_into_the_speakers_language(client, monkeypatch):
+    """The real case: the story model set the families' languages but wrote every line in English."""
+    import asyncio
+    from app.providers.base import ProviderResult
+    from app.providers.mock import MockStory
+    from app.services.pipeline import fix_family_lines
+    calls = []
+
+    async def translate(self, memory, language):
+        calls.append(language)
+        return ProviderResult({"dialogue": [{"character": d["character"], "text": f"<{language}>{d['text']}"} for d in memory["dialogue"]]},
+                              provider="mock", model="t")
+
+    monkeypatch.setattr(MockStory, "translate_film", translate)
+    chars = [{"name": "Harpreet Malhotra", "language": "pa"}, {"name": "Krishnan Iyer", "language": "ta"}, {"name": "Rohan", "language": ""}]
+    lines = [{"character": "Harpreet Malhotra", "text": "Arre, come in, come in!"},
+             {"character": "Krishnan Iyer", "text": "That is very generous."},
+             {"character": "Harpreet", "text": "We ordered 50 kilos of paneer."},
+             {"character": "Rohan", "text": "Mom, please."},
+             {"character": "Krishnan", "text": "அது மிகவும் தாராளமானது.", "language": "ta"}]  # already Tamil: kept
+    from app.db import SessionLocal
+    from app.models import AIJob, Project, User
+    with SessionLocal() as db:
+        u = User(id="u-test", email="t@t.t"); db.add(u); db.commit()
+        p = Project(user_id=u.id, title="x"); db.add(p); db.commit()
+        job = AIJob(project_id=p.id, user_id=u.id, task="plan"); db.add(job); db.commit()
+        out = asyncio.run(fix_family_lines(db, job, lines, chars, "en"))
+    assert sorted(calls) == ["pa", "ta"]  # one call per language
+    assert out[0] == {"character": "Harpreet Malhotra", "text": "<pa>Arre, come in, come in!", "language": "pa", "subtitle": "Arre, come in, come in!"}
+    assert out[1]["language"] == "ta" and out[1]["subtitle"] == "That is very generous."
+    assert out[2]["text"].startswith("<pa>")  # matched by first name
+    assert out[3] == lines[3]  # speaks the film's language: unchanged
+    assert out[4]["text"] == "அது மிகவும் தாராளமானது." and "subtitle" not in out[4]
+
+
+def test_changing_who_speaks_what_rewrites_their_lines(client):
+    pid, _ = _plan(client)
+    mem = client.get(f"/api/v1/projects/{pid}", headers=A).json()["memory"]
+    elena = next(c for c in mem["characters"] if c["name"].startswith("Elena"))
+    client.patch(f"/api/v1/projects/{pid}/characters/{elena['id']}", json={"language": "Tamil", "family": "Iyer family"}, headers=A)
+    jobs = client.get(f"/api/v1/projects/{pid}/jobs", headers=A).json()
+    assert any(j["task"] == "family_lines" and j["status"] == "completed" for j in jobs)
+    lines = client.get(f"/api/v1/projects/{pid}", headers=A).json()["memory"]["dialogue"]
+    assert all(l["language"] == "ta" and l["subtitle"] for l in lines if l["character"].startswith("Elena"))
+
+
+@needs_ffmpeg
+def test_subtitles_are_burned_into_the_shot_clip(tmp_path):
+    from app.services.film_renderer import shot_clip, subtitle_card, test_card
+
+    assert subtitle_card(640, 360, []) is None
+    png = subtitle_card(640, 360, ["Where were you last night?"])
+    assert png
+    (tmp_path / "sub.png").write_bytes(png)
+    (tmp_path / "plain.png").write_bytes(test_card(640, 360, type("S", (), {"number": 1, "title": "t"})(), 1, "x"))
+
+    async def clip(sub):
+        return await shot_clip(tmp_path, w=640, h=360, seconds=1, still=tmp_path / "plain.png", subtitle=sub)
+
+    plain = tmp_path / "plain.mp4"
+    plain.write_bytes(asyncio.run(clip(None)).read_bytes())
+    with_sub = asyncio.run(clip(tmp_path / "sub.png"))
+    info = _probe(with_sub)
+    assert {s["codec_type"] for s in info["streams"]} == {"video", "audio"}
+    assert (info["streams"][0]["width"], info["streams"][0]["height"]) == (640, 360)
+    assert abs(float(info["format"]["duration"]) - 1) < 0.3
+    assert with_sub.read_bytes() != plain.read_bytes()  # the picture differs: the subtitle is on it
+
+
+def test_subtitle_card_never_draws_empty_boxes():
+    """A script no installed font can draw gets no subtitle; one that can be drawn is drawn with real glyphs."""
+    from io import BytesIO
+    from PIL import Image
+    from app.services.film_renderer import subtitle_card
+
+    def ink(text):
+        png = subtitle_card(640, 360, [text])
+        return None if png is None else Image.open(BytesIO(png)).convert("L").point(lambda p: 255 if p > 200 else 0).tobytes()
+
+    assert ink("ऀऀऀ") is None or ink("तुम कहाँ थे") != ink("ऀऀऀ")  # real Hindi differs from a row of missing glyphs

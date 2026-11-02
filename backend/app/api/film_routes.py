@@ -304,6 +304,8 @@ def _reopen_scene(prod: FilmProduction, sc: FilmScene) -> None:
 class DialogueLine(Schema):
     character: str = Field(default="", max_length=120)
     text: str = Field(max_length=2000)
+    language: str = Field(default="", max_length=10)    # spoken in another language than the film's
+    subtitle: str = Field(default="", max_length=2000)  # that line in the film's language
 
 
 class ShotEdit(Schema):
@@ -349,7 +351,8 @@ def edit_scene(project_id: str, number: int, body: SceneEdit, db: Session = Depe
         if sh is None:
             raise HTTPException(404, detail="Shot not found in this scene")
         new = {"description": edit.description, "camera": edit.camera, "movement": edit.movement,
-               "dialogue": [d.model_dump() for d in edit.dialogue if d.text.strip()] if edit.dialogue is not None else None}
+               "dialogue": [{k: v for k, v in d.model_dump().items() if v or k in ("character", "text")}
+                            for d in edit.dialogue if d.text.strip()] if edit.dialogue is not None else None}
         diff = {k: v for k, v in new.items() if v is not None and v != getattr(sh, k)}
         if diff:
             for k, v in diff.items():

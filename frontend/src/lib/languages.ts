@@ -31,12 +31,20 @@ const FORMAT_LINE = /^\s*(INT\.|EXT\.|INT\/EXT|EXT\/INT|I\/E|FADE |FADE$|FADE IN
  * False when text meant to be in the film's language is mostly in another script — e.g. an English
  * screenplay in a Punjabi film. Screenplay format lines (INT., EXT., FADE IN:, CUT TO:) are ignored.
  */
-export function isInFilmLanguage(text: string, language: string | undefined): boolean {
+export function isInFilmLanguage(text: string, language: string | undefined, also: string[] = []): boolean {
   const block = SCRIPTS[language || 'en']
   if (!block) return true
+  if (also.includes('en')) return true  // an English-speaking character: English lines are expected
+  const blocks = [block, ...also.map(a => SCRIPTS[a]).filter(Boolean)]
   const body = text.split('\n').filter(l => !FORMAT_LINE.test(l)).join('\n')
   const letters = [...body].filter(ch => /\p{L}/u.test(ch))
   if (letters.length < 30) return true
-  const native = letters.filter(ch => { const c = ch.codePointAt(0)!; return c >= block[0] && c <= block[1] }).length
+  const native = letters.filter(ch => { const c = ch.codePointAt(0)!; return blocks.some(b => c >= b[0] && c <= b[1]) }).length
   return native / letters.length >= 0.5
+}
+
+/** "Tamil · தமிழ்" for a language code ('' when not set). */
+export function speaksLabel(code: string | undefined): string {
+  const l = FILM_LANGUAGES.find(x => x.code === code)
+  return !l ? '' : l.code === 'en' ? l.label : `${l.label} · ${l.native}`
 }

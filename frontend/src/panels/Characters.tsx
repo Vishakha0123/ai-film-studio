@@ -4,8 +4,9 @@ import { usePortraits } from '../lib/usePortraits'
 import { characterPhoto, characterPhotoKind } from '../types'
 import { NoPortrait, StockBadge } from '../components/CharacterPortrait'
 import { useFilm, useStudio } from '../studio'
+import { FILM_LANGUAGES, speaksLabel } from '../lib/languages'
 import type { Character } from '../types'
-import { DEMO_MODE, addCharacter, assertCompleted, editProject, removeCharacter, updateCharacter, waitForJob, type CharacterInput } from '../api'
+import { DEMO_MODE, listProjectJobs, addCharacter, assertCompleted, editProject, removeCharacter, updateCharacter, waitForJob, type CharacterInput } from '../api'
 
 type Mode = { kind: 'view' } | { kind: 'add' } | { kind: 'edit'; field?: 'appearance' }
 
@@ -14,6 +15,8 @@ const FIELDS: { key: keyof CharacterInput; label: string; long?: boolean; placeh
   { key: 'role', label: 'Role', placeholder: 'e.g. Temple tea boy and key-bearer' },
   { key: 'age', label: 'Age', placeholder: 'e.g. 12' },
   { key: 'gender', label: 'Girl / Boy', placeholder: '', options: [['', 'Not set (guess from the description)'], ['female', 'Girl / Woman'], ['male', 'Boy / Man']] },
+  { key: 'family', label: 'Family', placeholder: 'e.g. Iyer family (optional)' },
+  { key: 'language', label: 'Speaks', placeholder: '', options: [['', "The film's language"], ...FILM_LANGUAGES.map(l => [l.code, l.code === 'en' ? l.label : `${l.label} · ${l.native}`] as [string, string])] },
   { key: 'personality', label: 'Personality', long: true, placeholder: 'Who are they? What do they want?' },
   { key: 'appearance', label: 'Appearance', long: true, placeholder: 'What do they look like? (used to draw the portrait)' },
   { key: 'arc', label: 'Character Arc', long: true, placeholder: 'How do they change through the film?' },
@@ -32,6 +35,35 @@ export default function Characters() {
   const [error, setError] = useState<string | null>(null)
   const char = chars.find(c => c.id === selected) ?? chars[0]
   const photos = usePortraits()
+
+  /** One character in the cast row (photo, name, role). */
+  const chip = (c: Character) => (
+            <button
+              key={c.id}
+              onClick={() => { setSelected(c.id); setMode({ kind: 'view' }); setError(null) }}
+              aria-pressed={selected === c.id && mode.kind !== 'add'}
+              className="flex items-center gap-3 px-4 py-3 rounded-xl border transition-all"
+              style={{
+                borderColor: selected === c.id && mode.kind !== 'add' ? 'rgba(212,168,75,0.4)' : 'rgba(255,255,255,0.07)',
+                backgroundColor: selected === c.id && mode.kind !== 'add' ? 'rgba(212,168,75,0.07)' : 'rgba(255,255,255,0.02)',
+              }}
+            >
+              {characterPhoto(c, 64, 64)
+                ? <img src={characterPhoto(c, 64, 64)!} alt={c.name} className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
+                : <NoPortrait size="chip" label={c.name} />}
+              <div className="text-left">
+                <p className="text-sm font-medium" style={{ color: selected === c.id ? '#f4f0ea' : '#a1a1aa' }}>{c.name}</p>
+                <p className="text-xs" style={{ color: selected === c.id ? '#d4a84b' : '#52525b' }}>{c.role}{c.language && families.length <= 1 ? ` · ${speaksLabel(c.language)}` : ''}</p>
+              </div>
+            </button>
+  )
+  // Families, in the order they first appear; a family's language is the one most of its members speak
+  const families = [...chars.reduce((m, c) => m.set(c.family || '', [...(m.get(c.family || '') ?? []), c]), new Map<string, Character[]>())]
+    .sort((a, b) => (a[0] === '' ? 1 : 0) - (b[0] === '' ? 1 : 0))
+  const familyLanguage = (members: Character[]) => {
+    const counts = members.reduce((m, c) => m.set(c.language || '', (m.get(c.language || '') ?? 0) + 1), new Map<string, number>())
+    return [...counts].sort((a, b) => b[1] - a[1])[0]?.[0] ?? ''
+  }
 
   /** Runs a change against the backend; the panel shows what it's doing and any error. */
   const run = async (label: string, fn: () => Promise<void>) => {
@@ -75,6 +107,16 @@ export default function Characters() {
   const save = (c: Character, data: CharacterInput) => run('Saving…', async () => {
     setProject(await updateCharacter(project!.id, c.id, data))
     setMode({ kind: 'view' })
+    if (data.language !== undefined && (data.language || '') !== (c.language || '') && data.language) {
+      // their lines are being rewritten in the language they now speak — show them once that's done
+      setWorking(`Writing ${c.name}'s lines in ${speaksLabel(data.language)}…`)
+      for (let i = 0; i < 90; i++) {
+        await new Promise(r => setTimeout(r, 1000))
+        const active = await listProjectJobs(project!.id, true).catch(() => [])
+        if (!active.some(j => j.task === 'family_lines')) break
+      }
+      await refreshProject()
+    }
   })
 
   const regenerate = (c: Character) => run(`Rewriting ${c.name}…`, async () => {
@@ -102,27 +144,20 @@ export default function Characters() {
           <p className="text-sm text-zinc-500 mt-1">{chars.length} characters · {film.title}</p>
         </div>
 
+        {/* Families (when the film has them): each group with the language it speaks */}
+        {families.length > 1 && families.map(([family, members]) => (
+          <div key={family} className="mb-4" data-testid="character-family">
+            <p className="text-[11px] font-semibold tracking-widest uppercase mb-2 text-zinc-500">
+              {family || 'Others'}
+              {familyLanguage(members) && <span className="ml-2 normal-case tracking-normal font-normal" style={{ color: '#d4a84b' }}>speaks {speaksLabel(familyLanguage(members))}</span>}
+            </p>
+            <div className="flex gap-3 sm:gap-4 flex-wrap">
+              {members.map(c => chip(c))}
+            </div>
+          </div>
+        ))}
         <div className="flex gap-3 sm:gap-4 flex-wrap mb-8">
-          {chars.map(c => (
-            <button
-              key={c.id}
-              onClick={() => { setSelected(c.id); setMode({ kind: 'view' }); setError(null) }}
-              aria-pressed={selected === c.id && mode.kind !== 'add'}
-              className="flex items-center gap-3 px-4 py-3 rounded-xl border transition-all"
-              style={{
-                borderColor: selected === c.id && mode.kind !== 'add' ? 'rgba(212,168,75,0.4)' : 'rgba(255,255,255,0.07)',
-                backgroundColor: selected === c.id && mode.kind !== 'add' ? 'rgba(212,168,75,0.07)' : 'rgba(255,255,255,0.02)',
-              }}
-            >
-              {characterPhoto(c, 64, 64)
-                ? <img src={characterPhoto(c, 64, 64)!} alt={c.name} className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
-                : <NoPortrait size="chip" label={c.name} />}
-              <div className="text-left">
-                <p className="text-sm font-medium" style={{ color: selected === c.id ? '#f4f0ea' : '#a1a1aa' }}>{c.name}</p>
-                <p className="text-xs" style={{ color: selected === c.id ? '#d4a84b' : '#52525b' }}>{c.role}</p>
-              </div>
-            </button>
-          ))}
+          {families.length <= 1 && chars.map(c => chip(c))}
           <button
             onClick={() => { setMode({ kind: 'add' }); setError(null) }}
             aria-pressed={mode.kind === 'add'}
@@ -344,6 +379,12 @@ function CharacterDetail({ char, busy, onEdit, onRegenerate, onAppearance, photo
 
       {/* Profile */}
       <div className="md:col-span-2 space-y-3">
+        {(char.family || char.language) && (
+          <div className="px-4 py-3 rounded-xl flex flex-wrap gap-x-6 gap-y-1 text-sm" style={{ backgroundColor: '#111113', border: '1px solid rgba(255,255,255,0.06)' }} data-testid="character-family-language">
+            {char.family && <p><span className="text-[10px] font-semibold tracking-widest uppercase mr-2" style={{ color: '#52525b' }}>Family</span><span className="text-zinc-300">{char.family}</span></p>}
+            {char.language && <p><span className="text-[10px] font-semibold tracking-widest uppercase mr-2" style={{ color: '#52525b' }}>Speaks</span><span style={{ color: '#d4a84b' }}>{speaksLabel(char.language)}</span></p>}
+          </div>
+        )}
         {[
           { label: 'Personality', value: char.personality },
           { label: 'Appearance', value: char.appearance },

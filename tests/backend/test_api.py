@@ -942,8 +942,8 @@ def test_dialogue_reply_for_one_scene_in_other_shapes_is_accepted_and_merged(cli
     assert done["status"] == "completed", done["error"]
     d = client.get(f"/api/v1/projects/{pid}", headers=auth()).json()["memory"]["dialogue"]
     assert [l["text"] for l in d[: len(before)]] == [l["text"] for l in before]  # nothing lost
-    assert d[-2:] == [{"character": "Pooja", "text": "Who moved my ring light?", "tone": "Angry", "scene": 2},
-                      {"character": "Bhoot-ji", "text": "I prefer the dark.", "tone": "", "scene": 2}]
+    assert d[-2:] == [{"character": "Pooja", "text": "Who moved my ring light?", "tone": "Angry", "scene": 2, "language": "", "subtitle": ""},
+                      {"character": "Bhoot-ji", "text": "I prefer the dark.", "tone": "", "scene": 2, "language": "", "subtitle": ""}]
 
 
 def test_generate_lines_for_a_scene(client):

@@ -20,13 +20,15 @@ _FORMAT_LINE = re.compile(r"^\s*(INT\.|EXT\.|INT/EXT|EXT/INT|I/E|FADE |FADE$|FAD
 CHECKED = ("logline", "story", "screenplay", "dialogue", "lyrics", "scenes", "characters")
 
 
-def _text_of(key: str, value) -> str:
+def _text_of(key: str, value, language: str = "") -> str:
     if isinstance(value, str):
         if key == "screenplay":
             return "\n".join(line for line in value.splitlines() if not _FORMAT_LINE.match(line))
         return value
     if key == "dialogue" and isinstance(value, list):
-        return " ".join(str(l.get("text", "")) for l in value if isinstance(l, dict))
+        # lines a character speaks in their own language (another family's) are meant to be different
+        return " ".join(str(l.get("text", "")) for l in value
+                        if isinstance(l, dict) and l.get("language", "") in ("", language))
     if key == "lyrics" and isinstance(value, dict):
         return " ".join(str(value.get(k, "")) for k in ("verse", "preChorus", "chorus", "bridge"))
     if key == "scenes" and isinstance(value, list):
@@ -36,16 +38,18 @@ def _text_of(key: str, value) -> str:
     return ""
 
 
-def in_language(text: str, language: str) -> bool:
-    """True when most letters are in the language's script (or there's too little text to tell)."""
+def in_language(text: str, language: str, also: tuple[str, ...] = ()) -> bool:
+    """True when most letters are in the language's script (or there's too little text to tell).
+    `also`: other languages the film's characters speak — their scripts count too (a Tamil family's lines in a
+    Hindi screenplay are not a mistake)."""
     block = SCRIPTS.get(language)
     if not block:
         return True  # English and unknown codes: nothing to check
-    lo, hi = block
+    blocks = [block] + [SCRIPTS[a] for a in also if a in SCRIPTS]
     letters = [ch for ch in text if ch.isalpha()]
     if len(letters) < 30:
         return True
-    native = sum(1 for ch in letters if lo <= ord(ch) <= hi)
+    native = sum(1 for ch in letters if any(lo <= ord(ch) <= hi for lo, hi in blocks))
     return native / len(letters) >= 0.5
 
 
@@ -53,4 +57,21 @@ def wrong_language_fields(memory: dict, language: str, only: tuple[str, ...] = C
     """The parts of the film written in another language than the film's."""
     if language not in SCRIPTS:
         return []
-    return [k for k in only if k in memory and not in_language(_text_of(k, memory[k]), language)]
+    spoken = tuple(sorted({c.get("language") for c in memory.get("characters", []) if isinstance(c, dict) and c.get("language")}))
+    checked = [k for k in only if k in memory]
+    if "en" in spoken:  # an English-speaking character: their lines make an English-looking screenplay legitimate
+        checked = [k for k in checked if k != "screenplay"]
+    return [k for k in checked if not in_language(_text_of(k, memory[k], language), language, spoken)]
+
+
+def written_in(text: str, language: str) -> bool:
+    """Is this (short) text written in the language's script? English = mostly Latin letters."""
+    letters = [ch for ch in text if ch.isalpha()]
+    if len(letters) < 4:
+        return True
+    if language == "en":
+        return sum(1 for ch in letters if ch.isascii()) / len(letters) >= 0.5
+    block = SCRIPTS.get(language)
+    if not block:
+        return True
+    return sum(1 for ch in letters if block[0] <= ord(ch) <= block[1]) / len(letters) >= 0.5

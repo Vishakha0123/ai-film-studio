@@ -105,6 +105,48 @@ def test_card(w: int, h: int, scene: FilmScene, shot_number: int, description: s
     return buf.getvalue()
 
 
+_SUBTITLE_FONTS = ["arial.ttf", "Nirmala.ttc", "DejaVuSans.ttf", "NotoSans-Regular.ttf", "NotoSansDevanagari-Regular.ttf"]
+
+
+def subtitle_card(w: int, h: int, lines: list[str]) -> bytes | None:
+    """A transparent frame with the subtitle lines at the bottom (white on a dark band), or None if no font can draw them."""
+    from PIL import Image, ImageDraw, ImageFont
+
+    lines = [ln.strip() for ln in lines if ln and ln.strip()]
+    if not lines:
+        return None
+    px = max(14, int(h * 0.045))
+    font = None
+    for name in _SUBTITLE_FONTS:
+        try:
+            f = ImageFont.truetype(name, px)
+        except OSError:
+            continue
+        missing = bytes(f.getmask("\U0010ffff"))  # what this font draws for a character it doesn't have (an empty box)
+        if all(bytes(f.getmask(ch)) != missing for ch in set("".join(lines)) if not ch.isspace()):
+            font = f
+            break
+    if font is None:
+        if not all(_latin(ln) == ln for ln in lines):
+            return None
+        try:
+            font = ImageFont.load_default(size=px)
+        except TypeError:
+            font = ImageFont.load_default()
+    wrapped = [part for ln in lines for part in textwrap.wrap(ln, width=max(20, int(w / (px * 0.55)))) or [ln]][:6]
+    img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    gap = int(px * 0.3)
+    top = h - int(h * 0.06) - len(wrapped) * (px + gap)
+    d.rectangle([int(w * 0.05), top - gap, int(w * 0.95), h - int(h * 0.05)], fill=(0, 0, 0, 150))
+    for i, part in enumerate(wrapped):
+        tw = d.textlength(part, font=font)
+        d.text(((w - tw) / 2, top + i * (px + gap)), part, font=font, fill=(255, 255, 255, 255))
+    buf = BytesIO()
+    img.save(buf, "PNG")
+    return buf.getvalue()
+
+
 async def voice_track(tmp: Path, wavs: list[bytes]) -> Path | None:
     """Join the shot's dialogue lines into one track, with a short pause between lines."""
     if not wavs:
@@ -123,8 +165,9 @@ async def voice_track(tmp: Path, wavs: list[bytes]) -> Path | None:
 
 
 async def shot_clip(tmp: Path, *, w: int, h: int, seconds: float, video: Path | None = None, still: Path | None = None,
-                    audio: Path | None = None) -> Path:
-    """One shot as a normalized clip of exactly `seconds` (a longer voice line stretches it, up to 1.5×)."""
+                    audio: Path | None = None, subtitle: Path | None = None) -> Path:
+    """One shot as a normalized clip of exactly `seconds` (a longer voice line stretches it, up to 1.5×).
+    `subtitle` is a transparent picture burned over the whole shot."""
     ffmpeg, _ = tools()
     if audio:
         seconds = min(seconds * 1.5, max(seconds, probe(audio)["duration"] + 0.3))
@@ -143,7 +186,12 @@ async def shot_clip(tmp: Path, *, w: int, h: int, seconds: float, video: Path | 
         args += ["-f", "lavfi", "-i", f"anullsrc=r={RATE}:cl=stereo"]
         af = "anull"
     out = tmp / "shot.mp4"
-    await _run(args + ["-map", "0:v:0", "-map", "1:a:0", "-vf", vf, "-af", af, "-t", f"{seconds:.3f}",
+    if subtitle:
+        args += ["-loop", "1", "-framerate", "1", "-i", str(subtitle)]
+        picture = ["-filter_complex", f"[0:v]{vf}[v];[2:v]fps={FPS}[s];[v][s]overlay=0:0:format=auto[o]", "-map", "[o]"]
+    else:
+        picture = ["-map", "0:v:0", "-vf", vf]
+    await _run(args + [*picture, "-map", "1:a:0", "-af", af, "-t", f"{seconds:.3f}",
                        *VIDEO_OUT, *([] if video else ["-tune", "stillimage"]), *AUDIO_OUT, str(out)])
     return out
 

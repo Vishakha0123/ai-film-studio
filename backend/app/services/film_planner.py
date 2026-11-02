@@ -23,9 +23,10 @@ def story_bible(project: Project) -> dict:
         "title": m.get("title", project.title), "logline": m.get("logline", ""), "genre": m.get("genre", project.genre),
         "tone": m.get("tone", ""), "story": m.get("story", ""), "language": project.language or "en",
         "visualStyle": m.get("visualStyle", ""),
-        "characters": [{**{k: c.get(k) for k in ("name", "age", "gender", "role", "appearance", "personality") if c.get(k)},
+        "characters": [{**{k: c.get(k) for k in ("name", "age", "gender", "role", "appearance", "personality", "family", "language") if c.get(k)},
                         "portraitRef": c.get("portraitRef")}  # the matched reference photo (None when none is installed)
                        for c in chars],
+        "spokenLanguages": sorted({c.get("language") for c in chars if c.get("language")}),
         "locations": sorted({s.get("location", "") for s in m.get("scenes", []) if s.get("location")}),
     }
 
@@ -74,7 +75,7 @@ def _new_characters(raw: object, existing: list[dict]) -> list[dict]:
             continue
         taken.add(name.lower())
         out.append({"name": name, **{k: str(c.get(k) or "")[:2000] for k in
-                                     ("age", "gender", "role", "personality", "appearance", "arc", "relationships")}})
+                                     ("age", "gender", "role", "personality", "appearance", "arc", "relationships", "family", "language")}})
     return out[:12]
 
 

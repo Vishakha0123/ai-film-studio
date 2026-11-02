@@ -116,7 +116,9 @@ def screenplay_pdf(prod: FilmProduction, title: str) -> bytes:
     if bible.get("characters"):
         _text(pdf, "CHARACTERS", size=9, bold=True, color=GOLD, gap=3)
         for c in bible["characters"]:
-            facts = ", ".join(x for x in (c.get("age", ""), c.get("gender", ""), c.get("role", "")) if x)
+            from app.services.scene_generator import language_name
+            facts = ", ".join(x for x in (c.get("age", ""), c.get("gender", ""), c.get("role", ""), c.get("family", ""),
+                                          language_name(c.get("language", ""))) if x)
             _text(pdf, f"{c.get('name', '')}{f'  ({facts})' if facts else ''}", size=10.5, bold=True, gap=0.5)
             if c.get("personality") or c.get("appearance"):
                 _text(pdf, " ".join(x for x in (c.get("personality", ""), c.get("appearance", "")) if x), size=9.5, color=GREY, gap=2.5)
@@ -144,4 +146,6 @@ def screenplay_pdf(prod: FilmProduction, title: str) -> bytes:
                 _text(pdf, f"{sh.number}. {sh.camera} · {sh.movement} · {sh.seconds:g}s — {sh.description}", size=8.5, color=GREY, gap=0.5)
                 for d in sh.dialogue or []:
                     _text(pdf, f"{d.get('character', '')}: {d.get('text', '')}", size=8.5, color=GREY, gap=0.5, indent=6)
+                    if d.get("subtitle"):
+                        _text(pdf, f"[{d['subtitle']}]", size=8, color=LIGHT, gap=0.5, indent=10)
     return bytes(pdf.output())
