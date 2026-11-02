@@ -30,7 +30,7 @@ from app.services import reference_portraits, storage
 from app.services.film_production import (MAX_SHOT_ATTEMPTS, BudgetReached, Paused, check_budget, check_pause,
                                           frame_size, live_providers, production_of, progress, shot_cost, shots_for,
                                           story_call_cost)
-from app.services.film_renderer import RenderError, scene_preview, shot_clip, test_card, voice_track
+from app.services.film_renderer import RenderError, scene_preview, shot_clip, subtitle_card, test_card, voice_track
 from app.services.pipeline import (ASPECT_SIZES, fix_family_lines, spoken_language, NeedsReview, record_usage, set_progress, store_asset, style_prompt,
                                    user_preferences, with_retry)
 
@@ -267,8 +267,14 @@ async def make_shot(db: Session, job: AIJob, project: Project, prod: FilmProduct
             a = await store_asset(db, project, "film_voice", ref, ProviderResult(None, provider=get_settings().TTS_PROVIDER, model="tts"),
                                   data=audio.read_bytes(), ext="m4a", meta={"lines": shot.dialogue})
             shot.audio_asset_id = a.id
+        # Lines spoken in another language than the film's are subtitled in the film's language
+        sub_png = subtitle_card(w, h, [d["subtitle"] for d in shot.dialogue or [] if d.get("subtitle") and d.get("language")])
+        sub_file = None
+        if sub_png:
+            sub_file = tmp / "subtitle.png"
+            sub_file.write_bytes(sub_png)
         clip = await shot_clip(tmp, w=w, h=h, seconds=shot.seconds, video=video_file,
-                               still=None if video_file else frame_file, audio=audio)
+                               still=None if video_file else frame_file, audio=audio, subtitle=sub_file)
         asset = await store_asset(db, project, "film_clip", ref, ProviderResult(None, provider="ffmpeg", model=kind),
                                   data=clip.read_bytes(), ext="mp4", meta={"kind": kind, "testClip": kind == "test"})
         timing["ffmpeg"] = time.monotonic() - t1

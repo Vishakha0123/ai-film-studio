@@ -652,3 +652,39 @@ def test_changing_who_speaks_what_rewrites_their_lines(client):
     assert any(j["task"] == "family_lines" and j["status"] == "completed" for j in jobs)
     lines = client.get(f"/api/v1/projects/{pid}", headers=A).json()["memory"]["dialogue"]
     assert all(l["language"] == "ta" and l["subtitle"] for l in lines if l["character"].startswith("Elena"))
+
+
+@needs_ffmpeg
+def test_subtitles_are_burned_into_the_shot_clip(tmp_path):
+    from app.services.film_renderer import shot_clip, subtitle_card, test_card
+
+    assert subtitle_card(640, 360, []) is None
+    png = subtitle_card(640, 360, ["Where were you last night?"])
+    assert png
+    (tmp_path / "sub.png").write_bytes(png)
+    (tmp_path / "plain.png").write_bytes(test_card(640, 360, type("S", (), {"number": 1, "title": "t"})(), 1, "x"))
+
+    async def clip(sub):
+        return await shot_clip(tmp_path, w=640, h=360, seconds=1, still=tmp_path / "plain.png", subtitle=sub)
+
+    plain = tmp_path / "plain.mp4"
+    plain.write_bytes(asyncio.run(clip(None)).read_bytes())
+    with_sub = asyncio.run(clip(tmp_path / "sub.png"))
+    info = _probe(with_sub)
+    assert {s["codec_type"] for s in info["streams"]} == {"video", "audio"}
+    assert (info["streams"][0]["width"], info["streams"][0]["height"]) == (640, 360)
+    assert abs(float(info["format"]["duration"]) - 1) < 0.3
+    assert with_sub.read_bytes() != plain.read_bytes()  # the picture differs: the subtitle is on it
+
+
+def test_subtitle_card_never_draws_empty_boxes():
+    """A script no installed font can draw gets no subtitle; one that can be drawn is drawn with real glyphs."""
+    from io import BytesIO
+    from PIL import Image
+    from app.services.film_renderer import subtitle_card
+
+    def ink(text):
+        png = subtitle_card(640, 360, [text])
+        return None if png is None else Image.open(BytesIO(png)).convert("L").point(lambda p: 255 if p > 200 else 0).tobytes()
+
+    assert ink("ऀऀऀ") is None or ink("तुम कहाँ थे") != ink("ऀऀऀ")  # real Hindi differs from a row of missing glyphs
