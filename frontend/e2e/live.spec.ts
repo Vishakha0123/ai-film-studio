@@ -23,6 +23,8 @@ test('full stack: login → plan with AI → generate assets → teaser → rend
   await page.keyboard.press('Enter')
   await expect(page.getByTestId('panel-story')).toBeVisible({ timeout: 20_000 })
   await expect(page.getByRole('heading', { name: 'Echoes of the Forgotten' })).toBeVisible()
+  // how long the reply took, shown under it (like Claude)
+  await expect(page.getByTestId('reply-duration').first()).toHaveText(/^Took \d+s$/)
 
   // The project really exists in the backend, owned by this user
   const auth = { Authorization: 'Bearer dev:google-user@dev.local' }

@@ -9,6 +9,7 @@ import {
 import { fieldCls, SaveCancel } from '../components/DirectAI'
 import LockIcon, { ComingSoonButton } from '../components/LockIcon'
 import { isVideoLocked } from '../features'
+import { Elapsed } from '../lib/useElapsed'
 import type { LongFilmShot } from '../types'
 import type { LongFilm, LongFilmScene, LongFilmSceneSummary, ProjectData } from '../types'
 
@@ -458,7 +459,7 @@ export default function FullMovie() {
             <section className="rounded-xl p-5 mb-5" style={card} data-testid="movie-video-locked">
               {busy && film.job && (
                 <div className="mb-4">
-                  <div className="flex justify-between text-[11px] text-zinc-500 mb-1"><span data-testid="movie-stage">{film.job.stage || 'Starting…'}</span><span>{film.job.progress}%</span></div>
+                  <div className="flex justify-between text-[11px] text-zinc-500 mb-1"><span data-testid="movie-stage">{film.job.stage || 'Starting…'} <Elapsed active since={film.job.createdAt} className="ml-1 text-zinc-600" /></span><span>{film.job.progress}%</span></div>
                   <div className="h-1.5 rounded-full bg-zinc-800 overflow-hidden"><div className="h-full rounded-full transition-all" style={{ width: `${film.job.progress}%`, backgroundColor: gold }} /></div>
                 </div>
               )}
@@ -487,7 +488,7 @@ export default function FullMovie() {
             </div>
             {busy && film.job && (
               <div className="mb-4">
-                <div className="flex justify-between text-[11px] text-zinc-500 mb-1"><span data-testid="movie-stage">{film.job.stage || 'Starting…'}</span><span>{film.progress.percent}%</span></div>
+                <div className="flex justify-between text-[11px] text-zinc-500 mb-1"><span data-testid="movie-stage">{film.job.stage || 'Starting…'} <Elapsed active since={film.job.createdAt} className="ml-1 text-zinc-600" /></span><span>{film.progress.percent}%</span></div>
                 <div className="h-1.5 rounded-full bg-zinc-800 overflow-hidden"><div className="h-full rounded-full transition-all" style={{ width: `${film.status === 'generating' ? film.progress.percent : film.job.progress}%`, backgroundColor: gold }} /></div>
               </div>
             )}

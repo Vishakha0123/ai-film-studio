@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Elapsed } from '../lib/useElapsed'
 import type { EditAction, EditScope } from '../api'
 import { useFilmEdit, type EditTarget } from '../lib/useFilmEdit'
 
@@ -72,7 +73,7 @@ export default function DirectAI({ target, appliesTo, suggestions, placeholder, 
           {working ? 'Working…' : 'Apply'}
         </button>
       </form>
-      {working && <p className="mt-2 text-xs" style={{ color: '#d4a84b' }} data-testid="direct-ai-working">{working}</p>}
+      {working && <p className="mt-2 text-xs" style={{ color: '#d4a84b' }} data-testid="direct-ai-working">{working} <Elapsed active className="ml-1 opacity-60" /></p>}
       {error && <p role="alert" className="mt-2 text-xs text-red-300">{error}</p>}
     </div>
   )

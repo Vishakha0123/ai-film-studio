@@ -1,4 +1,5 @@
 import { isTeaserLocked } from '../features'
+import { Elapsed } from '../lib/useElapsed'
 import DirectAI from '../components/DirectAI'
 import { ComingSoonButton } from '../components/LockIcon'
 import { useEffect, useState } from 'react'
@@ -100,7 +101,7 @@ export default function Storyboard({ onGenerate }: { onGenerate: () => void }) {
               ? `Saved for this film — storyboard frames are drawn in ${style === 'Custom' ? 'your style' : style} when they're generated. Character portraits stay photorealistic.`
               : 'Preview only in demo mode.'}
           </p>
-          {working && <p className="text-xs mt-2" style={{ color: '#d4a84b' }} data-testid="storyboard-working">{working}</p>}
+          {working && <p className="text-xs mt-2" style={{ color: '#d4a84b' }} data-testid="storyboard-working">{working} <Elapsed active className="ml-1 opacity-60" /></p>}
           {error && <p role="alert" className="text-xs text-red-300 mt-2">{error}</p>}
         </div>
 

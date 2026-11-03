@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Elapsed } from '../lib/useElapsed'
 import LanguageFix from '../components/LanguageFix'
 import { useFilm, useStudio } from '../studio'
 import { assertCompleted, fixDialogueLanguages, waitForJob } from '../api'
@@ -140,7 +141,7 @@ export default function Dialogue() {
               Generate More
             </button>
           </div>
-          {working && <p className="text-xs mb-3" style={{ color: '#d4a84b' }} data-testid="dialogue-working">{working}</p>}
+          {working && <p className="text-xs mb-3" style={{ color: '#d4a84b' }} data-testid="dialogue-working">{working} <Elapsed active className="ml-1 opacity-60" /></p>}
           {error && <p role="alert" className="text-xs text-red-300 mb-3">{error}</p>}
 
           <div className="space-y-3">

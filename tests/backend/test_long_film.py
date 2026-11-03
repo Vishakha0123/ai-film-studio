@@ -723,3 +723,12 @@ def test_fix_dialogue_languages_endpoint(client):
     assert r.status_code == 202 and r.json()["task"] == "family_lines"
     assert client.get(f"/api/v1/jobs/{r.json()['id']}", headers=A).json()["status"] == "completed"
     assert client.post(f"/api/v1/projects/{pid}/dialogue/languages", headers=auth("x@y.z")).status_code == 404
+
+
+def test_timings_are_kept(client):
+    pid = _planned_film(client)
+    film = _film(client, pid)
+    assert film["job"]["createdAt"].endswith("+00:00")  # when the film job started (for the running timer)
+    msgs = [{"id": "1", "role": "user", "content": "idea"}, {"id": "2", "role": "ai", "content": "done", "durationMs": 34000}]
+    client.put(f"/api/v1/projects/{pid}/chat", json={"messages": msgs}, headers=A)
+    assert client.get(f"/api/v1/projects/{pid}", headers=A).json()["chat"][1]["durationMs"] == 34000

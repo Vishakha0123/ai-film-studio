@@ -393,6 +393,7 @@ class ChatLine(Schema):
     content: str = ""
     card: str | None = Field(default=None, max_length=20)
     movie_minutes: int | None = Field(default=None, ge=1, le=600)  # card "movie": the full-length film offered
+    duration_ms: int | None = Field(default=None, ge=0)  # AI replies: how long the reply took
     attachments: list[str] = Field(default=[], max_length=10)
 
     @field_validator("content", mode="before")

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Elapsed } from '../lib/useElapsed'
 import { DEMO_MODE, assertCompleted, editProject, waitForJob, type EditAction } from '../api'
 import { useFilm, useStudio } from '../studio'
 import type { Lyrics as LyricsData } from '../types'
@@ -172,7 +173,7 @@ export default function Lyrics() {
           </>
         )}
         <MoreSongs songs={film.songs} />
-        {working && song && <p className="text-xs" style={{ color: '#d4a84b' }} data-testid="lyrics-working">Rewriting the song…</p>}
+        {working && song && <p className="text-xs" style={{ color: '#d4a84b' }} data-testid="lyrics-working">Rewriting the song… <Elapsed active className="ml-1 opacity-60" /></p>}
         {error && <p role="alert" className="text-xs text-red-300">{error}</p>}
       </div>
     </div>
