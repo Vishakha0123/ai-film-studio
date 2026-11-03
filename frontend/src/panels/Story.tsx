@@ -11,7 +11,7 @@ import { useFilmEdit } from '../lib/useFilmEdit'
 import DirectAI, { EditButton, SaveCancel, fieldCls } from '../components/DirectAI'
 import LanguageFix from '../components/LanguageFix'
 
-const ACTIONS = ['Accept', 'Rewrite', 'Continue', 'Make Darker', 'Change Ending', 'Regenerate']
+const ACTIONS = ['Accept', 'Rewrite', 'Continue', 'Make Darker', 'Change Ending']
 
 /** What each AI action asks the backend to do to the story. */
 const ACTION_REQUESTS: Record<string, { action: EditAction; instruction: string }> = {
@@ -19,7 +19,6 @@ const ACTION_REQUESTS: Record<string, { action: EditAction; instruction: string 
   Continue: { action: 'continue', instruction: 'Continue the story with one more paragraph.' },
   'Make Darker': { action: 'improve', instruction: 'Make the story darker and more unsettling.' },
   'Change Ending': { action: 'transform', instruction: 'Change the ending to a different, surprising one.' },
-  Regenerate: { action: 'transform', instruction: 'Write a completely new version of the story for the same idea.' },
 }
 
 export default function Story() {

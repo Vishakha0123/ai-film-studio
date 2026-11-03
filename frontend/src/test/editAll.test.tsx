@@ -87,3 +87,13 @@ describe('every section can be edited', () => {
     expect(screen.queryByTestId('lyrics-unsaved')).toBeNull()
   })
 })
+
+describe('story actions', () => {
+  it('has no Regenerate button', async () => {
+    const { renderApp } = await import('./renderApp')
+    renderApp('/director/story', { loggedIn: true })
+    const story = screen.getByTestId('panel-story')
+    expect(within(story).getByRole('button', { name: 'Change Ending' })).toBeInTheDocument()
+    expect(within(story).queryByRole('button', { name: 'Regenerate' })).toBeNull()
+  })
+})
