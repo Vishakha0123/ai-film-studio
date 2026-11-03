@@ -458,3 +458,8 @@ export async function downloadLongFilmScript(projectId: string, format: 'pdf' | 
   const name = (utf8 && decodeURIComponent(utf8)) || /filename="([^"]+)"/.exec(header)?.[1] || `script.${format}`
   return { blob: await res.blob(), filename: name }
 }
+
+/** Put every dialogue line into the language its speaker speaks, with subtitles (a background job). */
+export async function fixDialogueLanguages(projectId: string): Promise<Job> {
+  return request<Job>(`/projects/${encodeURIComponent(projectId)}/dialogue/languages`, { method: 'POST' })
+}

@@ -367,6 +367,14 @@ def remove_character(project_id: str, character_id: str, db: Session = Depends(g
     return _project_out(project)
 
 
+@router.post("/projects/{project_id}/dialogue/languages", response_model=JobOut, status_code=202)
+def fix_dialogue_languages(project_id: str, background: BackgroundTasks, db: Session = Depends(get_db),
+                           user: CurrentUser = Depends(get_current_user)):
+    """Put every line into the language its speaker speaks (and subtitle lines in other languages)."""
+    project = _planned(db, project_id, user)
+    return create_job(db, background, project_id=project.id, user_id=user.id, task="family_lines")
+
+
 @router.post("/projects/{project_id}/plan", response_model=JobOut, status_code=202)
 def plan(project_id: str, body: PlanRequest, background: BackgroundTasks, db: Session = Depends(get_db),
          user: CurrentUser = Depends(get_current_user), idempotency_key: str | None = Header(default=None)):
