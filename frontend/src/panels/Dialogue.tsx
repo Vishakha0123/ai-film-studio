@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import LanguageFix from '../components/LanguageFix'
 import { useFilm, useStudio } from '../studio'
+import { assertCompleted, fixDialogueLanguages, waitForJob } from '../api'
 import { speaksLabel } from '../lib/languages'
 import { useFilmEdit } from '../lib/useFilmEdit'
 import type { DialogueLine } from '../types'
@@ -100,6 +101,7 @@ export default function Dialogue() {
           {scene && <p className="text-sm text-zinc-500">{scene.description} · Mood: {scene.mood}</p>}
         </div>
 
+        {live && project && film.characters.some(c => c.language) && <FamilyLanguages projectId={project.id} />}
         {live && <LanguageFix target="dialogue" text={lines.filter(l => !l.language || l.language === project?.language).map(l => l.text).join(' ')} what="dialogue" />}
 
         {/* One tab per scene, with how many lines it has */}
@@ -259,6 +261,35 @@ export default function Dialogue() {
           </form>
         </div>
       </div>
+    </div>
+  )
+}
+
+/** For films where families speak their own language: re-check every line against who speaks what. */
+function FamilyLanguages({ projectId }: { projectId: string }) {
+  const { refreshProject } = useStudio()
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const run = async () => {
+    setBusy(true)
+    setError(null)
+    try {
+      assertCompleted(await waitForJob(await fixDialogueLanguages(projectId)))
+      await refreshProject()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not check the languages.')
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <div className="flex flex-wrap items-center gap-3 text-xs" data-testid="family-languages">
+      <span className="text-zinc-500">Each family speaks its own language here.</span>
+      <button type="button" onClick={() => void run()} disabled={busy} className="px-3 py-1.5 rounded-lg border disabled:opacity-50"
+        style={{ borderColor: 'rgba(212,168,75,0.35)', color: '#d4a84b' }} data-testid="fix-family-languages">
+        {busy ? 'Checking every line…' : 'Put every line in its speaker’s language'}
+      </button>
+      {error && <span role="alert" className="text-red-300">{error}</span>}
     </div>
   )
 }

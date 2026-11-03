@@ -28,7 +28,7 @@ from app.providers import ProviderError, image_provider, story_provider, tts_pro
 from app.providers.base import ProviderResult
 from app.schemas import FilmProject, Preferences
 from app.services import reference_portraits, storage
-from app.services.script_check import CHECKED, written_in, wrong_language_fields
+from app.services.script_check import CHECKED, script_language, wrong_language_fields
 from app.services.portraits import PORTRAIT_SIZE, negative_prompt, portrait_prompt, portraits_enabled
 
 log = logging.getLogger("cineai.pipeline")
@@ -240,37 +240,54 @@ def speaker_language(characters: list, who: str) -> str:
     return ""
 
 
+async def _translate_lines(db: Session, job: AIJob, texts: list[tuple[str, str]], language: str) -> list[str] | None:
+    """[(speaker, text)] → the texts in `language` (one story-model call), or None when that failed."""
+    try:
+        res = await with_retry(lambda: story_provider().translate_film(
+            {"dialogue": [{"character": who, "text": text} for who, text in texts]}, language), job, db)
+    except ProviderError as e:
+        log.warning("could not put %d lines into %s: %s", len(texts), language, e)
+        return None
+    record_usage(db, job, res)
+    got = (res.data or {}).get("dialogue") if isinstance(res.data, dict) else None
+    if not isinstance(got, list) or len(got) != len(texts):
+        return None
+    out = [str(g.get("text", "") if isinstance(g, dict) else g).strip() for g in got]
+    return out if all(out) else None
+
+
 async def fix_family_lines(db: Session, job: AIJob, lines: list, characters: list, film_language: str) -> list:
-    """Story models often write every line in the film's language even when a family speaks its own.
-    Lines whose speaker speaks another language, but which aren't written in it, are translated into it here
-    (one call per language); the original becomes the subtitle. Best effort: a failure keeps the lines as they were."""
-    todo: dict[str, list[int]] = {}
-    for i, line in enumerate(lines):
+    """Makes every line follow who speaks what (story models often don't):
+    - a speaker with their own language (a family's) whose line is in any other script → translated into it;
+    - a line in a language other than the film's (whoever says it) → tagged with that language and given a
+      subtitle in the film's language.
+    One call per language, best effort: a failed call keeps the lines as they were."""
+    out = [dict(l) if isinstance(l, dict) else l for l in lines]
+    to_own: dict[str, list[int]] = {}
+    for i, line in enumerate(out):
         if not isinstance(line, dict) or not str(line.get("text", "")).strip():
             continue
-        lang = line.get("language") or speaker_language(characters, line.get("character", ""))
-        if not lang or lang == film_language:
+        own = speaker_language(characters, line.get("character", "")) or line.get("language") or ""
+        written = script_language(str(line["text"]), own or film_language)
+        if own and own != film_language and written and written != own:
+            to_own.setdefault(own, []).append(i)            # e.g. an Iyer's line in Punjabi or English → Tamil
+        elif written and written != film_language:
+            line["language"] = written                       # spoken in another language: keep it, subtitle it
+    for lang, idx in to_own.items():
+        done = await _translate_lines(db, job, [(out[i].get("character", ""), out[i]["text"]) for i in idx], lang)
+        if done is None:
             continue
-        if written_in(str(line["text"]), lang):
-            line.setdefault("language", lang)
-            continue
-        todo.setdefault(lang, []).append(i)
-    out = [dict(l) if isinstance(l, dict) else l for l in lines]
-    for lang, idx in todo.items():
-        try:
-            res = await with_retry(lambda: story_provider().translate_film(
-                {"dialogue": [{"character": lines[i].get("character", ""), "text": lines[i]["text"]} for i in idx]}, lang), job, db)
-        except ProviderError as e:
-            log.warning("could not put %d lines into %s: %s", len(idx), lang, e)
-            continue
-        record_usage(db, job, res)
-        got = (res.data or {}).get("dialogue") if isinstance(res.data, dict) else None
-        if not isinstance(got, list) or len(got) != len(idx):
-            continue
-        for i, new in zip(idx, got):
-            text = str(new.get("text", "") if isinstance(new, dict) else new).strip()
-            if text:
-                out[i] = {**out[i], "subtitle": out[i].get("subtitle") or lines[i]["text"], "text": text, "language": lang}
+        for i, text in zip(idx, done):
+            was = out[i]["text"]
+            out[i] = {**out[i], "text": text, "language": lang,
+                      "subtitle": out[i].get("subtitle") or (was if script_language(was, film_language) == film_language else "")}
+    # every line in another language gets a subtitle in the film's language (one call)
+    need = [i for i, l in enumerate(out) if isinstance(l, dict) and l.get("language") and l["language"] != film_language
+            and not str(l.get("subtitle", "")).strip()]
+    if need:
+        done = await _translate_lines(db, job, [(out[i].get("character", ""), out[i]["text"]) for i in need], film_language)
+        for i, text in zip(need, done or []):
+            out[i] = {**out[i], "subtitle": text}
     return out
 
 

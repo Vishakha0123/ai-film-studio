@@ -77,3 +77,24 @@ def written_in(text: str, language: str) -> bool:
     if not block:
         return True
     return sum(1 for ch in letters if block[0] <= ord(ch) <= block[1]) / len(letters) >= 0.5
+
+
+def script_language(text: str, hint: str = "") -> str:
+    """Which language's script a line is written in: 'en' for Latin, an Indian code, or '' (too short to tell).
+    Devanagari is shared by Hindi and Marathi: `hint` (the speaker's or film's language) decides between them."""
+    letters = [ch for ch in text if ch.isalpha()]
+    if len(letters) < 4:
+        return ""
+    counts: dict[str, int] = {}
+    for ch in letters:
+        if ch.isascii():
+            counts["en"] = counts.get("en", 0) + 1
+            continue
+        for code, (lo, hi) in SCRIPTS.items():
+            if code != "mr" and lo <= ord(ch) <= hi:
+                counts[code] = counts.get(code, 0) + 1
+                break
+    if not counts:
+        return ""
+    best = max(counts, key=counts.get)
+    return "mr" if best == "hi" and hint == "mr" else best

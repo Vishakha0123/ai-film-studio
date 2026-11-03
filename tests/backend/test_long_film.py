@@ -635,12 +635,12 @@ def test_lines_written_in_the_wrong_language_are_put_into_the_speakers_language(
         p = Project(user_id=u.id, title="x"); db.add(p); db.commit()
         job = AIJob(project_id=p.id, user_id=u.id, task="plan"); db.add(job); db.commit()
         out = asyncio.run(fix_family_lines(db, job, lines, chars, "en"))
-    assert sorted(calls) == ["pa", "ta"]  # one call per language
+    assert sorted(calls) == ["en", "pa", "ta"]  # one call per language (+ one for the missing subtitle)
     assert out[0] == {"character": "Harpreet Malhotra", "text": "<pa>Arre, come in, come in!", "language": "pa", "subtitle": "Arre, come in, come in!"}
     assert out[1]["language"] == "ta" and out[1]["subtitle"] == "That is very generous."
     assert out[2]["text"].startswith("<pa>")  # matched by first name
     assert out[3] == lines[3]  # speaks the film's language: unchanged
-    assert out[4]["text"] == "அது மிகவும் தாராளமானது." and "subtitle" not in out[4]
+    assert out[4]["text"] == "அது மிகவும் தாராளமானது." and out[4]["subtitle"] == "<en>அது மிகவும் தாராளமானது."  # kept, subtitled
 
 
 def test_changing_who_speaks_what_rewrites_their_lines(client):
@@ -688,3 +688,38 @@ def test_subtitle_card_never_draws_empty_boxes():
         return None if png is None else Image.open(BytesIO(png)).convert("L").point(lambda p: 255 if p > 200 else 0).tobytes()
 
     assert ink("ऀऀऀ") is None or ink("तुम कहाँ थे") != ink("ऀऀऀ")  # real Hindi differs from a row of missing glyphs
+
+
+def test_a_familys_line_in_the_wrong_indian_language_is_corrected_and_other_lines_are_subtitled(monkeypatch):
+    """What happened on screen: Ananya (Tamil family) got a Punjabi line; Rohan's Punjabi line had no subtitle."""
+    import asyncio
+    from app.providers.base import ProviderResult
+    from app.providers.mock import MockStory
+    from app.services.pipeline import fix_family_lines
+
+    async def translate(self, memory, language):
+        return ProviderResult({"dialogue": [{"text": f"<{language}>" + d["text"]} for d in memory["dialogue"]]}, provider="mock", model="t")
+
+    monkeypatch.setattr(MockStory, "translate_film", translate)
+    chars = [{"name": "Rohan Malhotra", "language": ""}, {"name": "Ananya Iyer", "language": "ta"}]
+    lines = [{"character": "Rohan Malhotra", "text": "ਤੁਸੀਂ ਇਹ ਫੋਨ ਲੈ ਲਓ, ਇਹ ਤੁਹਾਡੇ ਪਿਤਾ ਜੀ ਦਾ ਹੈ"},
+             {"character": "Ananya Iyer", "text": "ਉਹਨੂੰ ਦੱਸੋ ਕਿ ਮੈਂ ਉਹਨੂੰ ਪਿਆਰ ਕਰਦੀ ਹਾਂ"},
+             {"character": "Rohan Malhotra", "text": "We have to choose us, right here."}]
+    from app.db import SessionLocal
+    from app.models import AIJob, Project, User
+    with SessionLocal() as db:
+        u = User(id="u2", email="u2@t.t"); db.add(u); db.commit()
+        p = Project(user_id=u.id, title="x"); db.add(p); db.commit()
+        job = AIJob(project_id=p.id, user_id=u.id, task="plan"); db.add(job); db.commit()
+        out = asyncio.run(fix_family_lines(db, job, lines, chars, "en"))
+    assert out[0]["language"] == "pa" and out[0]["subtitle"].startswith("<en>")   # Rohan speaks Punjabi here: kept, subtitled
+    assert out[1]["language"] == "ta" and out[1]["text"].startswith("<ta>")       # Ananya's line put into Tamil
+    assert out[2] == lines[2]                                                     # English in an English film: as is
+
+
+def test_fix_dialogue_languages_endpoint(client):
+    pid = _two_family_film(client)
+    r = client.post(f"/api/v1/projects/{pid}/dialogue/languages", headers=A)
+    assert r.status_code == 202 and r.json()["task"] == "family_lines"
+    assert client.get(f"/api/v1/jobs/{r.json()['id']}", headers=A).json()["status"] == "completed"
+    assert client.post(f"/api/v1/projects/{pid}/dialogue/languages", headers=auth("x@y.z")).status_code == 404
