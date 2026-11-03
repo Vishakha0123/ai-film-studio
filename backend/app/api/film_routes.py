@@ -3,6 +3,7 @@
 Every route checks that the film belongs to the signed-in creator. Provider keys never leave the server.
 """
 
+from datetime import timezone
 from typing import Literal
 from urllib.parse import quote
 
@@ -67,8 +68,9 @@ def _urls(db: Session, ids: list[str | None]) -> dict[str, Asset]:
 def _job(job: AIJob | None) -> dict | None:
     if job is None:
         return None
+    started = job.created_at.replace(tzinfo=timezone.utc) if job.created_at and job.created_at.tzinfo is None else job.created_at
     return {"id": job.id, "task": job.task, "status": job.status, "stage": job.stage, "progress": job.progress,
-            "error": job.error}
+            "error": job.error, "createdAt": started.isoformat() if started else None}
 
 
 def _check_budget_cap(value: float | None) -> float:

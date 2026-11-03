@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { lengthLabel, nearestFilmLength, requestedMinutes } from '../lib/filmLength'
+import { Elapsed, formatElapsed } from '../lib/useElapsed'
 import { isTeaserLocked } from '../features'
 import { ComingSoonButton } from '../components/LockIcon'
 import type { Panel, ChatMessage, FilmProject } from '../types'
@@ -173,6 +174,7 @@ export default function Chat({ progress, onAdvance, onGenerate, onOpenPanel, gen
     if (dictation.state === 'listening') dictation.toggle()
 
     const attached = files
+    const startedAt = Date.now()
     const userMsg: ChatMessage = { id: Date.now().toString(), role: 'user', content: text, attachments: attached.map(f => f.name) }
     setMessages(m => [...m, userMsg])
     setInput('')
@@ -230,7 +232,7 @@ export default function Chat({ progress, onAdvance, onGenerate, onOpenPanel, gen
           text: "I've noted that. What else would you like to adjust?",
           card: undefined,
         }
-        setMessages(m => [...m, { id: (Date.now() + 1).toString(), role: 'ai', content: response.text, card: response.card }])
+        setMessages(m => [...m, { id: (Date.now() + 1).toString(), role: 'ai', content: response.text, card: response.card, durationMs: Date.now() - startedAt }])
         // "I want a 2-hour movie": the plan above is the short version — write the full-length film straight away
         // (story, cast, every scene and its script; no video). Every section switches to it as it's written.
         const asked = !DEMO_MODE && planned && createdId ? requestedMinutes(text) : null
@@ -270,7 +272,7 @@ export default function Chat({ progress, onAdvance, onGenerate, onOpenPanel, gen
         if (!alive.current) return
         setMessages(m => [
           ...m,
-          { id: (Date.now() + 1).toString(), role: 'ai', content: `Something went wrong talking to the studio: ${err instanceof Error ? err.message : 'unknown error'} Please try again.` },
+          { id: (Date.now() + 1).toString(), role: 'ai', content: `Something went wrong talking to the studio: ${err instanceof Error ? err.message : 'unknown error'} Please try again.`, durationMs: Date.now() - startedAt },
         ])
         setIsTyping(false)
         setStatus('')
@@ -285,7 +287,8 @@ export default function Chat({ progress, onAdvance, onGenerate, onOpenPanel, gen
     if (!filmExists) { setNewFilmLanguage(lang); return }
     if (lang === filmLanguage || isTyping) return
     const name = languageName(lang)
-    const say = (content: string) => setMessages(m => [...m, { id: `${Date.now()}-lang-ai`, role: 'ai', content }])
+    const langStart = Date.now()
+    const say = (content: string) => setMessages(m => [...m, { id: `${Date.now()}-lang-ai`, role: 'ai', content, durationMs: Date.now() - langStart }])
     setMessages(m => [...m, { id: `${Date.now()}-lang`, role: 'user', content: `Make this film in ${name}` }])
     if (DEMO_MODE || !project) {
       say(`Making the film in ${name} needs the studio backend — the demo film stays in English. Connect the backend and I'll rewrite every part of it in ${name} for you, no retyping.`)
@@ -361,6 +364,9 @@ export default function Chat({ progress, onAdvance, onGenerate, onOpenPanel, gen
               </div>
 
               {msg.card && <MessageCard card={msg.card} movieMinutes={msg.movieMinutes} onGenerate={onGenerate} onOpenPanel={onOpenPanel} />}
+              {msg.role === 'ai' && msg.durationMs !== undefined && msg.durationMs >= 1000 && (
+                <p className="text-[11px] text-zinc-600 pl-1" data-testid="reply-duration">Took {formatElapsed(msg.durationMs)}</p>
+              )}
             </div>
           </div>
         ))}
@@ -381,7 +387,9 @@ export default function Chat({ progress, onAdvance, onGenerate, onOpenPanel, gen
               <span className="typing-dot w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#52525b' }} />
               <span className="typing-dot w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#52525b' }} />
             </div>
-            {status && <p className="self-center text-xs text-zinc-500" data-testid="job-status">{status}…</p>}
+            <p className="self-center text-xs text-zinc-500" data-testid="job-status">
+              {status ? `${status}… ` : ''}<Elapsed active={isTyping} className="text-zinc-600" />
+            </p>
           </div>
         )}
         <div ref={messagesEndRef} />

@@ -6,6 +6,7 @@ import type { FullFilmText } from '../types'
 import { duration } from '../screens/FullMovie'
 import { classifyLine, LINE_STYLES } from '../panels/Screenplay'
 import { speaksLabel } from '../lib/languages'
+import { Elapsed } from '../lib/useElapsed'
 
 export type FullFilmKind = 'screenplay' | 'dialogue' | 'scenes' | 'storyboard'
 
@@ -41,6 +42,7 @@ function Progress({ film }: { film: FullFilmText }) {
   return (
     <p className="text-xs mb-4" style={{ color: gold }} data-testid="full-film-progress">
       {working ? `${film.job?.stage || 'Writing the full-length film'}… ` : ''}
+      {working && <Elapsed active since={film.job?.createdAt} className="mr-1 opacity-70" />}
       {film.scenes.length ? `${written}/${film.scenes.length} scene scripts written` : ''}
       {!working && written < film.scenes.length ? ' — open the full-length film to write the rest.' : ''}
     </p>

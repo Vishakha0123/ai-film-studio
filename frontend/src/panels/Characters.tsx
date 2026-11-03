@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Elapsed } from '../lib/useElapsed'
 import DirectAI from '../components/DirectAI'
 import { usePortraits } from '../lib/usePortraits'
 import { characterPhoto, characterPhotoKind } from '../types'
@@ -169,7 +170,7 @@ export default function Characters() {
           </button>
         </div>
 
-        {working && <p className="text-xs mb-4" style={{ color: '#d4a84b' }} data-testid="characters-working">{working}</p>}
+        {working && <p className="text-xs mb-4" style={{ color: '#d4a84b' }} data-testid="characters-working">{working} <Elapsed active className="ml-1 opacity-60" /></p>}
         {photos.stage && (
           <p className="flex items-center gap-2 text-xs mb-4" style={{ color: '#d4a84b' }} data-testid="portraits-working">
             <span className="w-3 h-3 rounded-full border-2 border-current border-t-transparent animate-spin" aria-hidden />

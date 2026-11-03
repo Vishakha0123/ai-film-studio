@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Elapsed } from '../lib/useElapsed'
 import { useFilm } from '../studio'
 import { useFilmEdit } from '../lib/useFilmEdit'
 import type { EditAction } from '../api'
@@ -132,7 +133,7 @@ export default function Screenplay() {
             </div>
           )}
           {editing === null && <LanguageFix target="screenplay" text={film.screenplay} what="screenplay" />}
-          {working && <p className="mb-3 text-xs" style={{ color: '#d4a84b' }} data-testid="screenplay-working">{working}</p>}
+          {working && <p className="mb-3 text-xs" style={{ color: '#d4a84b' }} data-testid="screenplay-working">{working} <Elapsed active className="ml-1 opacity-60" /></p>}
           {error && <p role="alert" className="mb-3 text-xs text-red-300">{error}</p>}
 
           {editing !== null ? (

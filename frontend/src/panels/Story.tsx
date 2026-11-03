@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Elapsed } from '../lib/useElapsed'
 import { useNavigate } from 'react-router-dom'
 import { getLongFilm } from '../api'
 import type { LongFilm } from '../types'
@@ -214,7 +215,7 @@ export default function Story() {
           </div>
         </div>
 
-        {working && <p className="text-xs" style={{ color: '#d4a84b' }} data-testid="story-working">Revising the story…</p>}
+        {working && <p className="text-xs" style={{ color: '#d4a84b' }} data-testid="story-working">Revising the story… <Elapsed active className="ml-1 opacity-60" /></p>}
         {error && <p role="alert" className="text-xs text-red-400">{error}</p>}
 
         <DirectAI

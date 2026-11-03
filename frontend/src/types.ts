@@ -14,6 +14,8 @@ export interface ChatMessage {
   movieMinutes?: number
   /** File names the creator attached to this message */
   attachments?: string[]
+  /** AI replies: how long the reply took (shown as "Took 34s") */
+  durationMs?: number
 }
 
 export interface Character {
@@ -496,7 +498,7 @@ export interface LongFilm {
   pauseRequested: boolean
   progress: LongFilmProgress
   estimate: LongFilmEstimate
-  job: { id: string; task: string; status: JobStatus; stage: string; progress: number; error: string } | null
+  job: { id: string; task: string; status: JobStatus; stage: string; progress: number; error: string; createdAt?: string | null } | null
   /** The premise grown into a feature-length story, with the cast it needs (null until planned) */
   story: {
     story: string
@@ -545,7 +547,7 @@ export interface FullFilmText {
   status: FilmStatus
   targetSeconds: number
   error: string
-  job: { id: string; task: string; status: JobStatus; stage: string; progress: number; error: string } | null
+  job: { id: string; task: string; status: JobStatus; stage: string; progress: number; error: string; createdAt?: string | null } | null
   progress: LongFilmProgress
   scenes: {
     number: number
