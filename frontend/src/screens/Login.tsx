@@ -18,12 +18,6 @@ const GoogleIcon = () => (
   </svg>
 )
 
-const AppleIcon = () => (
-  <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor" aria-hidden>
-    <path d="M16.37 12.73c-.02-2.35 1.92-3.48 2.01-3.53-1.1-1.6-2.8-1.82-3.4-1.85-1.44-.15-2.82.85-3.55.85-.74 0-1.86-.83-3.06-.81-1.57.02-3.02.92-3.83 2.33-1.64 2.84-.42 7.04 1.17 9.35.78 1.13 1.7 2.39 2.91 2.35 1.17-.05 1.61-.75 3.02-.75 1.41 0 1.8.75 3.04.73 1.26-.02 2.05-1.15 2.82-2.28.89-1.3 1.25-2.57 1.27-2.63-.03-.01-2.43-.93-2.46-3.69zM14.05 5.83c.64-.78 1.08-1.86.96-2.94-.93.04-2.05.62-2.72 1.4-.6.69-1.12 1.79-.98 2.85 1.04.08 2.1-.53 2.74-1.31z" />
-  </svg>
-)
-
 const Spinner = () => (
   <svg className="spinner w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
     <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
@@ -33,7 +27,6 @@ const Spinner = () => (
 
 const PROVIDERS: { id: AuthProvider; label: string; icon: () => React.ReactElement }[] = [
   { id: 'google', label: 'Continue with Google', icon: GoogleIcon },
-  { id: 'apple', label: 'Continue with Apple', icon: AppleIcon },
 ]
 
 export default function Login({ navigate }: { navigate: NavFn }) {
@@ -47,8 +40,7 @@ export default function Login({ navigate }: { navigate: NavFn }) {
       await signInWithProvider(provider)
       navigate('onboarding')
     } catch (err) {
-      const name = provider === 'google' ? 'Google' : 'Apple'
-      setError(err instanceof Error ? `${name} sign-in didn't work: ${err.message}` : `${name} sign-in didn't work. Try again.`)
+      setError(err instanceof Error ? `Google sign-in didn't work: ${err.message}` : `Google sign-in didn't work. Try again.`)
       setPending(null)
     }
   }

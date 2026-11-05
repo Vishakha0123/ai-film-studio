@@ -84,6 +84,28 @@ test('auth guard redirects to login, and session persists across reload', async 
   await expect(page.getByTestId('screen-director')).toBeVisible()
 })
 
+test('Exit goes straight to the home page (never via the sign-in page) and signs out', async ({ page }) => {
+  await signIn(page)
+  await page.goto('/director')
+  await expect(page.getByTestId('screen-director')).toBeVisible()
+  // record every page shown after clicking Exit
+  await page.evaluate(() => {
+    const w = window as unknown as { seen: string[] }
+    w.seen = []
+    new MutationObserver(() => {
+      for (const el of document.querySelectorAll('[data-testid^="screen-"]')) w.seen.push(el.getAttribute('data-testid')!)
+    }).observe(document.body, { childList: true, subtree: true })
+  })
+  await page.getByTestId('sidebar-exit').first().click()
+  await expect(page.getByTestId('screen-landing')).toBeVisible()
+  await expect(page).toHaveURL(/\/$/)
+  await expect(page.getByRole('button', { name: 'Sign In' })).toBeVisible()
+  expect(await page.evaluate(() => (window as unknown as { seen: string[] }).seen)).not.toContain('screen-login')
+  // signed out for real: the studio asks to sign in again
+  await page.goto('/director')
+  await expect(page).toHaveURL(/\/login$/)
+})
+
 test('any panel opens directly from a deep link', async ({ page }) => {
   await signIn(page)
   await page.goto('/director/screenplay')

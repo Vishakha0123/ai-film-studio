@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import type { NavFn } from '../types'
+import { signOut } from '../api'
 
 const ROTATING_PROMPTS = [
   '"Create a horror story about an abandoned lighthouse keeper"',
@@ -25,6 +27,15 @@ const FilmIcon = () => (
 /** The home page — everyone sees it first; a signed-in visitor gets "Open Studio" instead of "Sign In". */
 export default function Landing({ navigate, signedIn = false }: { navigate: NavFn; signedIn?: boolean }) {
   const start = () => navigate(signedIn ? 'director' : 'login')
+  const location = useLocation()
+  const routerNavigate = useNavigate()
+  // Exit sends us here first and we sign out once on this page, so the studio never bounces to the sign-in page.
+  const exiting = !!(location.state as { signOut?: boolean } | null)?.signOut
+  useEffect(() => {
+    if (!exiting) return
+    void signOut()
+    routerNavigate('/', { replace: true, state: null })
+  }, [exiting, routerNavigate])
   const [promptIdx, setPromptIdx] = useState(0)
   const [visible, setVisible] = useState(true)
 

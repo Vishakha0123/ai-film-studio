@@ -2,7 +2,6 @@ import { useNavigate } from 'react-router-dom'
 import type { Panel, NavFn } from '../types'
 import { COMING_SOON, isPanelLocked, isTeaserLocked } from '../features'
 import LockIcon, { ComingSoonButton } from './LockIcon'
-import { signOut } from '../api'
 
 export const WORKFLOW = [
   { id: 'chat' as Panel, label: 'Director', icon: ChatIcon, stage: -1 },
@@ -229,7 +228,8 @@ export default function Sidebar({ panel, section, setPanel, progress, onGenerate
             )
           })}
           <button
-            onClick={() => { void signOut().finally(() => routerNavigate('/')) }}
+            // Go home first and sign out there: signing out on a studio page makes it jump to the sign-in page.
+            onClick={() => routerNavigate('/', { replace: true, state: { signOut: true } })}
             className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium text-zinc-600 hover:text-zinc-400 transition-all mt-1"
             title="Sign out and go to the home page"
             data-testid="sidebar-exit"

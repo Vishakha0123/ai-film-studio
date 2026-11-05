@@ -10,7 +10,7 @@ function supabaseJwt(sub: string, email: string) {
   return `${body}.${createHmac('sha256', JWT_SECRET).update(body).digest('base64url')}`
 }
 
-for (const provider of ['google', 'apple'] as const) {
+for (const provider of ['google'] as const) {
 test(`Supabase ${provider} sign-in → OAuth redirect → backend verifies the access token → project is created for that user`, async ({ page }) => {
   await preparePage(page)
   const userId = randomUUID()
@@ -19,7 +19,7 @@ test(`Supabase ${provider} sign-in → OAuth redirect → backend verifies the a
   const user = { id: userId, aud: 'authenticated', role: 'authenticated', email, app_metadata: { provider }, user_metadata: {}, created_at: new Date().toISOString() }
   let requestedProvider = ''
 
-  // Supabase's /authorize normally bounces through Google/Apple; here it redirects straight back with a session.
+  // Supabase's /authorize normally bounces through Google; here it redirects straight back with a session.
   await page.route(`${FAKE_SUPABASE}/auth/v1/authorize**`, async route => {
     const url = new URL(route.request().url())
     requestedProvider = url.searchParams.get('provider') ?? ''
@@ -31,7 +31,7 @@ test(`Supabase ${provider} sign-in → OAuth redirect → backend verifies the a
 
   await page.goto('/login')
   await expect(page.getByLabel(/password/i)).toHaveCount(0)
-  await page.getByRole('button', { name: `Continue with ${provider === 'google' ? 'Google' : 'Apple'}` }).click()
+  await page.getByRole('button', { name: 'Continue with Google' }).click()
   await expect(page.getByTestId('screen-onboarding')).toBeVisible()
   expect(requestedProvider).toBe(provider)
   await expect(page).toHaveURL(/\/onboarding#?$/) // tokens are cleared from the address bar
