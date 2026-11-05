@@ -6,14 +6,14 @@ export { DEMO_MODE, AUTH_PROVIDER, ApiError, getToken } from './client'
 
 /* ---------- Auth ---------- */
 
-export type AuthProvider = 'google' | 'apple'
+export type AuthProvider = 'google'
 
 export interface Session {
   email: string
 }
 
 /**
- * Sign in with Google or Apple. There is no email/password form: Supabase hosts the
+ * Sign in with Google. There is no email/password form: Supabase hosts the
  * provider's consent screen and redirects back to /onboarding with the session.
  *  - demo: signs straight in (no backend)
  *  - dev:  backend AUTH_MODE=dev; each provider maps to a fixed local test user
@@ -36,7 +36,7 @@ export async function signInWithProvider(provider: AuthProvider): Promise<Sessio
     options: { redirectTo: `${window.location.origin}/onboarding` },
   })
   if (error) throw new ApiError(error.message, 400)
-  return new Promise(() => {}) // the browser is redirected to Google / Apple
+  return new Promise(() => {}) // the browser is redirected to Google
 }
 
 export async function signOut() {

@@ -61,11 +61,11 @@ describe('live mode (VITE_API_URL set, dev login)', () => {
     const api = await liveApi()
     expect(api.AUTH_PROVIDER).toBe('dev')
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({ id: 'u', email: 'a@b.co' })))
-    const session = await api.signInWithProvider('apple')
-    expect(session.email).toBe('apple-user@dev.local')
+    const session = await api.signInWithProvider('google')
+    expect(session.email).toBe('google-user@dev.local')
     const [url, init] = fetchMock.mock.calls[0]
     expect(url).toBe('http://api.test/api/v1/me')
-    expect(new Headers((init as RequestInit).headers).get('Authorization')).toBe('Bearer dev:apple-user@dev.local')
+    expect(new Headers((init as RequestInit).headers).get('Authorization')).toBe('Bearer dev:google-user@dev.local')
   })
 
   it('waitForJob polls /jobs/{id} until the job finishes', async () => {

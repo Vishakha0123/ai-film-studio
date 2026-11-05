@@ -29,16 +29,16 @@ describe('public screens', () => {
 })
 
 describe('authentication', () => {
-  it('login offers only Google and Apple — no email or password form', () => {
+  it('login offers only Google — no Apple, email or password', () => {
     renderApp('/login')
     expect(screen.getByRole('button', { name: 'Continue with Google' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Continue with Apple' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /apple/i })).toBeNull()
     expect(screen.queryByLabelText(/email/i)).toBeNull()
     expect(screen.queryByLabelText(/password/i)).toBeNull()
     expect(screen.queryByRole('button', { name: /sign up|create account|sign in/i })).toBeNull()
   })
 
-  it.each(['Google', 'Apple'])('continue with %s signs in and lands on onboarding', async name => {
+  it.each(['Google'])('continue with %s signs in and lands on onboarding', async name => {
     renderApp('/login')
     await userEvent.click(screen.getByRole('button', { name: `Continue with ${name}` }))
     expect(screen.getByText('Connecting…')).toBeInTheDocument()

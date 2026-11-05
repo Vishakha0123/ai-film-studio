@@ -78,11 +78,13 @@ test('full stack workspace: settings defaults → projects (open, rename, delete
   const errors: string[] = []
   page.on('pageerror', e => errors.push(e.message))
   await preparePage(page)
-  const email = 'apple-user@dev.local'
+  const email = 'second-user@dev.local'
   const auth = { Authorization: `Bearer dev:${email}` }
 
+  // a second test user, so this test starts with no projects (dev mode: the token names the user)
   await page.goto('/login')
-  await page.getByRole('button', { name: 'Continue with Apple' }).click()
+  await page.evaluate(e => localStorage.setItem('cineai.token', `dev:${e}`), email)
+  await page.goto('/onboarding')
   await page.getByRole('button', { name: 'Skip', exact: true }).click()
 
   // Every stage is open; with no film yet, panels explain how to start
@@ -547,11 +549,13 @@ test('full stack: settings — writing & voice defaults shape new films, voice p
 
 test('full stack: stay signed in on return, and edit every section by hand or with Direct the AI', async ({ page, request }) => {
   await preparePage(page)
-  const email = 'apple-user@dev.local'
+  const email = 'second-user@dev.local'
   const auth = { Authorization: `Bearer dev:${email}` }
   // Sign in once
+  // a second test user, so this test starts with no projects (dev mode: the token names the user)
   await page.goto('/login')
-  await page.getByRole('button', { name: 'Continue with Apple' }).click()
+  await page.evaluate(e => localStorage.setItem('cineai.token', `dev:${e}`), email)
+  await page.goto('/onboarding')
   await page.getByRole('button', { name: 'Skip', exact: true }).click()
   // Coming back later: the home page shows "Open Studio" (still signed in); the login page goes to the studio
   await page.goto('/')
