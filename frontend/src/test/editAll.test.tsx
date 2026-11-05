@@ -5,10 +5,26 @@ import { renderApp } from './renderApp'
 import { setToken } from '../api/client'
 
 describe('stay signed in', () => {
-  it('a returning signed-in user skips the landing page and goes straight to the studio', () => {
+  it('everyone sees the home page first; a signed-in visitor gets Open Studio instead of Sign In', async () => {
     renderApp('/', { loggedIn: true })
+    expect(screen.getByTestId('screen-landing')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Sign In' })).toBeNull()
+    await userEvent.click(screen.getByTestId('landing-open-studio'))
     expect(screen.getByTestId('panel-chat')).toBeInTheDocument()
-    expect(screen.queryByTestId('screen-login')).toBeNull()
+  })
+
+  it('a new visitor sees the home page with Sign In', () => {
+    renderApp('/')
+    expect(screen.getByTestId('screen-landing')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Sign In' })).toBeInTheDocument()
+  })
+
+  it('Exit signs out and goes to the home page', async () => {
+    renderApp('/director', { loggedIn: true })
+    await userEvent.click(screen.getAllByTestId('sidebar-exit')[0])
+    expect(await screen.findByTestId('screen-landing')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Sign In' })).toBeInTheDocument()
+    expect(localStorage.getItem('cineai.token')).toBeNull()
   })
 
   it('the login page also sends a signed-in user to the studio', () => {

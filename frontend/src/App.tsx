@@ -276,7 +276,7 @@ function Screens({ replyDelay, generationStepMs }: AppProps) {
         <div className="flex-1 flex items-center justify-center bg-zinc-950 text-xs text-zinc-600" data-testid="restoring">Opening your project…</div>
       ) : (
       <Routes>
-        <Route path="/" element={<SignedOutOnly><Landing navigate={navigate} /></SignedOutOnly>} />
+        <Route path="/" element={<Landing navigate={navigate} signedIn={signedIn} />} />
         <Route path="/login" element={<SignedOutOnly><Login navigate={navigate} /></SignedOutOnly>} />
         <Route path="/onboarding" element={<RequireAuth><Onboarding navigate={navigate} selected={genres} setSelected={setGenres} /></RequireAuth>} />
         <Route path="/new" element={<RequireAuth><NewFilm current={progress > 0 ? { title: project?.title || (DEMO_MODE ? FILM_PROJECT.title : 'your current film'), saved: !DEMO_MODE && !!project } : null} onStart={g => { newFilm(g); navigate('director') }} /></RequireAuth>} />
