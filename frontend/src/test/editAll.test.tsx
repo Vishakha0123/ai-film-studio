@@ -21,8 +21,14 @@ describe('stay signed in', () => {
 
   it('Exit signs out and goes to the home page', async () => {
     renderApp('/director', { loggedIn: true })
+    // the sign-in page must never flash on the way home
+    let sawLogin = false
+    const watch = new MutationObserver(() => { if (document.querySelector('[data-testid="screen-login"]')) sawLogin = true })
+    watch.observe(document.body, { childList: true, subtree: true })
     await userEvent.click(screen.getAllByTestId('sidebar-exit')[0])
     expect(await screen.findByTestId('screen-landing')).toBeInTheDocument()
+    watch.disconnect()
+    expect(sawLogin).toBe(false)
     expect(screen.getByRole('button', { name: 'Sign In' })).toBeInTheDocument()
     expect(localStorage.getItem('cineai.token')).toBeNull()
   })
