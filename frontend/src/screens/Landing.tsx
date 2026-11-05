@@ -22,7 +22,9 @@ const FilmIcon = () => (
   </svg>
 )
 
-export default function Landing({ navigate }: { navigate: NavFn }) {
+/** The home page — everyone sees it first; a signed-in visitor gets "Open Studio" instead of "Sign In". */
+export default function Landing({ navigate, signedIn = false }: { navigate: NavFn; signedIn?: boolean }) {
+  const start = () => navigate(signedIn ? 'director' : 'login')
   const [promptIdx, setPromptIdx] = useState(0)
   const [visible, setVisible] = useState(true)
 
@@ -65,18 +67,30 @@ export default function Landing({ navigate }: { navigate: NavFn }) {
           </span>
         </div>
         <div className="flex items-center gap-3 sm:gap-5">
-          <button
-            className="text-sm text-zinc-400 hover:text-zinc-100 transition-colors"
-            onClick={() => navigate('login')}
-          >
-            Sign In
-          </button>
-          <button
-            onClick={() => navigate('login')}
-            className="text-sm px-4 py-2 rounded border border-zinc-700 text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 transition-all"
-          >
-            Get Started
-          </button>
+          {signedIn ? (
+            <button
+              onClick={() => navigate('director')}
+              className="text-sm px-4 py-2 rounded border border-zinc-700 text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 transition-all"
+              data-testid="landing-open-studio"
+            >
+              Open Studio
+            </button>
+          ) : (
+            <>
+              <button
+                className="text-sm text-zinc-400 hover:text-zinc-100 transition-colors"
+                onClick={() => navigate('login')}
+              >
+                Sign In
+              </button>
+              <button
+                onClick={() => navigate('login')}
+                className="text-sm px-4 py-2 rounded border border-zinc-700 text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 transition-all"
+              >
+                Get Started
+              </button>
+            </>
+          )}
         </div>
       </nav>
 
@@ -123,7 +137,7 @@ export default function Landing({ navigate }: { navigate: NavFn }) {
         {/* CTAs */}
         <div className="animate-fade-up flex flex-col sm:flex-row gap-3 mb-12" style={{ animationDelay: '0.28s' }}>
           <button
-            onClick={() => navigate('login')}
+            onClick={start}
             className="px-8 py-3.5 text-sm font-semibold tracking-wide rounded transition-all hover:opacity-90 active:scale-[0.98]"
             style={{ backgroundColor: '#d4a84b', color: '#09090b' }}
           >
@@ -140,7 +154,7 @@ export default function Landing({ navigate }: { navigate: NavFn }) {
           {GENRE_CHIPS.map(g => (
             <button
               key={g}
-              onClick={() => navigate('login')}
+              onClick={start}
               className="text-xs px-3 py-1.5 rounded-full border border-zinc-800 text-zinc-500 hover:border-zinc-600 hover:text-zinc-300 transition-all"
             >
               {g}

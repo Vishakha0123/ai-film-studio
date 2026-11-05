@@ -553,9 +553,9 @@ test('full stack: stay signed in on return, and edit every section by hand or wi
   await page.goto('/login')
   await page.getByRole('button', { name: 'Continue with Apple' }).click()
   await page.getByRole('button', { name: 'Skip', exact: true }).click()
-  // Coming back to the site later skips landing and login
+  // Coming back later: the home page shows "Open Studio" (still signed in); the login page goes to the studio
   await page.goto('/')
-  await expect(page).toHaveURL(/\/director$/)
+  await expect(page.getByTestId('landing-open-studio')).toBeVisible()
   await page.goto('/login')
   await expect(page).toHaveURL(/\/director$/)
 
