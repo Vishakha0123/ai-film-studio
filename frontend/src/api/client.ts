@@ -50,6 +50,18 @@ export function getToken(): string | null {
 
 /** Fired on window whenever the signed-in state changes (sign-in, sign-out, session expired). */
 export const AUTH_EVENT = 'cineai:auth'
+const AUTH_ERROR_KEY = 'cineai.authError'
+
+/** Why the server last rejected the session (read once by the sign-in page). */
+export function takeAuthError(): string | null {
+  try {
+    const msg = sessionStorage.getItem(AUTH_ERROR_KEY)
+    sessionStorage.removeItem(AUTH_ERROR_KEY)
+    return msg
+  } catch {
+    return null
+  }
+}
 
 export function setToken(token: string | null) {
   const before = getToken()
@@ -94,7 +106,11 @@ export async function requestRaw(path: string, init: RequestInit = {}): Promise<
     } catch {
       /* non-JSON error body */
     }
-    if (res.status === 401) setToken(null)
+    if (res.status === 401) {
+      // remembered for the sign-in page, so a rejected sign-in says why instead of silently starting over
+      try { if (getToken()) sessionStorage.setItem(AUTH_ERROR_KEY, typeof detail === 'string' ? detail : 'Session rejected') } catch { /* no storage */ }
+      setToken(null)
+    }
     throw new ApiError(typeof detail === 'string' ? detail : 'Request failed', res.status)
   }
   return res
