@@ -1532,3 +1532,21 @@ def test_cors_allows_any_local_address_while_developing(client):
 def test_cors_still_blocks_other_sites(client):
     for origin in ["https://evil.example", "http://localhost.evil.example", "http://192.168.1.5:5173"]:
         assert _preflight(client, origin).status_code == 400, origin
+
+
+def test_sign_in_with_a_slow_computer_clock():
+    """'The token is not yet valid (iat)': the backend's clock is behind Supabase's."""
+    import time
+    import jwt as pyjwt
+    from fastapi import HTTPException
+    from app.auth import decode_token
+    from app.config import Settings
+    s = Settings(AUTH_MODE="supabase", SUPABASE_URL="https://abc.supabase.co", SUPABASE_JWT_SECRET="secret-at-least-32-characters-long!!")
+    now = int(time.time())
+    claims = {"sub": "u", "aud": "authenticated", "iss": "https://abc.supabase.co/auth/v1", "exp": now + 3600}
+    # a few seconds ahead is fine
+    assert decode_token(pyjwt.encode({**claims, "iat": now + 20}, s.SUPABASE_JWT_SECRET, algorithm="HS256"), s).id == "u"
+    # ten minutes ahead: say the clock is wrong
+    with pytest.raises(HTTPException) as e:
+        decode_token(pyjwt.encode({**claims, "iat": now + 600}, s.SUPABASE_JWT_SECRET, algorithm="HS256"), s)
+    assert "clock" in e.value.detail

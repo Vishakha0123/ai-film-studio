@@ -81,11 +81,17 @@ def decode_token(token: str, settings: Settings) -> CurrentUser:
             algorithms=["HS256", "ES256", "RS256"],
             audience=settings.SUPABASE_JWT_AUDIENCE,
             issuer=issuer,
+            leeway=60,  # small clock differences between this computer and Supabase are fine
         )
     except HTTPException:
         raise
     except jwt.ExpiredSignatureError:
         raise _unauthorized("Session expired — please sign in again")
+    except jwt.ImmatureSignatureError:
+        raise _unauthorized(
+            "This computer's clock is behind. Turn on 'Set time automatically' in Windows Settings → "
+            "Time & language → Date & time, click 'Sync now', then sign in again"
+        )
     except jwt.InvalidSignatureError:
         raise _unauthorized(
             "Session token signature doesn't match — check SUPABASE_JWT_SECRET (Supabase → Settings → API → JWT secret)"
