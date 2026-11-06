@@ -1492,6 +1492,29 @@ def test_film_gets_the_theme_song_plus_the_other_songs_asked_for(client):
     assert len(_songs_of(client, "A quiet drama", songs=4)["songs"]) == 3  # explicit count wins
 
 
+def test_sign_in_rejections_say_what_to_fix(monkeypatch):
+    """Google sign-in that loops back to the login page: the reason must name the setting to fix."""
+    import time
+    import jwt as pyjwt
+    from fastapi import HTTPException
+    from app.auth import decode_token
+    from app.config import Settings
+    secret = "secret-at-least-32-characters-long!!"
+    claims = {"sub": "u", "aud": "authenticated", "iss": "https://abc.supabase.co/auth/v1", "exp": int(time.time()) + 60}
+    tok = pyjwt.encode(claims, secret, algorithm="HS256")
+
+    def reason(settings):
+        with pytest.raises(HTTPException) as e:
+            decode_token(tok, settings)
+        assert e.value.status_code == 401
+        return e.value.detail
+
+    assert "AUTH_MODE=supabase" in reason(Settings(AUTH_MODE="dev"))
+    assert "https://other.supabase.co" in reason(Settings(AUTH_MODE="supabase", SUPABASE_URL="https://other.supabase.co", SUPABASE_JWT_SECRET=secret))
+    assert "SUPABASE_JWT_SECRET" in reason(Settings(AUTH_MODE="supabase", SUPABASE_URL="https://abc.supabase.co"))
+    assert "SUPABASE_JWT_SECRET" in reason(Settings(AUTH_MODE="supabase", SUPABASE_URL="https://abc.supabase.co", SUPABASE_JWT_SECRET="x" * 40))
+
+
 def _preflight(client, origin):
     return client.options("/api/v1/projects", headers={
         "Origin": origin, "Access-Control-Request-Method": "GET", "Access-Control-Request-Headers": "authorization",

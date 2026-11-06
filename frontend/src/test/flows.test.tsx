@@ -47,6 +47,15 @@ describe('authentication', () => {
   })
 })
 
+describe('rejected sign-in', () => {
+  it('the login page says why the server rejected the session instead of silently starting over', () => {
+    sessionStorage.setItem('cineai.authError', 'The backend has AUTH_MODE=dev but the app signed in with Supabase (Google)')
+    renderApp('/login')
+    expect(screen.getByRole('alert')).toHaveTextContent("Sign-in didn't work: The backend has AUTH_MODE=dev")
+    expect(sessionStorage.getItem('cineai.authError')).toBeNull()
+  })
+})
+
 describe('onboarding', () => {
   it('selecting genres updates the continue button', async () => {
     renderApp('/onboarding', { loggedIn: true })

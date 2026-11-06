@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { NavFn } from '../types'
 import { signInWithProvider, DEMO_MODE, AUTH_PROVIDER, type AuthProvider } from '../api'
+import { takeAuthError } from '../api/client'
 
 const FilmIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5">
@@ -31,7 +32,10 @@ const PROVIDERS: { id: AuthProvider; label: string; icon: () => React.ReactEleme
 
 export default function Login({ navigate }: { navigate: NavFn }) {
   const [pending, setPending] = useState<AuthProvider | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(() => {
+    const why = takeAuthError()
+    return why ? `Sign-in didn't work: ${why}` : null
+  })
 
   const handle = async (provider: AuthProvider) => {
     setError(null)
