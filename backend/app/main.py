@@ -32,9 +32,14 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(title="CineAI API", version="0.2.0", description="AI Film Studio — idea to cinematic teaser", lifespan=lifespan)
 
+# While developing, the studio may open on any local address (localhost or 127.0.0.1, any port —
+# Vite moves to 5174 when 5173 is busy), so those are always allowed. Other sites still need CORS_ORIGINS.
+LOCAL_ORIGINS = r"^https?://(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$"
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
+    allow_origin_regex=LOCAL_ORIGINS if settings.APP_ENV in ("development", "test") else None,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

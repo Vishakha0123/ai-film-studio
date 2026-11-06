@@ -1490,3 +1490,22 @@ def test_film_gets_the_theme_song_plus_the_other_songs_asked_for(client):
     assert all(s["chorus"] for s in mem["songs"])
     assert _songs_of(client, "A quiet drama")["songs"] == []  # one song: just the theme
     assert len(_songs_of(client, "A quiet drama", songs=4)["songs"]) == 3  # explicit count wins
+
+
+def _preflight(client, origin):
+    return client.options("/api/v1/projects", headers={
+        "Origin": origin, "Access-Control-Request-Method": "GET", "Access-Control-Request-Headers": "authorization",
+    })
+
+
+def test_cors_allows_any_local_address_while_developing(client):
+    # "Cannot reach the studio server": the browser's preflight got 400 because the page ran on another local address
+    for origin in ["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:5174", "http://127.0.0.1:3000"]:
+        res = _preflight(client, origin)
+        assert res.status_code == 200, origin
+        assert res.headers["access-control-allow-origin"] == origin
+
+
+def test_cors_still_blocks_other_sites(client):
+    for origin in ["https://evil.example", "http://localhost.evil.example", "http://192.168.1.5:5173"]:
+        assert _preflight(client, origin).status_code == 400, origin
