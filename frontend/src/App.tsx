@@ -235,6 +235,12 @@ function Screens({ replyDelay, generationStepMs }: AppProps) {
     setFilmKey(k => k + 1) // remounts the chat: clears the draft, attachments and any pending reply
   }, [setProject])
 
+  // Signed out (Exit, session expired, another tab): forget the open film, so the next sign-in
+  // starts on an empty Director. The film itself stays in Projects.
+  useEffect(() => {
+    if (!signedIn) newFilm()
+  }, [signedIn, newFilm])
+
   // Live mode: reopen the last project after a reload (state otherwise lives in memory).
   useEffect(() => {
     if (!restoring) return
