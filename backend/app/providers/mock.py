@@ -132,8 +132,36 @@ def _mock_families(film: dict, prompt: str, film_language: str) -> None:
 
 
 # Long-film mock: a deterministic outline and shot list, so the whole pipeline runs without a story model
-_MOCK_BEATS = ["arrives", "discovers a clue", "argues", "is followed", "hides something", "confesses",
-               "is trapped", "escapes", "faces the truth", "makes a choice"]
+# Offline long-film writer: deterministic, but reads like a real outline and script (used without a story model,
+# in tests and in the demo recording). Built from the film's own characters, logline and locations.
+_MOCK_BEATS = [
+    ("arrives", "{a} arrives, and the silence of the place feels heavier than {a} remembered."),
+    ("finds a clue", "{a} finds something that should not be there — and {b} sees it too."),
+    ("argues", "{a} and {b} argue; old resentments surface that neither has said out loud before."),
+    ("is followed", "Someone is watching. {a} senses it but cannot prove it."),
+    ("hides the truth", "{a} hides what really happened, even from {b}."),
+    ("confesses", "{a} finally tells {b} the truth, and nothing between them is the same."),
+    ("is trapped", "Everything closes in on {a}; there is no easy way out."),
+    ("breaks free", "{a} breaks free, with {b}'s help, at a cost neither expected."),
+    ("faces the truth", "{a} faces what was hidden all along."),
+    ("makes a choice", "{a} makes the choice that decides how this story ends."),
+]
+_MOCK_LOCATIONS = ["INT. HOUSE — NIGHT", "EXT. STREET — DAY", "INT. OLD HALL — DUSK"]
+_MOCK_LINES = [
+    "I keep telling myself it's nothing. It isn't.",
+    "You heard it too, didn't you?",
+    "We can't go back now.",
+    "Tell me the truth — all of it.",
+    "Not here. Not tonight.",
+    "Whatever happens, we do this together.",
+    "I should have listened to you.",
+    "Look at this. It changes everything.",
+]
+
+
+def mock_line_text(scene: int, shot: int) -> str:
+    """The offline writer's dialogue for a scene's shot (index from 0)."""
+    return _MOCK_LINES[(scene * 3 + shot) % len(_MOCK_LINES)]
 
 
 async def _mock_outline(bible: dict, first: int, last: int, total: int, target_seconds: int) -> ProviderResult:
@@ -142,30 +170,50 @@ async def _mock_outline(bible: dict, first: int, last: int, total: int, target_s
     for n in range(first, last + 1):
         who = [names[(n - 1) % len(names)]] + ([names[n % len(names)]] if len(names) > 1 else [])
         act = 1 if n <= max(1, round(total * 0.25)) else 2 if n <= max(2, round(total * 0.75)) else 3
-        scenes.append({"number": n, "act": act, "title": f"Scene {n}: {who[0]} {_MOCK_BEATS[(n - 1) % len(_MOCK_BEATS)]}",
-                       "summary": f"{' and '.join(who)} — {bible.get('logline', '')[:80]} (beat {n} of {total}).",
-                       "location": ["INT. HOUSE — NIGHT", "EXT. STREET — DAY", "INT. OLD HALL — DUSK"][n % 3],
-                       "characters": who, "seconds": round(target_seconds / total)})
+        beat, summary = _MOCK_BEATS[(n - 1) % len(_MOCK_BEATS)]
+        first_name = lambda full: full.split()[0] if full.split()[0].lower() not in ("dr.", "mr.", "mrs.", "ms.") else full  # noqa: E731
+        scenes.append({"number": n, "act": act, "title": f"{first_name(who[0])} {beat}",
+                       "summary": summary.format(a=who[0], b=who[-1]),
+                       "location": _MOCK_LOCATIONS[n % 3], "characters": who, "seconds": round(target_seconds / total)})
     return ProviderResult({"scenes": scenes}, provider="mock", model="outline")
 
 
 _MOCK_CAST = [("Ravi Kumar", "45", "male", "Ally"), ("Lakshmi", "62", "female", "Mentor"), ("Inspector Rao", "50", "male", "Antagonist"),
               ("Kavya", "11", "female", "Friend"), ("Arun", "28", "male", "Rival"), ("Meena", "35", "female", "Neighbour"),
               ("Old Fisherman", "70", "male", "Witness"), ("Priya", "17", "female", "Messenger")]
+_MOCK_STORY = [
+    "At first {a} tells no one. But the questions will not stay quiet, and every answer seems to lead somewhere darker.",
+    "{b} is the first to notice the change in {a}, and the first to be pushed away.",
+    "An old friend, {c}, offers help — though it is never clear whose side {c} is really on.",
+    "The more {a} uncovers, the more the past refuses to stay buried; a single detail no one else noticed opens a door.",
+    "Halfway through, everything turns: what {a} believed was a warning turns out to be an invitation.",
+    "{b} and {a} fall out bitterly, and for a while each faces the mystery alone.",
+    "A second discovery changes the stakes — this is no longer about the past, but about who will survive the present.",
+    "{c}'s secret comes out at the worst possible moment, and trust breaks completely.",
+    "At the lowest point, {a} nearly gives up — until a small, forgotten memory points the way forward.",
+    "{a} and {b} come back together, wiser and more afraid, and make a plan.",
+    "The climax brings everyone to the same place on the same night, where every lie is tested.",
+    "{a} faces the truth at last, and has to choose between what was lost and what can still be saved.",
+    "In the quiet that follows, {b} understands what {a} gave up.",
+    "The final image returns to where it all began — the same place, seen with new eyes.",
+    "The story ends not with an answer but with peace: {a} can finally let go.",
+]
 
 
 async def _mock_treatment(bible: dict, minutes: int) -> ProviderResult:
     """Deterministic stand-in: a longer story in three acts and a few supporting characters."""
     base = bible.get("story", "") or bible.get("logline", "")
     paragraphs = max(4, min(16, round(minutes / 8)))
-    story = "\n\n".join([base] + [f"[Feature story, part {i + 2} of {paragraphs}: the story moves on — {_MOCK_BEATS[i % len(_MOCK_BEATS)]}.]"
-                                   for i in range(paragraphs - 1)])
+    names = [c["name"] for c in bible.get("characters", [])] or ["The hero"]
     existing = {c.get("name") for c in bible.get("characters", [])}
     cast = [{"name": n, "age": a, "gender": g, "role": r, "personality": f"{r} in the longer story",
              "appearance": f"{a}-year-old {'woman' if g == 'female' else 'man'}", "arc": "", "relationships": ""}
             for n, a, g, r in _MOCK_CAST if n not in existing][: max(1, min(8, round(minutes / 12)))]
+    who = {"a": names[0].split()[0], "b": names[min(1, len(names) - 1)].split()[0],
+           "c": (cast[0]["name"] if cast else names[-1]).split()[0]}
+    story = "\n\n".join([base] + [_MOCK_STORY[i % len(_MOCK_STORY)].format(**who) for i in range(paragraphs - 1)])
     return ProviderResult({"story": story, "acts": [{"act": i, "summary": f"Act {i} of the feature."} for i in (1, 2, 3)],
-                           "subplots": ["A family secret", "A rivalry in the village"], "characters": cast},
+                           "subplots": ["A family secret", "A rivalry that turns into trust"], "characters": cast},
                           provider="mock", model="treatment")
 
 
@@ -177,12 +225,19 @@ def _mock_line(who: str, text: str, languages: dict) -> dict:
 async def _mock_breakdown(scene: dict, shot_count: int, shot_seconds: int, languages: dict | None = None) -> ProviderResult:
     languages = languages or {}
     who = scene.get("characters") or ["The hero"]
-    shots = [{"description": f"{scene.get('location', '')}: {who[i % len(who)]} — {scene.get('title', '')}, shot {i + 1}",
-              "camera": ["Wide", "Medium", "Close-up"][i % 3], "movement": ["Static", "Slow push-in", "Pan"][i % 3],
+    cameras = ["Wide", "Medium", "Close-up"]
+    looks = ["Wide: {w} alone, the space around them still and tense", "{w}'s face as the moment sinks in",
+             "Close on {w}'s hands, unsteady"]
+    shots = [{"description": looks[i % 3].format(w=who[i % len(who)]),
+              "camera": cameras[i % 3], "movement": ["Static", "Slow push-in", "Pan"][i % 3],
               "characters": [who[i % len(who)]],
-              "dialogue": [_mock_line(who[i % len(who)], f"Line {i + 1} of scene {scene['number']}.", languages)] if i % 2 == 0 else [],
+              "dialogue": [_mock_line(who[i % len(who)], mock_line_text(scene["number"], i), languages)] if i % 2 == 0 else [],
               "seconds": shot_seconds} for i in range(shot_count)]
-    return ProviderResult({"script": f"{scene.get('location', '')}\n\n{scene.get('summary', '')}",
+    script = [scene.get("location", ""), "", scene.get("summary", ""), ""]
+    for i, sh in enumerate(shots):
+        for d in sh["dialogue"]:
+            script += [d["character"].upper(), d.get("subtitle") or d["text"], ""]
+    return ProviderResult({"script": "\n".join(script).strip(),
                            "continuity": f"After scene {scene['number']}: {scene.get('title', '')}.", "shots": shots},
                           provider="mock", model="breakdown")
 

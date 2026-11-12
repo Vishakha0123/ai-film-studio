@@ -13,7 +13,7 @@ test('end-to-end: idea → story → every open stage → Coming-soon features a
   // Landing
   await page.goto('/')
   await expect(page.getByRole('heading', { name: /Turn Your Ideas/ })).toBeVisible()
-  await page.getByRole('button', { name: 'Create With AI' }).click()
+  await page.getByRole('button', { name: 'Create With AI', exact: true }).click()
 
   // Auth
   await expect(page).toHaveURL(/\/login$/)
@@ -99,7 +99,7 @@ test('Exit goes straight to the home page (never via the sign-in page) and signs
   await page.getByTestId('sidebar-exit').first().click()
   await expect(page.getByTestId('screen-landing')).toBeVisible()
   await expect(page).toHaveURL(/\/$/)
-  await expect(page.getByRole('button', { name: 'Sign In' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Sign In', exact: true })).toBeVisible()
   expect(await page.evaluate(() => (window as unknown as { seen: string[] }).seen)).not.toContain('screen-login')
   // signed out for real: the studio asks to sign in again
   await page.goto('/director')
@@ -184,4 +184,27 @@ test('chat sits beside every section on desktop', async ({ page }) => {
   await expect(page.getByTestId('chat-dock')).toBeHidden()
   await page.getByTestId('chat-toggle').click()
   await expect(page.getByTestId('chat-dock')).toBeVisible()
+})
+
+test('home page: sections, footer pages, and the demo video loads and plays', async ({ page }) => {
+  await page.goto('/')
+  await page.getByTestId('public-nav').getByRole('button', { name: 'Features' }).click()
+  await expect(page.getByTestId('landing-features')).toBeInViewport()
+  await page.getByTestId('landing-watch-demo').click()
+  const video = page.getByTestId('demo-video')
+  await expect(video).toBeVisible()
+  // the real file loads: about a minute long
+  await expect.poll(() => video.evaluate((v: HTMLVideoElement) => v.duration || 0)).toBeGreaterThan(40)
+  await page.getByTestId('demo-chapter-3').click()
+  await expect(page.getByTestId('demo-caption')).toContainText('Grow it into a full-length film')
+  await page.keyboard.press('Escape')
+  await expect(page.getByTestId('demo-modal')).toHaveCount(0)
+  for (const [link, testId] of [['Privacy Policy', 'page-privacy'], ['Terms of Service', 'page-terms'], ['About', 'page-about'], ['Contact us', 'page-contact']] as const) {
+    await page.goto('/')
+    await page.getByTestId('public-footer').getByRole('link', { name: link, exact: true }).click()
+    await expect(page.getByTestId(testId)).toBeVisible()
+    // no sideways scrolling on any screen size
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1)
+  }
+  await expect(page.getByTestId('public-footer')).not.toContainText(/cookie/i)
 })

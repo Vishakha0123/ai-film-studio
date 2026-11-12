@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 
 from conftest import auth
+from app.providers.mock import mock_line_text
 from test_api import _plan
 
 needs_ffmpeg = pytest.mark.skipif(not (shutil.which("ffmpeg") and shutil.which("ffprobe")), reason="FFmpeg not installed")
@@ -422,7 +423,7 @@ def test_write_scripts_only_makes_no_video(client):
     d = client.get(f"/api/v1/projects/{pid}/film/script", headers=A)
     assert d.status_code == 200 and "attachment" in d.headers["content-disposition"]
     text = d.text
-    assert text.count("SCENE ") == 3 and "SHOTS" in text and "Line 1 of scene 1." in text
+    assert text.count("SCENE ") == 3 and "SHOTS" in text and mock_line_text(1, 0) in text
     # writing again keeps what's written (no extra story calls)
     from app.services import scene_generator
     calls = []
@@ -536,7 +537,7 @@ def test_script_pdf_download(client):
     from io import BytesIO
     from pypdf import PdfReader
     text = "".join(p.extract_text() for p in PdfReader(BytesIO(d.content)).pages)
-    assert "SCENE 3" in text and "Line 1 of scene 1." in text
+    assert "SCENE 3" in text and mock_line_text(1, 0) in text
     assert client.get(f"/api/v1/projects/{pid}/film/script?format=doc", headers=A).status_code == 422
 
 
@@ -603,7 +604,7 @@ def test_full_length_film_keeps_each_familys_language(client):
     assert {d.get("language") for d in lines} >= {"pa", "ta"}
     assert all(d["subtitle"] for d in lines if d.get("language"))
     text = client.get(f"/api/v1/projects/{pid}/film/script", headers=A).text
-    assert "speaks Punjabi" in text and "speaks Tamil" in text and "[Line 1 of scene 1.]" in text
+    assert "speaks Punjabi" in text and "speaks Tamil" in text and f"[{mock_line_text(1, 0)}]" in text
     pdf = client.get(f"/api/v1/projects/{pid}/film/script?format=pdf", headers=A)
     assert pdf.status_code == 200 and pdf.content[:5] == b"%PDF-"
 
