@@ -137,7 +137,7 @@ export default function Director({ navigate, panel, setPanel, progress, setProgr
             </button>
             <h1 className="text-sm font-semibold truncate" style={{ color: '#d4d4d8' }} data-testid="panel-title">{PANEL_TITLES[panel]}</h1>
             {progress > 0 && (
-              <span className="hidden sm:inline text-[10px] px-2 py-0.5 rounded-full font-medium whitespace-nowrap" style={{ backgroundColor: 'rgba(212,168,75,0.1)', color: '#d4a84b' }}>
+              <span className="hidden sm:inline text-[10px] px-2 py-0.5 rounded-full font-medium whitespace-nowrap" style={{ backgroundColor: 'rgba(212,168,75,0.1)', color: '#d4a84b' }} data-testid="film-badge">
                 {film.title}
               </span>
             )}

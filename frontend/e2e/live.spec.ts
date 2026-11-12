@@ -682,6 +682,39 @@ test('full stack: Exit right after a chat message signs out cleanly — no rejec
 })
 
 
+test('full stack: signing in again starts on an empty Director — the last film waits in Projects', async ({ page }) => {
+  await preparePage(page)
+  await page.addInitScript(() => { if (!sessionStorage.getItem('seeded')) { sessionStorage.setItem('seeded', '1'); localStorage.setItem('cineai.token', 'dev:google-user@dev.local') } })
+  await page.goto('/director')
+  await page.getByLabel('Message the AI Director').fill('Two rival boat builders on the backwaters')
+  await page.keyboard.press('Enter')
+  await expect(page.getByTestId('panel-story')).toBeVisible({ timeout: 20_000 })
+  const title = (await page.locator('[data-testid="panel-story"] h2').first().textContent())!.trim()
+
+  // a refresh keeps the film open
+  await page.reload()
+  await expect(page.getByTestId('film-badge')).toHaveText(title)
+
+  // Exit, then sign in again: empty Director, no film open
+  await page.getByTestId('sidebar-exit').click()
+  await expect(page.getByTestId('screen-landing')).toBeVisible()
+  expect(await page.evaluate(() => localStorage.getItem('cineai.projectId'))).toBeNull()
+  await page.goto('/login')
+  await page.getByRole('button', { name: 'Continue with Google' }).click()
+  if (await page.getByTestId('screen-onboarding').isVisible({ timeout: 3000 }).catch(() => false)) {
+    await page.getByRole('button', { name: /Drama/ }).click()
+    await page.getByRole('button', { name: 'Continue with Drama' }).click()
+  }
+  await page.goto('/director')
+  await expect(page.getByLabel('Message the AI Director')).toBeVisible()
+  await expect(page.getByTestId('film-badge')).toHaveCount(0)
+  await expect(page.getByText(/Describe the film you want to create/).first()).toBeVisible()
+
+  // the film is still saved in Projects
+  await page.goto('/projects')
+  await expect(page.getByText(title).first()).toBeVisible()
+})
+
 test('full stack: characters without a generated portrait show "No portrait yet" — never a drawing or stand-in', async ({ page, request }) => {
   await preparePage(page)
   const email = 'portrait-user@dev.local'
