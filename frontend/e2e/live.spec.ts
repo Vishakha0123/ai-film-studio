@@ -933,3 +933,23 @@ test('full stack: two families, two languages — grouped cast, each speaks its 
   await expect(page.getByTestId('dialogue-subtitle').first()).toBeVisible()
   await expect(page.getByTestId('dialogue-subtitle').first()).toContainText('Punjabi')
 })
+
+test('full stack: Exit right after a chat message signs out cleanly — no rejected chat save', async ({ page }) => {
+  await preparePage(page)
+  await page.addInitScript(() => { if (!sessionStorage.getItem('seeded')) { sessionStorage.setItem('seeded', '1'); localStorage.setItem('cineai.token', 'dev:exit-user@dev.local') } })
+  await page.goto('/director')
+  await page.getByLabel('Message the AI Director').fill('A lighthouse keeper who talks to whales')
+  await page.keyboard.press('Enter')
+  await expect(page.getByTestId('panel-story')).toBeVisible({ timeout: 20_000 })
+  await page.getByTestId('nav-chat').click()
+
+  const rejected: string[] = []
+  page.on('response', r => { if (r.url().includes('/chat') && r.status() === 401) rejected.push(r.url()) })
+  // a new message starts a chat save; Exit before it runs
+  await page.getByLabel('Message the AI Director').fill('make it scarier')
+  await page.keyboard.press('Enter')
+  await page.getByTestId('sidebar-exit').click()
+  await expect(page.getByTestId('screen-landing')).toBeVisible()
+  await page.waitForTimeout(1500)
+  expect(rejected).toEqual([])
+})

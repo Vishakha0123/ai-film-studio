@@ -1,4 +1,4 @@
-import { AUTH_PROVIDER, DEMO_MODE, delay, getSupabase, request, requestRaw, setToken, ApiError } from './client'
+import { AUTH_PROVIDER, DEMO_MODE, delay, getSupabase, getToken, request, requestRaw, setToken, ApiError } from './client'
 import { FILM_PROJECT } from '../types'
 import type { CostEstimate, Job, ProjectData } from '../types'
 
@@ -119,7 +119,8 @@ export async function regenerateAsset(assetId: string): Promise<Job> {
 
 /** Keeps the AI Director conversation with the film (so a refresh or another device shows it). */
 export async function saveChat(projectId: string, messages: import('../types').ChatMessage[], keepalive = false): Promise<void> {
-  if (DEMO_MODE) return
+  // Signed out (Exit, or another tab) while a save was still waiting: nothing to save it as — skip it
+  if (DEMO_MODE || !getToken()) return
   await request<void>(`/projects/${encodeURIComponent(projectId)}/chat`, { method: 'PUT', body: JSON.stringify({ messages }), keepalive })
 }
 
