@@ -904,7 +904,7 @@ test('full stack: "I want a 2 hour movie" → the full-length film is written st
   await page.goto('/director/screenplay')
   await expect(page.getByTestId('full-film-screenplay')).toContainText('SCENE 80')
   await page.goto('/director/dialogue')
-  await expect(page.getByTestId('full-film-dialogue')).toContainText('Tell me the truth — all of it.')
+  await expect(page.getByTestId('full-film-dialogue')).toContainText('Line 1 of scene 1.')
   await page.goto('/director/storyboard')
   await expect(page.getByTestId('full-film-storyboard')).toContainText('Shot 1')
   // the teaser is still there behind the switch

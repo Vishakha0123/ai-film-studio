@@ -19,7 +19,6 @@ import ProjectOverview from './screens/ProjectOverview'
 import AssetsPage from './screens/Assets'
 import SettingsPage from './screens/Settings'
 import FullMovie from './screens/FullMovie'
-import { About, Contact, Privacy, Terms } from './screens/PublicPages'
 import { initialMessages } from './panels/Chat'
 
 export const SCREEN_PATHS: Record<Screen, string> = {
@@ -278,10 +277,6 @@ function Screens({ replyDelay, generationStepMs }: AppProps) {
       ) : (
       <Routes>
         <Route path="/" element={<Landing navigate={navigate} signedIn={signedIn} />} />
-        <Route path="/about" element={<About navigate={navigate} signedIn={signedIn} />} />
-        <Route path="/contact" element={<Contact navigate={navigate} signedIn={signedIn} />} />
-        <Route path="/privacy" element={<Privacy navigate={navigate} signedIn={signedIn} />} />
-        <Route path="/terms" element={<Terms navigate={navigate} signedIn={signedIn} />} />
         <Route path="/login" element={<SignedOutOnly><Login navigate={navigate} /></SignedOutOnly>} />
         <Route path="/onboarding" element={<RequireAuth><Onboarding navigate={navigate} selected={genres} setSelected={setGenres} /></RequireAuth>} />
         <Route path="/new" element={<RequireAuth><NewFilm current={progress > 0 ? { title: project?.title || (DEMO_MODE ? FILM_PROJECT.title : 'your current film'), saved: !DEMO_MODE && !!project } : null} onStart={g => { newFilm(g); navigate('director') }} /></RequireAuth>} />

@@ -35,6 +35,3 @@ frontend/.e2e-dist/
 backend/.e2e/
 frontend/.e2e-dist-sb/
 backend/.e2e-sb/
-frontend/.e2e-demo-dist/
-backend/.e2e-demo/
-frontend/.demo-results/
