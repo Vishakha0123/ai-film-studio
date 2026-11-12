@@ -416,6 +416,10 @@ async def task_edit(db: Session, job: AIJob, project: Project) -> dict:
     if not project.memory:
         raise NeedsReview("Plan the film before editing it.")
     current = project.memory.get(target)
+    film_language = project.language or "en"
+    sections = dict(project.memory.get("sectionLanguages") or {})
+    switch_to = job.params.get("language")  # the creator picked another language for this section
+    language = switch_to or sections.get(target) or film_language
     set_progress(db, job, f"Revising {target}", 30)
 
     # Scope: a selected passage of a text field, or one item of a list — the model writes only that.
@@ -433,7 +437,7 @@ async def task_edit(db: Session, job: AIJob, project: Project) -> dict:
 
     started = time.monotonic()
     ctx = edit_context(project.memory, target, value)
-    res = await with_retry(lambda: story_provider().edit(ctx, target, instruction, language=project.language or "en"), job, db)
+    res = await with_retry(lambda: story_provider().edit(ctx, target, instruction, language=language), job, db)
     log.info("edit %s (%s) took %.1fs", target, "scoped" if splice else "whole", time.monotonic() - started)
     record_usage(db, job, res)
     data, scene_only = _unwrap(res.data, target)
@@ -441,13 +445,21 @@ async def task_edit(db: Session, job: AIJob, project: Project) -> dict:
         data = _merge_dialogue(current or [], data, scene_only)
     memory = dict(project.memory)
     memory[target] = splice(data) if splice else data
+    if switch_to:
+        if switch_to == film_language:
+            sections.pop(target, None)
+        else:
+            sections[target] = switch_to
+        memory["sectionLanguages"] = sections
     try:
         project.memory = validate_film(memory)
     except ValidationError as e:
         raise NeedsReview(f"The AI's reply didn't fit the {target} format ({_problems(e)}). Try again, or say it differently.") from e
     if target in CHECKED:
-        project.memory = await fix_language(db, job, project.memory, project.language or "en", (target,))
-    if target == "characters":
+        project.memory = await fix_language(db, job, project.memory, language, (target,))
+    if switch_to and target in ("characters", "shots"):
+        outdated = []  # the same people and shots, just described in another language: pictures still match
+    elif target == "characters":
         # Only the characters whose face would look different lose their portrait (and frames they're in)
         before = {c.get("id"): c for c in (current or []) if isinstance(c, dict)}
         changed = [c for c in project.memory.get("characters", [])

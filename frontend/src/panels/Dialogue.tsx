@@ -1,3 +1,4 @@
+import SectionLanguage from '../components/SectionLanguage'
 import { useEffect, useRef, useState } from 'react'
 import { Elapsed } from '../lib/useElapsed'
 import LanguageFix from '../components/LanguageFix'
@@ -94,12 +95,15 @@ export default function Dialogue() {
   return (
     <div className="h-full overflow-y-auto px-4 sm:px-6 py-8" data-testid="panel-dialogue">
       <div className="max-w-2xl mx-auto space-y-8 animate-fade-up">
-        <div>
-          <p className="text-xs font-semibold tracking-widest uppercase mb-2" style={{ color: '#d4a84b' }}>Dialogue Workspace</p>
-          <h2 className="text-3xl font-light mb-1" style={{ fontFamily: 'Fraunces, Georgia, serif', color: '#f4f0ea' }}>
-            {scene ? `Scene ${scene.number} — ${scene.location}` : `Scene ${current}`}
-          </h2>
-          {scene && <p className="text-sm text-zinc-500">{scene.description} · Mood: {scene.mood}</p>}
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold tracking-widest uppercase mb-2" style={{ color: '#d4a84b' }}>Dialogue Workspace</p>
+            <h2 className="text-3xl font-light mb-1" style={{ fontFamily: 'Fraunces, Georgia, serif', color: '#f4f0ea' }}>
+              {scene ? `Scene ${scene.number} — ${scene.location}` : `Scene ${current}`}
+            </h2>
+            {scene && <p className="text-sm text-zinc-500">{scene.description} · Mood: {scene.mood}</p>}
+          </div>
+          {live && <SectionLanguage target="dialogue" what="dialogue" />}
         </div>
 
         {live && project && film.characters.some(c => c.language) && <FamilyLanguages projectId={project.id} />}

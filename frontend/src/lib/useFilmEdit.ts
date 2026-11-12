@@ -4,7 +4,7 @@ import { useStudio } from '../studio'
 
 export const NEEDS_BACKEND = 'This needs the studio backend — the demo film can’t be changed.'
 
-export type EditTarget = 'story' | 'screenplay' | 'characters' | 'scenes' | 'shots' | 'dialogue' | 'lyrics'
+export type EditTarget = 'logline' | 'story' | 'screenplay' | 'characters' | 'scenes' | 'shots' | 'dialogue' | 'lyrics'
 
 /**
  * One place for a panel's AI actions and hand edits: runs the job or the save, refreshes the film,

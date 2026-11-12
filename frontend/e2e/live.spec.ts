@@ -933,3 +933,51 @@ test('full stack: two families, two languages — grouped cast, each speaks its 
   await expect(page.getByTestId('dialogue-subtitle').first()).toBeVisible()
   await expect(page.getByTestId('dialogue-subtitle').first()).toContainText('Punjabi')
 })
+
+test('full stack: each section can switch language — the song goes to Tamil and stays Tamil after a refresh', async ({ page, request }) => {
+  await preparePage(page)
+  const email = 'section-lang@dev.local'
+  const auth = { Authorization: `Bearer dev:${email}` }
+  await page.addInitScript(e => localStorage.setItem('cineai.token', `dev:${e}`), email)
+  await page.goto('/director')
+  await page.getByLabel('Message the AI Director').fill('A boatman who ferries ghosts across the Kaveri')
+  await page.keyboard.press('Enter')
+  await expect(page.getByTestId('panel-story')).toBeVisible({ timeout: 20_000 })
+
+  // every section screen has the picker, set to the film's language
+  for (const [nav, what] of [['characters', 'character details'], ['screenplay', 'screenplay'], ['dialogue', 'dialogue'],
+    ['lyrics', 'song'], ['scenes', 'scene descriptions'], ['storyboard', 'shot descriptions']]) {
+    await page.getByTestId(`nav-${nav}`).click()
+    await expect(page.getByLabel(`Language of the ${what}`)).toHaveValue('en')
+  }
+
+  // the song → Tamil: one rewrite of just the lyrics, in Tamil
+  await page.getByTestId('nav-lyrics').click()
+  const edit = page.waitForResponse(r => r.url().includes('/transform') && r.request().method() === 'POST')
+  await page.getByLabel('Language of the song').selectOption('ta')
+  const body = (await edit).request().postDataJSON()
+  expect(body).toMatchObject({ target: 'lyrics', language: 'ta' })
+  expect(body.instruction).toContain('in Tamil (தமிழ்)')
+  await expect(page.getByTestId('section-language-working-lyrics')).toBeHidden({ timeout: 15_000 })
+
+  const [p] = await (await request.get(`${API}/api/v1/projects`, { headers: auth })).json()
+  const film = await (await request.get(`${API}/api/v1/projects/${p.id}`, { headers: auth })).json()
+  expect(film.memory.sectionLanguages).toEqual({ lyrics: 'ta' })
+  await expect(page.getByLabel('Language of the song')).toHaveValue('ta')
+  // the offline test model can't translate, so the song still reads English — the banner says it isn't Tamil yet
+  await expect(page.getByTestId('language-fix-lyrics')).toContainText('isn’t in Tamil, the language you picked for it')
+
+  // remembered after a refresh; the other sections stay in English
+  await page.reload()
+  await page.getByTestId('nav-lyrics').click()
+  await expect(page.getByLabel('Language of the song')).toHaveValue('ta')
+  await page.getByTestId('nav-story').click()
+  await expect(page.getByLabel('Language of the story')).toHaveValue('en')
+
+  // the story switches together with its logline
+  const targets: string[] = []
+  page.on('request', r => { if (r.url().includes('/transform') && r.method() === 'POST') targets.push(r.postDataJSON().target) })
+  await page.getByLabel('Language of the story').selectOption('hi')
+  await expect(page.getByLabel('Language of the story')).toHaveValue('hi', { timeout: 20_000 })
+  expect(targets).toEqual(['story', 'logline'])
+})

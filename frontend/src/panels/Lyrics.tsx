@@ -1,3 +1,4 @@
+import SectionLanguage from '../components/SectionLanguage'
 import { useEffect, useState } from 'react'
 import { Elapsed } from '../lib/useElapsed'
 import { DEMO_MODE, assertCompleted, editProject, waitForJob, type EditAction } from '../api'
@@ -62,12 +63,15 @@ export default function Lyrics() {
   return (
     <div className="h-full overflow-y-auto px-4 sm:px-6 py-8" data-testid="panel-lyrics">
       <div className="max-w-2xl mx-auto space-y-6 animate-fade-up">
-        <div>
-          <p className="text-xs font-semibold tracking-widest uppercase mb-2" style={{ color: '#d4a84b' }}>Lyrics Studio</p>
-          <h2 className="text-3xl font-light mb-1" style={{ fontFamily: 'Fraunces, Georgia, serif', color: '#f4f0ea' }} data-testid="song-title">
-            {song?.title || 'Theme song'}
-          </h2>
-          <p className="text-sm text-zinc-500">Main theme · {film.title}{song?.style ? ` · ${song.style}` : ''}</p>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold tracking-widest uppercase mb-2" style={{ color: '#d4a84b' }}>Lyrics Studio</p>
+            <h2 className="text-3xl font-light mb-1" style={{ fontFamily: 'Fraunces, Georgia, serif', color: '#f4f0ea' }} data-testid="song-title">
+              {song?.title || 'Theme song'}
+            </h2>
+            <p className="text-sm text-zinc-500">Main theme · {film.title}{song?.style ? ` · ${song.style}` : ''}</p>
+          </div>
+          {song && <SectionLanguage target="lyrics" what="song" />}
         </div>
 
         {!song ? (

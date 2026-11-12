@@ -231,6 +231,8 @@ class FilmProject(FilmPart):
     lyrics: Lyrics | None = None
     songs: list[Lyrics] = []  # the film's other songs (the theme song is `lyrics`)
     visual_style: str = ""  # Storyboard look: Photorealistic, Dark Cinema, Anime, 3D Render, Vintage or the creator's own words
+    # A section the creator switched to another language than the film's, e.g. {"lyrics": "ta"}
+    section_languages: dict[str, str] = {}
 
 
 # ---------- API ----------
@@ -265,6 +267,7 @@ class EditRequest(Schema):
     # Narrow the edit so the model reads and writes only what changes (much faster):
     passage: str | None = Field(default=None, max_length=20000)  # text fields: the selected passage
     item: str | None = Field(default=None, max_length=40)        # list fields: the item's id, or its 1-based position
+    language: str | None = Field(default=None, max_length=10)    # rewrite this section in this language from now on
 
 
 class ApproveRequest(Schema):

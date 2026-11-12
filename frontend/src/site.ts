@@ -5,7 +5,7 @@
 export const SITE = {
   name: 'Cinéma AI',
   /** Placeholder until the domain is bought */
-  email: 'hello@your-domain.com',
+  email: 'contact@vrutsasolutions.com',
   /** Shown on the Privacy Policy and Terms of Service */
   legalUpdated: '12 November 2026',
   year: 2026,

@@ -90,6 +90,8 @@ export interface EditScope {
   passage?: string
   /** One item of a list field: its id, or its 1-based position */
   item?: string
+  /** Rewrite this section in this language (and keep it there for later edits) */
+  language?: string
 }
 
 export async function editProject(id: string, action: EditAction, target: string, instruction: string, scope: EditScope = {}): Promise<Job> {

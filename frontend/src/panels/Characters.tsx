@@ -1,3 +1,4 @@
+import SectionLanguage from '../components/SectionLanguage'
 import { useState } from 'react'
 import { Elapsed } from '../lib/useElapsed'
 import DirectAI from '../components/DirectAI'
@@ -137,12 +138,15 @@ export default function Characters() {
   return (
     <div className="h-full overflow-y-auto px-4 sm:px-6 py-8" data-testid="panel-characters">
       <div className="max-w-3xl mx-auto animate-fade-up">
-        <div className="mb-8">
-          <p className="text-xs font-semibold tracking-widest uppercase mb-2" style={{ color: '#d4a84b' }}>AI Generated Characters</p>
-          <h2 className="text-3xl font-light" style={{ fontFamily: 'Fraunces, Georgia, serif', color: '#f4f0ea' }}>
-            Cast of Characters
-          </h2>
-          <p className="text-sm text-zinc-500 mt-1">{chars.length} characters · {film.title}</p>
+        <div className="mb-8 flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold tracking-widest uppercase mb-2" style={{ color: '#d4a84b' }}>AI Generated Characters</p>
+            <h2 className="text-3xl font-light" style={{ fontFamily: 'Fraunces, Georgia, serif', color: '#f4f0ea' }}>
+              Cast of Characters
+            </h2>
+            <p className="text-sm text-zinc-500 mt-1">{chars.length} characters · {film.title}</p>
+          </div>
+          {chars.length > 0 && <SectionLanguage target="characters" what="character details" />}
         </div>
 
         {/* Families (when the film has them): each group with the language it speaks */}

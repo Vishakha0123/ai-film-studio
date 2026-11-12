@@ -1,6 +1,7 @@
 import { useStudio } from '../studio'
 import { isInFilmLanguage, languageName, FILM_LANGUAGES } from '../lib/languages'
 import { useFilmEdit, type EditTarget } from '../lib/useFilmEdit'
+import { sectionLanguage } from './SectionLanguage'
 
 /**
  * Shown when a section came back in the wrong language (e.g. an English screenplay in a Punjabi film):
@@ -9,7 +10,7 @@ import { useFilmEdit, type EditTarget } from '../lib/useFilmEdit'
 export default function LanguageFix({ target, text, what }: { target: EditTarget; text: string; what: string }) {
   const { project } = useStudio()
   const { working, error, ai } = useFilmEdit()
-  const lang = project?.language
+  const lang = project ? sectionLanguage(project, target) : undefined
   // languages the film's characters speak on purpose (e.g. a Tamil family in a Hindi film)
   const spoken = target !== 'screenplay' && target !== 'dialogue' ? [] : [...new Set((project?.memory?.characters ?? []).map(c => c.language).filter((l): l is string => !!l))]
   if (!lang || isInFilmLanguage(text, lang, spoken)) return null
@@ -23,7 +24,7 @@ export default function LanguageFix({ target, text, what }: { target: EditTarget
   return (
     <div className="mb-4 px-4 py-3 rounded-xl flex flex-wrap items-center gap-3" style={{ backgroundColor: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.25)' }} data-testid={`language-fix-${target}`} role="status">
       <p className="text-xs flex-1 min-w-[200px]" style={{ color: '#fcd34d' }}>
-        This {what} came out in English, but your film is in {name}.
+        {lang === project?.language ? `This ${what} came out in English, but your film is in ${name}.` : `This ${what} isn’t in ${name}, the language you picked for it.`}
       </p>
       <button type="button" onClick={() => void fix()} disabled={!!working} className="px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-60" style={{ backgroundColor: '#d4a84b', color: '#09090b' }}>
         {working ? `Rewriting in ${name}…` : `Rewrite in ${name}`}

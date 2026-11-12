@@ -1,3 +1,4 @@
+import SectionLanguage from '../components/SectionLanguage'
 import { useEffect, useState } from 'react'
 import { Elapsed } from '../lib/useElapsed'
 import { useNavigate } from 'react-router-dom'
@@ -95,6 +96,7 @@ export default function Story() {
             </h2>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
+          {!editing && <SectionLanguage target="story" what="story" also={[{ target: 'logline', what: 'logline' }]} />}
           {!editing && <EditButton onClick={startEdit} />}
           {accepted && (
             <div

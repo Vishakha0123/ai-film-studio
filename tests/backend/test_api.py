@@ -1550,3 +1550,73 @@ def test_sign_in_with_a_slow_computer_clock():
     with pytest.raises(HTTPException) as e:
         decode_token(pyjwt.encode({**claims, "iat": now + 600}, s.SUPABASE_JWT_SECRET, algorithm="HS256"), s)
     assert "clock" in e.value.detail
+
+
+TAMIL_LYRICS = {"title": "மழை பாடல்", "verse": "மழை பெய்கிறது இரவு முழுவதும் உன் நினைவுகள் என்னை சுற்றி வருகின்றன",
+                "chorus": "வா வா என் உயிரே என் கனவே நீ வா", "bridge": "", "preChorus": ""}
+
+
+def test_a_section_can_switch_to_another_language_and_keeps_it(client, monkeypatch):
+    """Lyrics switched to Tamil in an English film: written in Tamil, remembered, never 'fixed' back."""
+    from app.providers.base import ProviderResult
+    from app.providers.mock import MockStory
+    seen, translated = [], []
+
+    async def edit(self, memory, target, instruction, *, language="en"):
+        seen.append((target, language))
+        return ProviderResult(TAMIL_LYRICS if language == "ta" else memory[target], provider="mock", model="echo")
+
+    async def translate(self, memory, language):
+        translated.append((sorted(memory), language))
+        return ProviderResult(memory, provider="mock", model="echo")
+    monkeypatch.setattr(MockStory, "edit", edit)
+    monkeypatch.setattr(MockStory, "translate_film", translate)
+    pid, _ = _plan(client)
+
+    job = client.post(f"/api/v1/projects/{pid}/transform", json={"target": "lyrics", "instruction": "Translate it", "language": "ta"}, headers=auth()).json()
+    assert client.get(f"/api/v1/jobs/{job['id']}", headers=auth()).json()["status"] == "completed"
+    memory = client.get(f"/api/v1/projects/{pid}", headers=auth()).json()["memory"]
+    assert memory["lyrics"]["chorus"] == TAMIL_LYRICS["chorus"] and memory["sectionLanguages"] == {"lyrics": "ta"}
+    assert seen[-1] == ("lyrics", "ta") and translated == []
+
+    # later edits of that section keep writing in Tamil; other sections stay in the film's language
+    client.post(f"/api/v1/projects/{pid}/improve", json={"target": "lyrics", "instruction": "Better rhyme"}, headers=auth())
+    client.post(f"/api/v1/projects/{pid}/improve", json={"target": "story", "instruction": "Darker"}, headers=auth())
+    assert seen[-2:] == [("lyrics", "ta"), ("story", "en")]
+
+    # switching back to the film's language forgets the choice
+    client.post(f"/api/v1/projects/{pid}/transform", json={"target": "lyrics", "instruction": "Translate it", "language": "en"}, headers=auth())
+    assert client.get(f"/api/v1/projects/{pid}", headers=auth()).json()["memory"]["sectionLanguages"] == {}
+    assert seen[-1] == ("lyrics", "en")
+
+
+def test_switched_section_is_not_translated_back_to_the_film_language(client):
+    from app.services.script_check import wrong_language_fields
+    memory = {"story": "An English story " * 10, "lyrics": TAMIL_LYRICS, "sectionLanguages": {"story": "en"}}
+    # a Tamil film: the English story was chosen on purpose, and the Tamil lyrics are right
+    assert wrong_language_fields(memory, "ta") == []
+    assert wrong_language_fields({**memory, "sectionLanguages": {}}, "ta") == ["story"]
+
+
+def test_section_language_must_be_supported(client):
+    pid, _ = _plan(client)
+    r = client.post(f"/api/v1/projects/{pid}/transform", json={"target": "story", "instruction": "x", "language": "xx"}, headers=auth())
+    assert r.status_code == 422
+
+
+def test_switching_characters_or_shots_language_keeps_every_picture(client, monkeypatch):
+    """A translation describes the same faces and shots, so no portrait or frame is marked outdated."""
+    from app.providers.base import ProviderResult
+    from app.providers.mock import MockStory
+
+    async def edit(self, memory, target, instruction, *, language="en"):
+        return ProviderResult([{**c, "appearance": f"(हिन्दी) {c.get('appearance', '') if target == 'characters' else c.get('description', '')}"}
+                               | ({} if target == "characters" else {"description": "दृश्य"}) for c in memory[target]],
+                              provider="mock", model="echo")
+    pid, _ = _plan(client)
+    client.post(f"/api/v1/projects/{pid}/generate", json={}, headers=auth())
+    monkeypatch.setattr(MockStory, "edit", edit)
+    for target in ("characters", "shots"):
+        job = client.post(f"/api/v1/projects/{pid}/transform", json={"target": target, "instruction": "Translate", "language": "hi"}, headers=auth()).json()
+        done = client.get(f"/api/v1/jobs/{job['id']}", headers=auth()).json()
+        assert done["status"] == "completed" and done["result"]["outdatedAssets"] == []

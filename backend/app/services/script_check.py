@@ -60,7 +60,9 @@ def wrong_language_fields(memory: dict, language: str, only: tuple[str, ...] = C
     if language not in SCRIPTS:
         return []
     spoken = tuple(sorted({c.get("language") for c in memory.get("characters", []) if isinstance(c, dict) and c.get("language")}))
-    checked = [k for k in only if k in memory]
+    sections = memory.get("sectionLanguages") or {}
+    # a section the creator switched to another language is checked only against that language
+    checked = [k for k in only if k in memory and sections.get(k, language) == language]
     if "en" in spoken:  # an English-speaking character: their lines make an English-looking screenplay legitimate
         checked = [k for k in checked if k != "screenplay"]
     return [k for k in checked if not in_language(_text_of(k, memory[k], language), language, spoken)]
