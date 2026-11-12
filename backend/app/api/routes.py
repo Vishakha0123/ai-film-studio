@@ -387,12 +387,15 @@ def _edit(action: str):
     def handler(project_id: str, body: EditRequest, background: BackgroundTasks, db: Session = Depends(get_db),
                 user: CurrentUser = Depends(get_current_user), idempotency_key: str | None = Header(default=None)):
         project = _own_project(db, project_id, user)
+        if body.language and not is_supported(body.language):
+            raise HTTPException(422, detail=f"Unsupported language: {body.language}")
         instruction = body.instruction or {"continue": "Continue it naturally.", "complete": "Fill in anything missing.",
                                            "improve": "Improve the writing, emotion and pacing."}.get(action, "")
         return create_job(db, background, project_id=project.id, user_id=user.id, task="edit",
                           params={"target": body.target, "instruction": instruction, "action": action,
                                   **({"passage": body.passage} if body.passage else {}),
-                                  **({"item": body.item} if body.item else {})},
+                                  **({"item": body.item} if body.item else {}),
+                                  **({"language": body.language} if body.language else {})},
                           idempotency_key=idempotency_key)
     handler.__name__ = f"edit_{action}"
     return handler

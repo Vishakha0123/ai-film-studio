@@ -119,6 +119,8 @@ export interface FilmProject {
   songs?: Lyrics[]
   /** Storyboard look picked by the creator (Dark Cinema by default) */
   visualStyle?: string
+  /** Sections the creator switched to another language than the film's, e.g. { lyrics: 'ta' } */
+  sectionLanguages?: Partial<Record<string, string>>
 }
 
 export interface Asset {

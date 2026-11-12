@@ -1,3 +1,4 @@
+import SectionLanguage from '../components/SectionLanguage'
 import { useEffect, useRef, useState } from 'react'
 import { Elapsed } from '../lib/useElapsed'
 import { useFilm } from '../studio'
@@ -115,7 +116,8 @@ export default function Screenplay() {
                 {film.title}
               </h2>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-start gap-3">
+              {editing === null && <SectionLanguage target="screenplay" what="screenplay" />}
               {editing === null && <EditButton onClick={() => { setEditing(film.screenplay); setSelection('') }} disabled={!!working} />}
               <div className="text-right">
                 <p className="text-xs text-zinc-600">{pages} {pages === 1 ? 'page' : 'pages'}</p>
