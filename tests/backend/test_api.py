@@ -1620,3 +1620,23 @@ def test_switching_characters_or_shots_language_keeps_every_picture(client, monk
         job = client.post(f"/api/v1/projects/{pid}/transform", json={"target": target, "instruction": "Translate", "language": "hi"}, headers=auth()).json()
         done = client.get(f"/api/v1/jobs/{job['id']}", headers=auth()).json()
         assert done["status"] == "completed" and done["result"]["outdatedAssets"] == []
+
+
+def test_production_refuses_test_only_settings():
+    import pytest
+    from app.config import Settings
+    from app.main import check_production
+    good = dict(APP_ENV="production", AUTH_MODE="supabase", SUPABASE_URL="https://x.supabase.co",
+                DATABASE_URL="postgresql://u:p@h:5432/db", STORAGE_BACKEND="supabase",
+                SUPABASE_SERVICE_ROLE_KEY="k", PUBLIC_BASE_URL="https://api.example.com")
+    check_production(Settings(_env_file=None, **good))  # no error
+    for bad, words in [({"AUTH_MODE": "dev"}, "AUTH_MODE"), ({"DATABASE_URL": "sqlite:///x.db"}, "Postgres"),
+                       ({"STORAGE_BACKEND": "local"}, "STORAGE_BACKEND"), ({"PUBLIC_BASE_URL": "http://x"}, "https")]:
+        with pytest.raises(RuntimeError, match=words):
+            check_production(Settings(_env_file=None, **{**good, **bad}))
+    check_production(Settings(_env_file=None, APP_ENV="development", AUTH_MODE="dev"))  # local dev is fine
+
+
+def test_reference_portraits_are_served_with_supabase_storage(client):
+    from app.main import app
+    assert any(getattr(r, "path", "") == "/portraits" for r in app.routes)
