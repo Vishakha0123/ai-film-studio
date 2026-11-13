@@ -16,6 +16,30 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 settings = get_settings()
 
 
+def check_production(s) -> None:
+    """Refuse to start a live server with test-only settings."""
+    if s.APP_ENV != "production":
+        return
+    problems = []
+    if s.AUTH_MODE != "supabase":
+        problems.append("AUTH_MODE must be supabase (dev sign-in lets anyone in)")
+    if not s.SUPABASE_URL:
+        problems.append("SUPABASE_URL is empty")
+    if s.DATABASE_URL.startswith("sqlite"):
+        problems.append("DATABASE_URL must be Postgres (a SQLite file is wiped on every deploy)")
+    if s.STORAGE_BACKEND != "supabase":
+        problems.append("STORAGE_BACKEND must be supabase (local files are wiped on every deploy)")
+    elif not s.SUPABASE_SERVICE_ROLE_KEY:
+        problems.append("SUPABASE_SERVICE_ROLE_KEY is empty (needed to save files)")
+    if not s.PUBLIC_BASE_URL.startswith("https://"):
+        problems.append("PUBLIC_BASE_URL must be the https address of this API")
+    if problems:
+        raise RuntimeError("Not safe to run in production: " + "; ".join(problems))
+
+
+check_production(settings)
+
+
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
@@ -23,7 +47,10 @@ async def lifespan(_: FastAPI):
     # (With Redis the Arq worker does this on its own startup.)
     if not settings.REDIS_URL:
         from app.services.film_production import recover_interrupted
+        from app.services.jobs import fail_interrupted_jobs
         try:
+            if n := fail_interrupted_jobs():
+                logging.getLogger("cineai.jobs").warning("%d job(s) were cut off by a restart and marked failed", n)
             await recover_interrupted()
         except Exception:  # never block startup (e.g. the database isn't migrated yet)
             logging.getLogger("cineai.film").exception("could not check for interrupted long-film jobs")
@@ -52,10 +79,12 @@ if settings.STORAGE_BACKEND == "local":
     media = Path(settings.LOCAL_MEDIA_DIR)
     media.mkdir(parents=True, exist_ok=True)
     app.mount("/media", StaticFiles(directory=media), name="media")
-    from app.services.reference_portraits import portraits_dir
-    portraits = portraits_dir()
-    portraits.mkdir(parents=True, exist_ok=True)
-    app.mount("/portraits", StaticFiles(directory=portraits), name="portraits")
+
+# The 10 reference portraits ship with the code, so they're served here whatever the storage backend.
+from app.services.reference_portraits import portraits_dir  # noqa: E402
+_portraits = portraits_dir()
+_portraits.mkdir(parents=True, exist_ok=True)
+app.mount("/portraits", StaticFiles(directory=_portraits), name="portraits")
 
 
 @app.get("/health")

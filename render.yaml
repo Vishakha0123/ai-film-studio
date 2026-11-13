@@ -1,0 +1,32 @@
+# Render Blueprint — the CineAI backend (FastAPI) as an always-on Docker web service.
+# Render → New → Blueprint → pick this repo. Secrets marked sync:false are asked for once in the dashboard.
+services:
+  - type: web
+    name: cineai-api
+    runtime: docker
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    region: singapore          # closest Render region to India
+    plan: starter              # always on; the free plan sleeps and would cut off film-writing jobs
+    numInstances: 1            # film jobs run inside the server, so keep one instance
+    healthCheckPath: /health
+    autoDeploy: true           # every merge to main deploys
+    branch: main
+    envVars:
+      - { key: APP_ENV, value: production }
+      - { key: AUTH_MODE, value: supabase }
+      - { key: STORAGE_BACKEND, value: supabase }
+      - { key: SUPABASE_STORAGE_BUCKET, value: assets }
+      - { key: STORY_PROVIDER, value: sarvam }
+      - { key: TTS_PROVIDER, value: sarvam }
+      - { key: STT_PROVIDER, value: sarvam }
+      - { key: IMAGE_PROVIDER, value: mock }
+      - { key: VIDEO_PROVIDER, value: mock }
+      # Secrets and addresses — filled in the Render dashboard, never committed
+      - { key: DATABASE_URL, sync: false }              # Supabase session pooler URI (port 5432)
+      - { key: SUPABASE_URL, sync: false }              # https://<project-ref>.supabase.co
+      - { key: SUPABASE_SERVICE_ROLE_KEY, sync: false } # server only
+      - { key: SUPABASE_JWT_SECRET, sync: false }       # only if your project uses the legacy HS256 secret
+      - { key: SARVAM_API_KEY, sync: false }
+      - { key: PUBLIC_BASE_URL, sync: false }           # this API's https address, e.g. https://cineai-api.onrender.com
+      - { key: CORS_ORIGINS, sync: false }              # JSON list of the site's address(es), e.g. ["https://cinema-ai.vercel.app"]
