@@ -733,3 +733,26 @@ def test_timings_are_kept(client):
     msgs = [{"id": "1", "role": "user", "content": "idea"}, {"id": "2", "role": "ai", "content": "done", "durationMs": 34000}]
     client.put(f"/api/v1/projects/{pid}/chat", json={"messages": msgs}, headers=A)
     assert client.get(f"/api/v1/projects/{pid}", headers=A).json()["chat"][1]["durationMs"] == 34000
+
+
+def test_restart_fails_short_jobs_it_cut_off_and_leaves_film_jobs_to_recovery(client):
+    """A deploy restarts the API: a story job that was running is marked failed (no endless spinner);
+    finished jobs and long-film jobs are left alone."""
+    pid = _planned_film(client)
+    from app.db import SessionLocal
+    from app.models import AIJob, Project
+    from app.services.jobs import fail_interrupted_jobs
+    with SessionLocal() as db:
+        user_id = db.get(Project, pid).user_id
+        jobs = {name: AIJob(project_id=pid, user_id=user_id, task=task, status=status) for name, task, status in [
+            ("plan", "plan", "running"), ("edit", "edit", "queued"), ("done", "edit", "completed"),
+            ("film", "film_generate", "running")]}
+        db.add_all(jobs.values())
+        db.commit()
+        ids = {k: j.id for k, j in jobs.items()}
+    assert fail_interrupted_jobs() == 2
+    with SessionLocal() as db:
+        state = {k: db.get(AIJob, i) for k, i in ids.items()}
+        assert state["plan"].status == state["edit"].status == "failed"
+        assert "please try again" in state["plan"].error
+        assert state["done"].status == "completed" and state["film"].status == "running"

@@ -39,3 +39,20 @@ def dispatch(background: BackgroundTasks, job: AIJob) -> None:
         background.add_task(_enqueue_arq, job.id)
     else:
         background.add_task(run_job, job.id)
+
+
+def fail_interrupted_jobs() -> int:
+    """After a restart (e.g. a deploy), short jobs that were queued or running in this process are gone.
+    Mark them failed so the studio stops waiting and the creator can try again. Long-film jobs are
+    resumed separately by film_production.recover_interrupted(). Only without Redis: there the
+    worker owns the jobs."""
+    from app.db import SessionLocal
+    from app.services.film_production import FILM_TASKS_NAMES
+    with SessionLocal() as db:
+        lost = db.scalars(select(AIJob).where(AIJob.status.in_(("queued", "running")),
+                                              AIJob.task.not_in(FILM_TASKS_NAMES))).all()
+        for job in lost:
+            job.status = "failed"
+            job.error = "The server restarted while this was running — please try again."
+        db.commit()
+        return len(lost)
