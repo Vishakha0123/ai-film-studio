@@ -1640,3 +1640,47 @@ def test_production_refuses_test_only_settings():
 def test_reference_portraits_are_served_with_supabase_storage(client):
     from app.main import app
     assert any(getattr(r, "path", "") == "/portraits" for r in app.routes)
+
+
+def test_any_film_downloads_its_script_as_txt_and_pdf(client):
+    """A short film (no full-length version) still downloads: story, cast, screenplay, dialogue, scenes, song."""
+    pid, _ = _plan(client)
+    memory = client.get(f"/api/v1/projects/{pid}", headers=auth()).json()["memory"]
+    title = client.get(f"/api/v1/projects/{pid}", headers=auth()).json()["title"]
+
+    txt = client.get(f"/api/v1/projects/{pid}/script?format=txt", headers=auth())
+    assert txt.status_code == 200 and txt.headers["content-type"].startswith("text/plain")
+    assert "attachment" in txt.headers["content-disposition"] and "script.txt" in txt.headers["content-disposition"]
+    body = txt.text
+    assert body.startswith(title.upper())
+    for part in ("STORY", "CHARACTERS", "SCREENPLAY", "DIALOGUE", "SCENES"):
+        assert part in body
+    assert memory["characters"][0]["name"] in body
+    assert memory["dialogue"][0]["text"] in body
+    assert memory["screenplay"].strip().split("\n")[0] in body
+
+    pdf = client.get(f"/api/v1/projects/{pid}/script?format=pdf", headers=auth())
+    assert pdf.status_code == 200 and pdf.headers["content-type"] == "application/pdf"
+    assert pdf.content.startswith(b"%PDF") and len(pdf.content) > 5000
+    assert "script.pdf" in pdf.headers["content-disposition"]
+
+
+def test_script_download_keeps_indian_scripts_and_subtitles(client):
+    pid, _ = _plan(client)
+    tamil = "நீ ஏன் வந்தாய்?"
+    client.patch(f"/api/v1/projects/{pid}/memory", json={"dialogue": [
+        {"character": "Meena", "text": tamil, "scene": 1, "language": "ta", "subtitle": "Why did you come?"}]}, headers=auth())
+    txt = client.get(f"/api/v1/projects/{pid}/script", headers=auth()).text
+    assert f"Meena: {tamil}" in txt and "[Why did you come?]" in txt
+    pdf = client.get(f"/api/v1/projects/{pid}/script?format=pdf", headers=auth())
+    assert pdf.status_code == 200 and b"NotoSansTamil" in pdf.content  # the Tamil font is embedded
+
+
+def test_script_download_needs_a_script_and_an_owner(client):
+    pid = client.post("/api/v1/projects", json={"title": "Empty"}, headers=auth()).json()["id"]
+    r = client.get(f"/api/v1/projects/{pid}/script", headers=auth())
+    assert r.status_code == 409 and "no script yet" in r.json()["detail"]
+    other = {"Authorization": "Bearer dev:someone-else@dev.local"}
+    planned, _ = _plan(client)
+    assert client.get(f"/api/v1/projects/{planned}/script", headers=other).status_code == 404
+    assert client.get(f"/api/v1/projects/{planned}/script?format=doc", headers=auth()).status_code == 422

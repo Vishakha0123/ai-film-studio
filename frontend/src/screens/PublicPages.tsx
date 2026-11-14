@@ -134,7 +134,7 @@ export function Privacy(props: Props) {
 
       <H2>6. Your choices and rights</H2>
       <UL>
-        <li><b>Download your data</b> — Settings → Export gives you a copy of your account data and films.</li>
+        <li><b>Download your data</b> — download any film’s script as a PDF or text file from its Screenplay page, or write to <Mail /> for a full copy of your account data.</li>
         <li><b>Delete</b> — delete any project from Projects, or your whole account from Settings → Delete account.</li>
         <li><b>Correct or ask</b> — edit your films at any time, or write to <Mail /> to ask what we hold, to correct it, or to raise a concern.</li>
       </UL>

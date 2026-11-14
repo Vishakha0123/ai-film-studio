@@ -453,13 +453,23 @@ export async function writeLongFilmScripts(projectId: string): Promise<LongFilm>
   return request<LongFilm>(filmPath(projectId, '/scripts'), { method: 'POST' })
 }
 
-/** The whole film's screenplay as a text file. */
-export async function downloadLongFilmScript(projectId: string, format: 'pdf' | 'txt' = 'txt'): Promise<{ blob: Blob; filename: string }> {
-  const res = await requestRaw(filmPath(projectId, `/script?format=${format}`))
+async function downloadFile(path: string, format: 'pdf' | 'txt'): Promise<{ blob: Blob; filename: string }> {
+  const res = await requestRaw(path)
   const header = res.headers.get('Content-Disposition') ?? ''
   const utf8 = /filename\*=UTF-8''([^;]+)/i.exec(header)?.[1]
   const name = (utf8 && decodeURIComponent(utf8)) || /filename="([^"]+)"/.exec(header)?.[1] || `script.${format}`
   return { blob: await res.blob(), filename: name }
+}
+
+/** The full-length film's scene-by-scene screenplay as a PDF or text file. */
+export async function downloadLongFilmScript(projectId: string, format: 'pdf' | 'txt' = 'txt'): Promise<{ blob: Blob; filename: string }> {
+  return downloadFile(filmPath(projectId, `/script?format=${format}`), format)
+}
+
+/** Any film's script (story, cast, screenplay, dialogue, scenes, songs) as a PDF or text file — a 1-minute short too. */
+export async function downloadFilmScript(projectId: string, format: 'pdf' | 'txt' = 'pdf'): Promise<{ blob: Blob; filename: string }> {
+  if (DEMO_MODE) throw new Error('Downloading the script needs the studio backend — sign in to the live studio.')
+  return downloadFile(`/projects/${encodeURIComponent(projectId)}/script?format=${format}`, format)
 }
 
 /** Put every dialogue line into the language its speaker speaks, with subtitles (a background job). */

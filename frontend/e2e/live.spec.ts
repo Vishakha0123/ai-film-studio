@@ -94,13 +94,12 @@ test('full stack workspace: settings defaults → projects (open, rename, delete
   // Settings → saved to the backend user profile
   await page.getByTestId('nav-settings').click()
   await expect(page.getByTestId('account-email')).toHaveText(email)
-  await expect(page.getByTestId('provider-list')).toContainText('Mock')
+  await expect(page.getByTestId('provider-list')).toHaveCount(0) // no "Studio connection" box for creators
   await page.getByLabel('Story & voice language').selectOption('ta')
-  await page.getByRole('button', { name: /9:16/ }).click()
   await page.getByRole('button', { name: 'Save settings' }).click()
   await expect(page.getByText('Saved. New films use these defaults.')).toBeVisible()
   const me = await (await request.get(`${API}/api/v1/me`, { headers: auth })).json()
-  expect(me.preferences).toMatchObject({ language: 'ta', aspectRatio: '9:16' })
+  expect(me.preferences).toMatchObject({ language: 'ta' })
 
   // A new film uses those defaults in its brief
   await page.getByTestId('nav-chat').click()
@@ -109,7 +108,7 @@ test('full stack workspace: settings defaults → projects (open, rename, delete
   await expect(page.getByTestId('panel-story')).toBeVisible({ timeout: 20_000 })
   const [summary] = await (await request.get(`${API}/api/v1/projects`, { headers: auth })).json()
   const project = await (await request.get(`${API}/api/v1/projects/${summary.id}`, { headers: auth })).json()
-  expect(project.brief).toMatchObject({ language: 'ta', aspectRatio: '9:16', prompt: 'A temple dancer in Madurai' })
+  expect(project.brief).toMatchObject({ language: 'ta', prompt: 'A temple dancer in Madurai' })
 
   // Generate assets through the API so the library has content
   const gen = await (await request.post(`${API}/api/v1/projects/${summary.id}/generate`, { headers: auth, data: {} })).json()
@@ -497,7 +496,7 @@ test('full stack: dialogue per scene — "give me the second scene dialogue" add
   expect(d.length).toBeGreaterThan(1) // the other scenes' lines are still there
 })
 
-test('full stack: settings — writing & voice defaults shape new films, voice preview, export and delete account', async ({ page, request }) => {
+test('full stack: settings — writing defaults shape new films; voice and teaser are locked; delete account', async ({ page, request }) => {
   await preparePage(page)
   const email = 'settings-user@dev.local'
   const auth = { Authorization: `Bearer dev:${email}` }
@@ -505,22 +504,21 @@ test('full stack: settings — writing & voice defaults shape new films, voice p
   await page.goto('/settings')
   await expect(page.getByTestId('account-email')).toHaveText(email)
 
-  // Writing + voice defaults are saved to the account
+  // Voice and Teaser are shown as "Coming soon" and can't be changed; no export, no studio connection
+  for (const id of ['settings-voice-locked', 'settings-teaser-locked']) {
+    await expect(page.getByTestId(id)).toContainText('Coming soon')
+    await expect(page.getByTestId(id).locator('fieldset')).toBeDisabled()
+  }
+  await expect(page.getByRole('button', { name: 'Export all my films' })).toHaveCount(0)
+  await expect(page.getByText('Studio connection', { exact: false })).toHaveCount(0)
+
+  // Writing defaults are saved to the account
   await page.getByTestId('style-defaults').getByRole('button', { name: /Anime/ }).click()
   await page.getByTestId('length-defaults').getByRole('button', { name: /Short/ }).click()
-  await page.getByRole('combobox', { name: 'Voice', exact: true }).selectOption('kavya')
   await page.getByRole('button', { name: 'Save settings' }).click()
   await expect(page.getByText('Saved. New films use these defaults.')).toBeVisible()
   const me = await (await request.get(`${API}/api/v1/me`, { headers: auth })).json()
-  expect(me.preferences).toMatchObject({ visualStyle: 'Anime', filmLength: 'short', voice: 'kavya' })
-
-  // Preview plays audio from the backend (no error shown)
-  const preview = page.waitForResponse(r => r.url().endsWith('/voice/preview'))
-  await page.getByRole('button', { name: 'Preview voice' }).click()
-  const res = await preview
-  expect(res.status()).toBe(200)
-  expect(res.headers()['content-type']).toBe('audio/wav')
-  await expect(page.getByRole('alert')).toHaveCount(0)
+  expect(me.preferences).toMatchObject({ visualStyle: 'Anime', filmLength: 'short' })
 
   // A new film starts in the chosen look
   await page.getByTestId('nav-chat').click()
@@ -530,15 +528,7 @@ test('full stack: settings — writing & voice defaults shape new films, voice p
   const [p] = await (await request.get(`${API}/api/v1/projects`, { headers: auth })).json()
   expect((await (await request.get(`${API}/api/v1/projects/${p.id}`, { headers: auth })).json()).memory.visualStyle).toBe('Anime')
 
-  // Export downloads every film
   await page.getByTestId('nav-settings').click()
-  const download = page.waitForEvent('download')
-  await page.getByRole('button', { name: 'Export all my films' }).click()
-  const file = await download
-  expect(file.suggestedFilename()).toBe('cinema-ai-export.json')
-  const data = JSON.parse(readFileSync(await file.path(), 'utf8'))
-  expect(data.films.map((f: { id: string }) => f.id)).toEqual([p.id])
-
   // Delete account → signed out, films gone
   await page.getByRole('button', { name: 'Delete my account' }).click()
   await page.getByLabel('Type DELETE to confirm').fill('DELETE')
@@ -1034,4 +1024,27 @@ test('full stack: each section can switch language — the song goes to Tamil an
   await page.getByLabel('Language of the story').selectOption('hi')
   await expect(page.getByLabel('Language of the story')).toHaveValue('hi', { timeout: 20_000 })
   expect(targets).toEqual(['story', 'logline'])
+})
+
+test('full stack: a 1-minute film’s script downloads from the Screenplay page as PDF and TXT', async ({ page }) => {
+  await preparePage(page)
+  await page.addInitScript(() => localStorage.setItem('cineai.token', 'dev:short-script@dev.local'))
+  await page.goto('/director')
+  await page.getByLabel('Message the AI Director').fill('A 1 minute film about a boy who finds a lost puppy in the Chennai rain')
+  await page.keyboard.press('Enter')
+  await expect(page.getByTestId('panel-story')).toBeVisible({ timeout: 20_000 })
+  await page.getByTestId('nav-screenplay').click()
+  const download = page.getByTestId('script-download')
+  await expect(download).toBeVisible()
+
+  for (const fmt of ['PDF', 'TXT']) {
+    const file = page.waitForEvent('download')
+    await download.getByRole('button', { name: fmt }).click()
+    const d = await file
+    const body = readFileSync((await d.path())!)
+    if (fmt === 'PDF') expect(body.subarray(0, 5).toString()).toBe('%PDF-')
+    else expect(body.toString()).toContain('SCREENPLAY')
+  }
+  // no full-length film was started for a 1-minute request
+  await expect(page.getByText('Full-length film')).toHaveCount(0)
 })
