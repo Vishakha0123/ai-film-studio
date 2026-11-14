@@ -7,6 +7,7 @@ import { duration } from '../screens/FullMovie'
 import { classifyLine, LINE_STYLES } from '../panels/Screenplay'
 import { speaksLabel } from '../lib/languages'
 import { Elapsed } from '../lib/useElapsed'
+import ScriptDownload from './ScriptDownload'
 
 export type FullFilmKind = 'screenplay' | 'dialogue' | 'scenes' | 'storyboard'
 
@@ -59,7 +60,7 @@ function Heading({ title, film }: { title: string; film: FullFilmText }) {
   )
 }
 
-function FullView({ kind, film, onOpenScene }: { kind: FullFilmKind; film: FullFilmText; onOpenScene: () => void }) {
+function FullView({ kind, film, onOpenScene, projectId }: { kind: FullFilmKind; film: FullFilmText; onOpenScene: () => void; projectId?: string }) {
   const titles: Record<FullFilmKind, string> = { screenplay: 'Screenplay', dialogue: 'Dialogue', scenes: 'Scenes', storyboard: 'Storyboard' }
   const editLink = (
     <button type="button" onClick={onOpenScene} className="text-xs whitespace-nowrap" style={{ color: gold }}>Edit scenes →</button>
@@ -69,6 +70,7 @@ function FullView({ kind, film, onOpenScene }: { kind: FullFilmKind; film: FullF
       <div className="max-w-3xl mx-auto">
         <div className="flex items-start justify-between gap-3"><Heading title={titles[kind]} film={film} />{editLink}</div>
         <Progress film={film} />
+        {kind === 'screenplay' && projectId && film.scenes.some(s => s.script) && <div className="mb-6"><ScriptDownload projectId={projectId} full /></div>}
         {film.scenes.length === 0 && <p className="text-sm text-zinc-500">The scenes are being planned…</p>}
 
         {kind === 'scenes' && (
@@ -168,7 +170,7 @@ export default function FullFilmGate({ kind, children }: { kind: FullFilmKind; c
       </div>
       <div className="flex-1 min-h-0">
         {view === 'full'
-          ? <FullView kind={kind} film={film} onOpenScene={() => navigate(`/projects/${encodeURIComponent(project.id)}/movie`)} />
+          ? <FullView kind={kind} film={film} projectId={project.id} onOpenScene={() => navigate(`/projects/${encodeURIComponent(project.id)}/movie`)} />
           : children}
       </div>
     </div>

@@ -1,7 +1,8 @@
+import ScriptDownload from '../components/ScriptDownload'
 import SectionLanguage from '../components/SectionLanguage'
 import { useEffect, useRef, useState } from 'react'
 import { Elapsed } from '../lib/useElapsed'
-import { useFilm } from '../studio'
+import { useFilm, useStudio } from '../studio'
 import { useFilmEdit } from '../lib/useFilmEdit'
 import type { EditAction } from '../api'
 import DirectAI, { EditButton, SaveCancel } from '../components/DirectAI'
@@ -47,6 +48,7 @@ export default function Screenplay() {
   const film = useFilm()
   const lines = film.screenplay.split('\n')
   const { working, error, ai, save } = useFilmEdit()
+  const { project } = useStudio()
   const [editing, setEditing] = useState<string | null>(null)
   const saveEdit = async () => {
     if (editing !== null && await save('Saving your screenplay…', { screenplay: editing })) {
@@ -125,6 +127,8 @@ export default function Screenplay() {
               </div>
             </div>
           </div>
+
+          {project && editing === null && <div className="mb-5 -mt-2"><ScriptDownload projectId={project.id} /></div>}
 
           {selection && (
             <div className="mb-3 flex items-start gap-3 px-4 py-3 rounded-xl text-xs" style={{ backgroundColor: 'rgba(212,168,75,0.06)', border: '1px solid rgba(212,168,75,0.25)' }} data-testid="screenplay-selection">

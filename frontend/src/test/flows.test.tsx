@@ -245,36 +245,50 @@ describe('workspace pages (demo mode)', { timeout: 15000 }, () => {
     renderApp('/settings', { loggedIn: true })
     expect(await screen.findByTestId('account-email')).toHaveTextContent('director@cinema.ai')
     await userEvent.selectOptions(screen.getByLabelText('Story & voice language'), 'ta')
-    fireEvent.change(screen.getByLabelText('Teaser length'), { target: { value: '45' } })
-    await userEvent.click(screen.getByRole('button', { name: /9:16/ }))
     await userEvent.click(screen.getByRole('button', { name: 'Save settings' }))
     expect(await screen.findByText('Saved. New films use these defaults.')).toBeInTheDocument()
-    expect(JSON.parse(localStorage.getItem('cineai.demoPreferences')!)).toMatchObject({ language: 'ta', teaserSeconds: 45, aspectRatio: '9:16' })
+    expect(JSON.parse(localStorage.getItem('cineai.demoPreferences')!)).toMatchObject({ language: 'ta' })
     await userEvent.click(screen.getByRole('button', { name: 'Sign out' }))
     expect(await screen.findByTestId('screen-login')).toBeInTheDocument()
   })
 
-  it('settings saves writing and voice defaults, and can reset them', async () => {
+  it('settings saves writing defaults, and can reset them', async () => {
     renderApp('/settings', { loggedIn: true })
     await screen.findByTestId('account-email')
     await userEvent.click(within(screen.getByTestId('style-defaults')).getByRole('button', { name: /Anime/ }))
     await userEvent.click(within(screen.getByTestId('length-defaults')).getByRole('button', { name: /Short/ }))
-    await userEvent.selectOptions(screen.getByLabelText('Voice'), 'kavya')
-    fireEvent.change(screen.getByLabelText('Speaking speed'), { target: { value: '1.25' } })
-    expect(screen.getByText('1.25×')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Save settings' }))
     await screen.findByText('Saved. New films use these defaults.')
-    expect(JSON.parse(localStorage.getItem('cineai.demoPreferences')!)).toMatchObject({ visualStyle: 'Anime', filmLength: 'short', voice: 'kavya', voicePace: 1.25 })
+    expect(JSON.parse(localStorage.getItem('cineai.demoPreferences')!)).toMatchObject({ visualStyle: 'Anime', filmLength: 'short' })
 
     await userEvent.click(screen.getByRole('button', { name: 'Reset to defaults' }))
     expect(within(screen.getByTestId('style-defaults')).getByRole('button', { name: /Dark Cinema/ })).toHaveAttribute('aria-pressed', 'true')
-    expect((screen.getByLabelText('Voice') as HTMLSelectElement).value).toBe('shubh')
   })
 
-  it('voice preview explains it needs the backend in demo mode', async () => {
+  it('voice and teaser settings are locked (coming soon); no export or studio connection', async () => {
     renderApp('/settings', { loggedIn: true })
-    await userEvent.click(screen.getByRole('button', { name: 'Preview voice' }))
-    expect(await screen.findByRole('alert')).toHaveTextContent('Voice preview needs the studio backend')
+    await screen.findByTestId('account-email')
+    for (const id of ['settings-voice-locked', 'settings-teaser-locked']) {
+      const section = screen.getByTestId(id)
+      expect(section).toHaveTextContent('Coming soon')
+      expect(within(section).getByRole('group')).toBeDisabled()
+    }
+    expect(screen.getByLabelText('Voice')).toBeDisabled()
+    expect(screen.getByLabelText('Speaking speed')).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Preview voice' })).toBeDisabled()
+    expect(screen.getByLabelText('Teaser length')).toBeDisabled()
+    expect(screen.getByRole('button', { name: /9:16/ })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: 'Export all my films' })).toBeNull()
+    expect(screen.queryByText('Studio connection')).toBeNull()
+    expect(screen.queryByTestId('provider-list')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Delete my account' })).toBeInTheDocument()
+  })
+
+  it('the screenplay can be downloaded as PDF or TXT (asks for the backend in demo mode)', async () => {
+    renderApp('/director/screenplay', { loggedIn: true })
+    // the demo has no saved project, so the download only shows for a real film
+    expect(await screen.findByTestId('panel-screenplay')).toBeInTheDocument()
+    expect(screen.queryByTestId('script-download')).toBeNull()
   })
 
   it('deleting the account needs DELETE typed first', async () => {
