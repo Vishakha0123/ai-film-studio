@@ -1048,3 +1048,20 @@ test('full stack: a 1-minute film’s script downloads from the Screenplay page 
   // no full-length film was started for a 1-minute request
   await expect(page.getByText('Full-length film')).toHaveCount(0)
 })
+
+test('full stack: "generate 1:30 hours movie" plans a 1.5-hour film, not 30 hours', async ({ page, request }) => {
+  await preparePage(page)
+  const email = 'ninety-min@dev.local'
+  const auth = { Authorization: `Bearer dev:${email}` }
+  await page.addInitScript(e => localStorage.setItem('cineai.token', `dev:${e}`), email)
+  await page.goto('/director')
+  await page.getByLabel('Message the AI Director').fill('generate 1:30 hours movie about a writer alone in a forest cabin')
+  await page.keyboard.press('Enter')
+  await expect(page.getByText(/You asked for a 1\.5-hour film, so I'm now writing the full 1\.5-hour version/)).toBeVisible({ timeout: 20_000 })
+  await expect(page.getByText(/30-hour/)).toHaveCount(0)
+  await expect(page.getByTestId('card-movie')).toContainText('1.5-hour')
+
+  const [p] = await (await request.get(`${API}/api/v1/projects`, { headers: auth })).json()
+  await expect.poll(async () => (await (await request.get(`${API}/api/v1/projects/${p.id}/film/full`, { headers: auth })).json())?.targetSeconds,
+    { timeout: 30_000 }).toBe(90 * 60)
+})

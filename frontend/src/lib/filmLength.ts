@@ -1,10 +1,10 @@
 /**
- * "I want a 2-hour movie", "90 minute film", "दो घंटे की फिल्म", "2 மணி நேர படம்" → the length the creator asked for.
+ * "I want a 2-hour movie", "90 minute film", "1:30 hours", "1.5 hours", "दो घंटे की फिल्म", "2 மணி நேர படம்" → the length the creator asked for.
  * Used to offer the full-length film after the story is planned (never to start paid work on its own).
  */
 
 /** The lengths the full-length film page offers (minutes). */
-export const FILM_LENGTHS = [10, 30, 60, 120] as const
+export const FILM_LENGTHS = [10, 30, 60, 90, 120] as const
 
 const HOUR = /^(hours?|hrs?|h|hour-long|घंट\S*|घण्ट\S*|तास\S*|ತಾಸು|மணி\s*நேர\S*|மணிநேர\S*|மணி|గంట\S*|ಗಂಟೆ\S*|മണിക്കൂ\S*|ঘণ্টা\S*|ઘંટા\S*|કલાક\S*|ਘੰਟ\S*)$/i
 const MINUTE = /^(minutes?|mins?|m|मिनट\S*|मिनिट\S*|நிமிட\S*|నిమిష\S*|ನಿಮಿಷ\S*|മിനിറ്റ\S*|মিনিট\S*|મિનિટ\S*|ਮਿੰਟ\S*)$/i
@@ -37,8 +37,12 @@ function asciiDigits(text: string): string {
 export function requestedMinutes(text: string | null | undefined): number | null {
   if (!text) return null
   const t = asciiDigits(text.toLowerCase())
-  // "an hour and a half" / "1 hour 30 minutes" / "डेढ़ घंटे" / "2 hours"
-  const tokens = t.replace(/(\d)\s*-\s*(?=[a-z])/g, '$1 ').replace(/(\d)(?=[^\d\s.,])/g, '$1 ').split(/[\s,.!?;:()]+/).filter(Boolean)
+    // "1:30 hours" / "1:30h" = 1 hour 30 minutes (only before an hour word, so "5:30 pm" or "16:9" are left alone)
+    .replace(/(\d+):([0-5]\d)(\s*)([^\s,.!?;:()]+)/g, (m, h, mm, _sp, word) => (HOUR.test(word) ? `${Number(h) * 60 + Number(mm)} minutes ` : m))
+  // "an hour and a half" / "1 hour 30 minutes" / "1.5 hours" / "डेढ़ घंटे" / "2 hours"
+  const tokens = t.replace(/(\d)\s*-\s*(?=[a-z])/g, '$1 ').replace(/(\d)(?=[^\d\s.,])/g, '$1 ')
+    .split(/(?:[\s,!?;:()]|\.(?!\d))+/) // a full stop splits, a decimal point ("1.5") doesn't
+    .filter(Boolean)
   let best: number | null = null
   for (let i = 0; i < tokens.length; i++) {
     const unit = HOUR.test(tokens[i]) ? 60 : MINUTE.test(tokens[i]) ? 1 : 0

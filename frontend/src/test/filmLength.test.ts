@@ -11,6 +11,12 @@ describe('film length from the prompt', () => {
     ['a 10 min short film', 10],
     ['an hour and a half long family drama', 90],
     ['1 hour 30 minutes', 90],
+    ['generate 1:30 hours movie', 90],
+    ['a 1:30h thriller', 90],
+    ['2:00 hours epic', 120],
+    ['1.5 hours film', 90],
+    ['a 2.5 hour saga', 150],
+    ['1.5 घंटे की फिल्म', 90],
     ['half an hour comedy', 30],
     ['two hours long', 120],
     ['3 hour epic', 180],
@@ -37,15 +43,19 @@ describe('film length from the prompt', () => {
     expect(requestedMinutes('A teacher meets her double in a Himalayan school')).toBeNull()
     expect(requestedMinutes('a man meets a mysterious woman in a hotel')).toBeNull()
     expect(requestedMinutes('two hunters in a minefield')).toBeNull()
+    // clock times and ratios are not lengths; a full stop after a length still ends it
+    expect(requestedMinutes('they meet at 5:30 pm on a train')).toBeNull()
+    expect(requestedMinutes('a 16:9 widescreen look, 1 hour.')).toBe(60)
   })
 
   it('maps to the lengths the page offers (2 hours at most)', () => {
     expect(nearestFilmLength(120)).toBe(120)
-    expect(nearestFilmLength(90)).toBe(120)
+    expect(nearestFilmLength(90)).toBe(90)
     expect(nearestFilmLength(45)).toBe(60)
     expect(nearestFilmLength(180)).toBe(120)
     expect(nearestFilmLength(12)).toBe(10)
     expect(lengthLabel(120)).toBe('2-hour')
     expect(lengthLabel(30)).toBe('30-minute')
+    expect(lengthLabel(90)).toBe('1.5-hour')
   })
 })
