@@ -145,3 +145,19 @@ def test_a_reply_without_the_songs_is_asked_again_before_failing(client, monkeyp
     done = client.get(f"/api/v1/jobs/{job['id']}", headers=auth()).json()
     assert len(calls) == 2 and done["status"] in ("failed", "needs_review")
     assert "didn't contain the songs (lyrics)." in (done.get("error") or "")
+
+
+def test_a_reply_split_over_several_blocks_is_read_whole():
+    """What Sarvam did on the live site: title/genre/tone in one ```json block, the songs in the next."""
+    from app.providers._json import extract_json
+    reply = ('Here is the film info:\n```json\n{"title": "Tea Stall Hearts", "genre": "Romantic Comedy", "tone": "Bittersweet"}\n```\n'
+             'And the songs:\n```json\n{"lyrics": {"title": "Chai", "verse": "v", "chorus": "c"}, '
+             '"songs": [{"title": "Mist", "verse": "v2", "chorus": "c2"}]}\n```')
+    data = extract_json(reply)
+    assert data["title"] == "Tea Stall Hearts" and data["lyrics"]["title"] == "Chai" and data["songs"][0]["title"] == "Mist"
+    # two objects one after another, without fences
+    data = extract_json('{"title": "T", "genre": "G"}\n\n{"lyrics": {"title": "A", "verse": "v", "chorus": "c"}}')
+    assert data["title"] == "T" and data["lyrics"]["title"] == "A"
+    # the usual single object is unchanged
+    assert extract_json('```json\n{"a": {"b": 1}}\n```') == {"a": {"b": 1}}
+    assert extract_json('<think>x</think>{"a": 1}') == {"a": 1}
