@@ -11,7 +11,8 @@ If the brief includes "sourceMaterial" (the creator's own story, script, lyrics 
 
 {part_instructions}
 
-Return ONLY a JSON object with exactly these keys (camelCase):
+Return ONE single JSON object — everything in it, in one block; never split the answer into several objects or code
+blocks, and never leave the part out — with exactly these keys (camelCase):
 
 {schema}
 
