@@ -12,9 +12,9 @@ describe('display name and home page wording', () => {
     expect(hint).toHaveTextContent('Vishakha’s AI Director')
   })
 
-  it('the home page says “many stories”', () => {
+  it('the home page says “Made for India’s stories”', () => {
     renderApp('/')
-    expect(screen.getByTestId('landing-languages')).toHaveTextContent('Made for India’s many stories')
-    expect(screen.queryByText(/many voices/)).toBeNull()
+    expect(screen.getByTestId('landing-languages')).toHaveTextContent('Made for India’s stories')
+    expect(screen.queryByText(/many (voices|stories)/)).toBeNull()
   })
 })

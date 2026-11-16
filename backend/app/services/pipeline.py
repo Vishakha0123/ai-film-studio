@@ -229,28 +229,38 @@ async def task_plan(db: Session, job: AIJob, project: Project) -> dict:
 
 async def _write_one_part(db: Session, job: AIJob, project: Project, brief: dict, part: str, songs: int) -> dict:
     """Only the story, only the screenplay (with dialogue) or only the songs of the creator's film."""
-    from app.services.one_part import ONLY_PARTS, PART_FIELDS, PART_NAMES
+    from app.services.one_part import ONLY_PARTS, PART_FIELDS, PART_NAMES, normalize_part
     if part not in ONLY_PARTS:
         raise NeedsReview(f"Can't write only '{part}'.")
     set_progress(db, job, f"Writing {PART_NAMES[part]}", 30)
     if part == "lyrics":
         brief["songs"] = max(songs, 1)
-    started = time.monotonic()
-    res = await with_retry(lambda: story_provider().write_part(brief, part), job, db)
-    log.info("one part (%s) took %.1fs", part, time.monotonic() - started)
-    record_usage(db, job, res)
-    data = {k: v for k, v in (res.data if isinstance(res.data, dict) else {}).items() if k in PART_FIELDS[part]}
-    data["title"] = str(data.get("title") or project.title or "Untitled").strip() or "Untitled"
-    if part == "lyrics":
-        data["songs"] = (data.get("songs") or [])[:max(songs - 1, 0)]
-    if part == "screenplay":
-        data = reference_portraits.apply_prompt_facts(data, brief.get("prompt", ""))
-    try:
-        memory = validate_film({**data, "only": part})
-    except ValidationError as e:
-        raise NeedsReview(f"The story model returned an incomplete {part} ({_problems(e)}). Try again.") from e
-    if not any(memory.get(k) for k in PART_FIELDS[part] if k not in ("title", "genre", "tone")):
-        raise NeedsReview(f"The story model didn't write {PART_NAMES[part]}. Try again.")
+    useful = [k for k in PART_FIELDS[part] if k not in ("title", "genre", "tone", "logline")]
+    memory: dict = {}
+    for attempt in (1, 2):  # a reply without the part is usually a one-off: ask once more before giving up
+        started = time.monotonic()
+        res = await with_retry(lambda: story_provider().write_part(brief, part), job, db)
+        log.info("one part (%s) took %.1fs", part, time.monotonic() - started)
+        record_usage(db, job, res)
+        data = normalize_part(part, res.data)
+        data["title"] = str(data.get("title") or project.title or "Untitled").strip() or "Untitled"
+        if part == "lyrics":
+            data["songs"] = (data.get("songs") or [])[:max(songs - 1, 0)]
+        if part == "screenplay":
+            data = reference_portraits.apply_prompt_facts(data, brief.get("prompt", ""))
+        try:
+            memory = validate_film({**data, "only": part})
+        except ValidationError as e:
+            log.warning("one part (%s): invalid reply (%s)", part, _problems(e))
+            memory = {}
+        if any(memory.get(k) for k in useful):
+            break
+        raw = res.data if isinstance(res.data, dict) else {}
+        log.warning("one part (%s), attempt %d: nothing usable; keys %s; reply starts %s", part, attempt,
+                    list(raw)[:20], json.dumps(raw, ensure_ascii=False)[:600])
+        set_progress(db, job, f"Writing {PART_NAMES[part]} (second try)", 60)
+    else:
+        raise NeedsReview(f"The story model's reply didn't contain {PART_NAMES[part]}.")
     memory = await fix_language(db, job, memory, brief["language"])
     if any(c.get("language") for c in memory.get("characters", [])):
         memory = validate_film({**memory, "dialogue": await fix_family_lines(db, job, memory.get("dialogue", []),
