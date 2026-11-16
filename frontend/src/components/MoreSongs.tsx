@@ -10,7 +10,7 @@ export default function MoreSongs({ songs }: { songs?: Lyrics[] }) {
         <div key={i} className="px-5 sm:px-6 py-5 rounded-xl" style={{ backgroundColor: 'rgba(212,168,75,0.04)', border: '1px solid rgba(212,168,75,0.12)' }} data-testid="more-song">
           <p className="text-sm font-semibold text-zinc-200">{s.title || `Song ${i + 2}`}</p>
           <p className="text-xs text-zinc-500 mb-4">
-            {[s.style, s.scene ? `Scene ${s.scene}` : '', s.singer ? `sung by ${s.singer}` : ''].filter(Boolean).join(' · ')}
+            {[s.style, s.moment || (s.scene ? `Scene ${s.scene}` : ''), s.singer ? `sung by ${s.singer}` : ''].filter(Boolean).join(' · ')}
           </p>
           <div className="grid sm:grid-cols-2 gap-5">
             {([['Verse', s.verse], ['Pre-Chorus', s.preChorus], ['Chorus', s.chorus], ['Bridge', s.bridge]] as const)

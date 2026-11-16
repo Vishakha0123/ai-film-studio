@@ -1,3 +1,4 @@
+import { directorTitle } from '../lib/directorTitle'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AUTH_PROVIDER, VOICES, deleteAccount, getMe, previewVoice, savePreferences, signOut } from '../api'
@@ -178,17 +179,23 @@ export default function SettingsPage() {
 
         <form onSubmit={save} className="space-y-6">
           <Section eyebrow="Defaults for new films" title="Creative defaults">
-            <label className="block">
-              <span className="block text-xs text-zinc-600 mb-2">Display name</span>
-              <input
-                id="display-name"
-                value={form.displayName}
-                onChange={e => update('displayName', e.target.value)}
-                maxLength={120}
-                placeholder="How the AI Director addresses you"
-                className="w-full px-4 py-2.5 rounded-lg border border-zinc-800 bg-zinc-900 text-zinc-200 placeholder-zinc-600 text-sm focus:outline-none focus:border-zinc-600"
-              />
-            </label>
+            <div>
+              <label className="block">
+                <span className="block text-xs text-zinc-600 mb-2">Display name</span>
+                <input
+                  id="display-name"
+                  value={form.displayName}
+                  onChange={e => update('displayName', e.target.value)}
+                  maxLength={120}
+                  placeholder="Your name"
+                  aria-describedby="display-name-hint"
+                  className="w-full px-4 py-2.5 rounded-lg border border-zinc-800 bg-zinc-900 text-zinc-200 placeholder-zinc-600 text-sm focus:outline-none focus:border-zinc-600"
+                />
+              </label>
+              <span id="display-name-hint" className="block text-[11px] text-zinc-600 mt-1.5" data-testid="display-name-hint">
+                The studio shows “{form.displayName.trim() ? directorTitle(form.displayName) : 'Your name’s AI Director'}” at the top of the Director.
+              </span>
+            </div>
 
             <label className="block">
               <span className="block text-xs text-zinc-600 mb-2">Story & voice language</span>

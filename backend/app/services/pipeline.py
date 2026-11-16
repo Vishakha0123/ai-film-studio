@@ -7,6 +7,7 @@ with `needs_review` + an explanation when no safe result is possible.
 """
 
 import asyncio
+import json
 import re
 import logging
 import shutil
@@ -188,6 +189,15 @@ async def task_plan(db: Session, job: AIJob, project: Project) -> dict:
         brief.setdefault("prompt", "Turn the attached source material into a teaser.")
     if not brief.get("prompt"):
         raise NeedsReview("Add a film idea to the brief before planning.")
+    if job.params.get("only"):
+        return await _write_one_part(db, job, project, brief, job.params["only"], songs)
+    from app.services.one_part import keep_part
+    part = (project.memory or {}).get("only") if job.params.get("rest") else ""
+    kept = keep_part(project.memory or {}, part) if part else {}
+    if kept:  # "Make the rest of the film": everything else is written around the part the creator already has
+        written = json.dumps({k: v for k, v in kept.items() if k not in ("genre", "tone")}, ensure_ascii=False)[:12000]
+        brief["sourceMaterial"] = (str(brief.get("sourceMaterial") or "") + "\n\nThe film's " + part +
+                                   ", already written (keep it exactly; build every other part around it):\n" + written).strip()
     started = time.monotonic()
     res = await with_retry(lambda: story_provider().plan_film(brief), job, db)
     log.info("plan took %.1fs", time.monotonic() - started)
@@ -199,6 +209,8 @@ async def task_plan(db: Session, job: AIJob, project: Project) -> dict:
     except ValidationError as e:
         raise NeedsReview(f"The story model returned an incomplete plan ({_problems(e)}). Try again.") from e
     memory["songs"] = memory.get("songs", [])[:max(songs - 1, 0)]  # never more songs than were asked for
+    if kept:
+        memory = validate_film({**memory, **{k: v for k, v in kept.items() if k not in ("genre", "tone")}})
     if prefs.visual_style and not memory.get("visualStyle"):
         memory["visualStyle"] = prefs.visual_style  # Settings → Visual style is where every new film starts
     memory = await fix_language(db, job, memory, brief["language"])
@@ -213,6 +225,42 @@ async def task_plan(db: Session, job: AIJob, project: Project) -> dict:
     mark_outdated(db, project.id, ["character_image", "storyboard_image", "video_clip", "voice", "render"])
     db.commit()
     return {"title": project.title}
+
+
+async def _write_one_part(db: Session, job: AIJob, project: Project, brief: dict, part: str, songs: int) -> dict:
+    """Only the story, only the screenplay (with dialogue) or only the songs of the creator's film."""
+    from app.services.one_part import ONLY_PARTS, PART_FIELDS, PART_NAMES
+    if part not in ONLY_PARTS:
+        raise NeedsReview(f"Can't write only '{part}'.")
+    set_progress(db, job, f"Writing {PART_NAMES[part]}", 30)
+    if part == "lyrics":
+        brief["songs"] = max(songs, 1)
+    started = time.monotonic()
+    res = await with_retry(lambda: story_provider().write_part(brief, part), job, db)
+    log.info("one part (%s) took %.1fs", part, time.monotonic() - started)
+    record_usage(db, job, res)
+    data = {k: v for k, v in (res.data if isinstance(res.data, dict) else {}).items() if k in PART_FIELDS[part]}
+    data["title"] = str(data.get("title") or project.title or "Untitled").strip() or "Untitled"
+    if part == "lyrics":
+        data["songs"] = (data.get("songs") or [])[:max(songs - 1, 0)]
+    if part == "screenplay":
+        data = reference_portraits.apply_prompt_facts(data, brief.get("prompt", ""))
+    try:
+        memory = validate_film({**data, "only": part})
+    except ValidationError as e:
+        raise NeedsReview(f"The story model returned an incomplete {part} ({_problems(e)}). Try again.") from e
+    if not any(memory.get(k) for k in PART_FIELDS[part] if k not in ("title", "genre", "tone")):
+        raise NeedsReview(f"The story model didn't write {PART_NAMES[part]}. Try again.")
+    memory = await fix_language(db, job, memory, brief["language"])
+    if any(c.get("language") for c in memory.get("characters", [])):
+        memory = validate_film({**memory, "dialogue": await fix_family_lines(db, job, memory.get("dialogue", []),
+                                                                             memory["characters"], brief["language"])})
+    project.memory = memory
+    project.title = memory["title"][:300]
+    project.genre = (memory.get("genre") or project.genre or "")[:200]
+    project.status = "planned"
+    db.commit()
+    return {"title": project.title, "only": part}
 
 
 def spoken_language(memory: dict, line: dict, film_language: str) -> str:

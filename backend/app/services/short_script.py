@@ -8,16 +8,27 @@ from urllib.parse import quote
 from app.services.scene_generator import language_name
 
 
-def download_headers(title: str, fmt: str) -> dict[str, str]:
+def download_headers(title: str, fmt: str, kind: str = "script") -> dict[str, str]:
     """Content-Disposition with an ASCII fallback name plus the real (e.g. Tamil) name per RFC 6266."""
     name = "".join(c for c in (title or "film") if c.isprintable() and c not in '\\/:*?"<>|').strip() or "film"
     ascii_name = "".join(c for c in name if c.isascii()).strip() or "film"
-    return {"Content-Disposition": f'attachment; filename="{ascii_name} - script.{fmt}"; '
-                                   f"filename*=UTF-8''{quote(name + ' - script.' + fmt)}"}
+    return {"Content-Disposition": f'attachment; filename="{ascii_name} - {kind}.{fmt}"; '
+                                   f"filename*=UTF-8''{quote(name + ' - ' + kind + '.' + fmt)}"}
 
 
 def has_script(memory: dict) -> bool:
-    return bool((memory or {}).get("screenplay", "").strip() or (memory or {}).get("story", "").strip())
+    m = memory or {}
+    return bool(m.get("screenplay", "").strip() or m.get("story", "").strip() or _songs(m))
+
+
+# ?part=… downloads just one part: "story", "screenplay" (with characters and dialogue) or "lyrics" (every song)
+PART_KINDS = {"story": "story", "screenplay": "screenplay", "lyrics": "lyrics"}
+
+
+def only_part(memory: dict, part: str) -> dict:
+    from app.services.one_part import PART_FIELDS
+    keep = set(PART_FIELDS[part]) - {"title"}
+    return {k: v for k, v in (memory or {}).items() if k in keep}
 
 
 def _facts(c: dict) -> str:
@@ -69,6 +80,9 @@ def short_script_text(memory: dict, title: str) -> str:
             out += [f"{sc.get('number', '')}. {head}", f"   {sc.get('description', '')}".rstrip(), ""]
     for song in _songs(m):
         out += ["=" * 60, f"SONG — {song.get('title') or 'Theme song'}" + (f" ({song['style']})" if song.get("style") else ""), "=" * 60, ""]
+        where = " · ".join(x for x in (song.get("moment", ""), f"Sung by {song['singer']}" if song.get("singer") else "") if x)
+        if where:
+            out += [where, ""]
         for label, text in _song_parts(song):
             out += [label.upper(), text, ""]
     return "\n".join(out).rstrip() + "\n"
@@ -141,6 +155,9 @@ def short_script_pdf(memory: dict, title: str) -> bytes:
 
     for song in _songs(m):
         heading(f"SONG · {song.get('title') or 'Theme song'}" + (f" · {song['style']}" if song.get("style") else ""))
+        where = " · ".join(x for x in (song.get("moment", ""), f"Sung by {song['singer']}" if song.get("singer") else "") if x)
+        if where:
+            _text(pdf, where, size=9.5, color=GREY, gap=3)
         for label, text in _song_parts(song):
             _text(pdf, label.upper(), size=8.5, bold=True, color=LIGHT, gap=1)
             for line in text.split("\n"):

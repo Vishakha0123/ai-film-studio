@@ -211,6 +211,7 @@ class Lyrics(FilmPart):
     chorus: str = ""
     bridge: str = ""
     scene: int | None = None  # the scene the song plays in (extra songs)
+    moment: str = ""          # where it plays, in words (songs written on their own: "Opening", "When Meera leaves home")
     singer: str = ""          # who sings it, if a character does
 
     _scene = field_validator("scene", mode="before")(lambda v: _to_int(v) or None if v not in (None, "") else None)
@@ -233,6 +234,8 @@ class FilmProject(FilmPart):
     visual_style: str = ""  # Storyboard look: Photorealistic, Dark Cinema, Anime, 3D Render, Vintage or the creator's own words
     # A section the creator switched to another language than the film's, e.g. {"lyrics": "ta"}
     section_languages: dict[str, str] = {}
+    # Only one part was asked for ("story", "screenplay" or "lyrics"); "" = the whole film
+    only: str = ""
 
 
 # ---------- API ----------
@@ -259,6 +262,8 @@ class LanguageVersionRequest(Schema):
 class PlanRequest(Schema):
     prompt: str | None = Field(default=None, max_length=4000)
     songs: int | None = Field(default=None, ge=1, le=8)  # how many songs the film has, theme song included
+    only: Literal["story", "screenplay", "lyrics"] | None = None  # write only this part of the creator's film
+    rest: bool = False  # a one-part film: make the rest of the film around the part that's there
 
 
 class EditRequest(Schema):

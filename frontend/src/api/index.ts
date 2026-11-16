@@ -77,9 +77,16 @@ export async function saveBrief(id: string, brief: BriefInput): Promise<ProjectD
 const demoJob = (task: string): Job => ({ id: `demo-${task}`, projectId: 'demo', task, status: 'completed', stage: 'Done', progress: 100, result: {}, cost: 0, error: '' })
 
 /** Plans the film. Passing the idea too means the plan never depends on the saved brief alone. */
-export async function planProject(id: string, prompt?: string): Promise<Job> {
+/**
+ * Plan the film. `only` writes just one part of a film the creator already has (story, screenplay or songs);
+ * `rest` makes the rest of a one-part film around the part that's there.
+ */
+export async function planProject(id: string, prompt?: string, opts: { only?: 'story' | 'screenplay' | 'lyrics'; rest?: boolean } = {}): Promise<Job> {
   if (DEMO_MODE) return demoJob('plan')
-  return request<Job>(`/projects/${encodeURIComponent(id)}/plan`, { method: 'POST', body: JSON.stringify(prompt ? { prompt } : {}) })
+  return request<Job>(`/projects/${encodeURIComponent(id)}/plan`, {
+    method: 'POST',
+    body: JSON.stringify({ ...(prompt ? { prompt } : {}), ...(opts.only ? { only: opts.only } : {}), ...(opts.rest ? { rest: true } : {}) }),
+  })
 }
 
 export type EditAction = 'continue' | 'complete' | 'improve' | 'transform'
@@ -467,9 +474,10 @@ export async function downloadLongFilmScript(projectId: string, format: 'pdf' | 
 }
 
 /** Any film's script (story, cast, screenplay, dialogue, scenes, songs) as a PDF or text file — a 1-minute short too. */
-export async function downloadFilmScript(projectId: string, format: 'pdf' | 'txt' = 'pdf'): Promise<{ blob: Blob; filename: string }> {
+/** The film's script; `part` gives just the story, the screenplay (with dialogue) or the songs. */
+export async function downloadFilmScript(projectId: string, format: 'pdf' | 'txt' = 'pdf', part?: 'story' | 'screenplay' | 'lyrics'): Promise<{ blob: Blob; filename: string }> {
   if (DEMO_MODE) throw new Error('Downloading the script needs the studio backend — sign in to the live studio.')
-  return downloadFile(`/projects/${encodeURIComponent(projectId)}/script?format=${format}`, format)
+  return downloadFile(`/projects/${encodeURIComponent(projectId)}/script?format=${format}${part ? `&part=${part}` : ''}`, format)
 }
 
 /** Put every dialogue line into the language its speaker speaks, with subtitles (a background job). */

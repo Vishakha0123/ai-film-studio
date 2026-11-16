@@ -1065,3 +1065,73 @@ test('full stack: "generate 1:30 hours movie" plans a 1.5-hour film, not 30 hour
   await expect.poll(async () => (await (await request.get(`${API}/api/v1/projects/${p.id}/film/full`, { headers: auth })).json())?.targetSeconds,
     { timeout: 30_000 }).toBe(90 * 60)
 })
+
+test('full stack: "I have a movie, I want only lyrics" → asks for the movie, writes only the songs, opens Lyrics', async ({ page, request }) => {
+  await preparePage(page)
+  const email = 'lyrics-only@dev.local'
+  const auth = { Authorization: `Bearer dev:${email}` }
+  await page.addInitScript(e => localStorage.setItem('cineai.token', `dev:${e}`), email)
+  await page.goto('/director')
+  const box = page.getByLabel('Message the AI Director')
+
+  // a bare request: the Director asks about the movie first, nothing is written yet
+  await box.fill('I have a movie, I want only lyrics for it')
+  await page.keyboard.press('Enter')
+  await expect(page.getByText(/I'll write only the lyrics, nothing else/)).toBeVisible()
+  expect(await (await request.get(`${API}/api/v1/projects`, { headers: auth })).json()).toEqual([])
+
+  // the movie → only the songs, straight to the Lyrics page
+  await box.fill('Two brothers run a tea stall in Ooty and both fall for the same girl; the elder gives her up. 2 songs.')
+  await page.keyboard.press('Enter')
+  await expect(page.getByTestId('panel-lyrics')).toBeVisible({ timeout: 20_000 })
+  await expect(page.getByTestId('lyrics-download')).toBeVisible()
+  await expect(page.getByText(/are the 2 songs for/)).toBeVisible()
+
+  const [p] = await (await request.get(`${API}/api/v1/projects`, { headers: auth })).json()
+  const memory = (await (await request.get(`${API}/api/v1/projects/${p.id}`, { headers: auth })).json()).memory
+  expect(memory.only).toBe('lyrics')
+  expect([memory.lyrics, ...memory.songs]).toHaveLength(2)
+  expect(memory.story || memory.screenplay || (memory.scenes ?? []).length).toBeFalsy()
+
+  // the lyrics download
+  const file = page.waitForEvent('download')
+  await page.getByTestId('lyrics-download-txt').click()
+  expect(readFileSync((await (await file).path())!, 'utf8')).toContain('SONG —')
+
+  // other sections: nothing there, offer to make the rest — which keeps the songs
+  await page.getByTestId('nav-story').click()
+  await expect(page.getByTestId('panel-only-part')).toContainText('You asked only for the lyrics')
+  await expect(page.getByTestId('continue-bar')).toHaveCount(0)
+  await page.getByTestId('make-rest').click()
+  await expect(page.getByTestId('panel-story')).toBeVisible({ timeout: 30_000 })
+  const after = (await (await request.get(`${API}/api/v1/projects/${p.id}`, { headers: auth })).json()).memory
+  expect(after.only).toBe('')
+  expect(after.story && after.screenplay).toBeTruthy()
+  expect(after.lyrics.chorus).toBe(memory.lyrics.chorus)
+})
+
+test('full stack: the "Make" choice — Screenplay only opens the Screenplay page; the header shows the display name', async ({ page, request }) => {
+  await preparePage(page)
+  const email = 'screenplay-only@dev.local'
+  const auth = { Authorization: `Bearer dev:${email}` }
+  await request.patch(`${API}/api/v1/me`, { headers: auth, data: { displayName: 'Vishakha' } })
+  await page.addInitScript(e => localStorage.setItem('cineai.token', `dev:${e}`), email)
+  await page.goto('/director')
+  await expect(page.getByTestId('panel-title')).toHaveText('Vishakha’s AI Director')
+
+  await page.getByTestId('make-what').selectOption('screenplay')
+  await page.getByLabel('Message the AI Director').fill('A lighthouse keeper in Rameswaram finds a stranded girl after a cyclone and must get her home before the next storm')
+  await page.keyboard.press('Enter')
+  await expect(page.getByTestId('panel-screenplay')).toBeVisible({ timeout: 20_000 })
+  await expect(page.getByTestId('screenplay-download')).toBeVisible()
+  const [p] = await (await request.get(`${API}/api/v1/projects`, { headers: auth })).json()
+  const memory = (await (await request.get(`${API}/api/v1/projects/${p.id}`, { headers: auth })).json()).memory
+  expect(memory.only).toBe('screenplay')
+  expect(memory.screenplay && memory.dialogue.length && memory.characters.length).toBeTruthy()
+  expect(memory.story).toBeFalsy()
+  // Characters and Dialogue belong to the screenplay; Lyrics doesn't
+  await page.getByTestId('nav-dialogue').click()
+  await expect(page.getByTestId('panel-only-part')).toHaveCount(0)
+  await page.getByTestId('nav-lyrics').click()
+  await expect(page.getByTestId('panel-only-part')).toBeVisible()
+})

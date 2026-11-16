@@ -591,17 +591,20 @@ async def transcribe(audio: UploadFile = File(...), language: str = Form("en"),
 
 
 @router.get("/projects/{project_id}/script")
-def download_film_script(project_id: str, format: Literal["txt", "pdf"] = "txt", db: Session = Depends(get_db),
+def download_film_script(project_id: str, format: Literal["txt", "pdf"] = "txt",
+                         part: Literal["story", "screenplay", "lyrics"] | None = None, db: Session = Depends(get_db),
                          user: CurrentUser = Depends(get_current_user)):
     """The film's script — story, characters, screenplay, dialogue, scenes and songs — as a text file or a PDF.
-    Works for every film, a 1-minute short included."""
-    from app.services.short_script import download_headers, has_script, short_script_pdf, short_script_text
+    Works for every film, a 1-minute short included. ?part= gives just the story, the screenplay or the songs."""
+    from app.services.short_script import PART_KINDS, download_headers, has_script, only_part, short_script_pdf, short_script_text
     project = _own_project(db, project_id, user)
     memory = project.memory or {}
+    if part:
+        memory = only_part(memory, part)
     if not has_script(memory):
         raise HTTPException(409, detail="This film has no script yet — describe your idea to the AI Director first.")
-    title = project.title or memory.get("title") or "Untitled"
-    headers = download_headers(title, format)
+    title = project.title or (project.memory or {}).get("title") or "Untitled"
+    headers = download_headers(title, format, PART_KINDS[part] if part else "script")
     if format == "pdf":
         return Response(short_script_pdf(memory, title), media_type="application/pdf", headers=headers)
     return PlainTextResponse(short_script_text(memory, title), headers=headers)

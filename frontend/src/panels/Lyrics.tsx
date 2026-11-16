@@ -1,3 +1,4 @@
+import ScriptDownload from '../components/ScriptDownload'
 import SectionLanguage from '../components/SectionLanguage'
 import { useEffect, useState } from 'react'
 import { Elapsed } from '../lib/useElapsed'
@@ -69,10 +70,12 @@ export default function Lyrics() {
             <h2 className="text-3xl font-light mb-1" style={{ fontFamily: 'Fraunces, Georgia, serif', color: '#f4f0ea' }} data-testid="song-title">
               {song?.title || 'Theme song'}
             </h2>
-            <p className="text-sm text-zinc-500">Main theme · {film.title}{song?.style ? ` · ${song.style}` : ''}</p>
+            <p className="text-sm text-zinc-500">{song?.moment || 'Main theme'} · {film.title}{song?.style ? ` · ${song.style}` : ''}</p>
           </div>
           {song && <SectionLanguage target="lyrics" what="song" />}
         </div>
+
+        {project && film.only === 'lyrics' && song && <ScriptDownload projectId={project.id} part="lyrics" />}
 
         {!song ? (
           <div className="px-6 py-10 rounded-xl text-center" style={{ backgroundColor: '#111113', border: '1px dashed rgba(255,255,255,0.08)' }} data-testid="no-song">

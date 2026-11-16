@@ -1,3 +1,4 @@
+import ScriptDownload from '../components/ScriptDownload'
 import SectionLanguage from '../components/SectionLanguage'
 import { useEffect, useState } from 'react'
 import { Elapsed } from '../lib/useElapsed'
@@ -111,6 +112,8 @@ export default function Story() {
           )}
           </div>
         </div>
+
+        {project && f.only === 'story' && <ScriptDownload projectId={project.id} part="story" />}
 
         {/* Meta chips */}
         <div className="flex flex-wrap gap-2">

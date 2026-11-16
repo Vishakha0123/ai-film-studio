@@ -2,6 +2,8 @@ import { useNavigate } from 'react-router-dom'
 import type { Panel, NavFn } from '../types'
 import { COMING_SOON, isPanelLocked, isTeaserLocked } from '../features'
 import LockIcon, { ComingSoonButton } from './LockIcon'
+import { useStudio } from '../studio'
+import { DEMO_MODE } from '../api'
 
 export const WORKFLOW = [
   { id: 'chat' as Panel, label: 'Director', icon: ChatIcon, stage: -1 },
@@ -89,7 +91,11 @@ interface SidebarProps {
   onClose: () => void
 }
 
+const ONLY_SECTIONS: Record<string, string[]> = { story: ['story'], screenplay: ['screenplay', 'dialogue', 'characters'], lyrics: ['lyrics'] }
+
 export default function Sidebar({ panel, section, setPanel, progress, onGenerate, onNewFilm, open, onClose }: SidebarProps) {
+  const { project } = useStudio()
+  const only = (!DEMO_MODE && project?.memory?.only) || ''
   const routerNavigate = useNavigate()
   const choose = (p: Panel) => {
     setPanel(p)
@@ -143,7 +149,8 @@ export default function Sidebar({ panel, section, setPanel, progress, onGenerate
           <div className="space-y-0.5">
             {WORKFLOW.map(item => {
               const isActive = panel === item.id
-              const isComplete = isStageComplete(item.stage, progress)
+              // a one-part film (only the story, screenplay or songs): only its sections are ticked
+              const isComplete = only ? ONLY_SECTIONS[only].includes(item.id) : isStageComplete(item.stage, progress)
               const locked = isPanelLocked(item.id)
 
               if (locked) {
@@ -190,12 +197,12 @@ export default function Sidebar({ panel, section, setPanel, progress, onGenerate
             })}
           </div>
 
-          {progress >= 6 && isTeaserLocked() && (
+          {progress >= 6 && !only && isTeaserLocked() && (
             <div className="mt-4">
               <ComingSoonButton label="Generate Teaser" className="w-full py-2.5 text-xs" testId="sidebar-generate" />
             </div>
           )}
-          {progress >= 6 && !isTeaserLocked() && (
+          {progress >= 6 && !only && !isTeaserLocked() && (
             <div className="mt-4">
               <button
                 data-testid="sidebar-generate"
