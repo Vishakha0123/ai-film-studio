@@ -17,6 +17,7 @@ export const LENGTHS = [
   { minutes: 10, label: '10 min', note: 'Pilot — check the look first' },
   { minutes: 30, label: '30 min', note: 'Short feature' },
   { minutes: 60, label: '1 hour', note: 'Feature' },
+  { minutes: 90, label: '1.5 hours', note: 'Feature film' },
   { minutes: 120, label: '2 hours', note: 'Full feature' },
 ]
 const BUSY = new Set(['planning', 'writing', 'generating', 'rendering'])
@@ -70,7 +71,7 @@ function Setup({ film, busy, asked, onPlan, onCancel }: { film: LongFilm | null;
       <h3 className="text-lg font-light mb-1" style={{ fontFamily: 'Fraunces, Georgia, serif', color: '#f4f0ea' }}>How long should the film be?</h3>
       {asked && <p className="text-xs mb-2" style={{ color: gold }} data-testid="movie-asked">You asked for this length in your idea — it's selected below.</p>}
       <p className="text-xs text-zinc-500 mb-4">The story, cast and look come from the film you planned. {isVideoLocked() ? "It's grown into a full-length story with its cast, then written scene by scene." : "It's written and made scene by scene, so you can watch each scene as it's ready."}</p>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-5" role="radiogroup" aria-label="Film length">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-5" role="radiogroup" aria-label="Film length">
         {LENGTHS.map(l => (
           <button key={l.minutes} type="button" role="radio" aria-checked={minutes === l.minutes} onClick={() => setMinutes(l.minutes)}
             className="text-left px-3 py-3 rounded-lg border transition-all"
