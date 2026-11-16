@@ -82,3 +82,66 @@ def test_sarvam_prompt_for_one_part_is_complete(part):
                   brief=json.dumps({"prompt": "my film", "language": "ta"}))
     assert not re.search(r"\{(part_name|part_instructions|schema|format_note|output_language|brief)\}", text)
     assert PART_NAMES[part] in text and "Tamil" in text and '"title"' in text
+
+
+@pytest.mark.parametrize("reply", [
+    # all songs in one list
+    {"title": "Chai", "lyrics": [{"title": "A", "verse": "v1", "chorus": "c1"}, {"title": "B", "verse": "v2", "chorus": "c2"}]},
+    # different keys, lines as lists, pre_chorus
+    {"title": "Chai", "songs": [{"name": "A", "verse": ["l1", "l2"], "pre_chorus": "p", "chorus": ["c1"]},
+                                {"songTitle": "B", "stanza": "v2", "hook": "c2"}]},
+    # "song" + "otherSongs"
+    {"title": "Chai", "song": {"title": "A", "verse": "v1", "chorus": "c1"}, "otherSongs": [{"title": "B", "verse": "v2", "chorus": "c2"}]},
+    # wrapped
+    {"film": {"title": "Chai", "lyrics": {"title": "A", "verse": "v1", "chorus": "c1"}, "songs": [{"title": "B", "verse": "v2", "chorus": "c2"}]}},
+    # numbered songs in an object
+    {"title": "Chai", "songs": {"song1": {"title": "A", "verse": "v1", "chorus": "c1"}, "song2": {"title": "B", "verse": "v2", "chorus": "c2"}}},
+])
+def test_songs_are_found_whatever_shape_the_model_uses(reply):
+    from app.services.pipeline import validate_film
+    from app.services.one_part import normalize_part
+    m = validate_film({**normalize_part("lyrics", reply), "only": "lyrics"})
+    titles = [m["lyrics"]["title"], *(s["title"] for s in m["songs"])]
+    assert titles == ["A", "B"] and m["lyrics"]["verse"] and m["lyrics"]["chorus"]
+
+
+def test_a_single_bare_song_is_the_lyrics():
+    from app.services.one_part import normalize_part
+    out = normalize_part("lyrics", {"title": "Rain", "style": "Melody", "verse": "a\nb", "chorus": "c"})
+    assert out["lyrics"]["title"] == "Rain" and out["lyrics"]["verse"] == "a\nb" and out["songs"] == []
+
+
+def test_story_and_screenplay_in_other_shapes():
+    from app.services.one_part import normalize_part
+    assert normalize_part("story", {"title": "T", "story": ["p1", "p2"]})["story"] == "p1\n\np2"
+    sp = normalize_part("screenplay", {"result": {"title": "T", "script": ["INT. HOUSE", "RAVI", "Hello"], "dialogues": [{"character": "Ravi", "text": "Hello"}]}})
+    assert sp["screenplay"].startswith("INT. HOUSE") and sp["dialogue"][0]["text"] == "Hello"
+
+
+def test_a_reply_without_the_songs_is_asked_again_before_failing(client, monkeypatch):
+    from app.providers.base import ProviderResult
+    from app.providers.mock import MockStory
+    calls = []
+    good = {"title": "Chai", "lyrics": {"title": "A", "verse": "v", "chorus": "c"}, "songs": []}
+
+    async def write_part(self, brief, part):
+        calls.append(part)
+        return ProviderResult({"title": "Chai", "genre": "Drama"} if len(calls) == 1 else good, provider="mock", model="x")
+    monkeypatch.setattr(MockStory, "write_part", write_part)
+    pid = _project(client, "Two brothers run a tea stall in Ooty and both fall for the same girl")
+    job = client.post(f"/api/v1/projects/{pid}/plan", json={"only": "lyrics"}, headers=auth()).json()
+    assert client.get(f"/api/v1/jobs/{job['id']}", headers=auth()).json()["status"] == "completed"
+    assert len(calls) == 2 and _memory(client, pid)["lyrics"]["title"] == "A"
+
+    # still nothing after the second try: a clear message
+    calls.clear()
+
+    async def empty(self, brief, part):
+        calls.append(part)
+        return ProviderResult({"title": "Chai"}, provider="mock", model="x")
+    monkeypatch.setattr(MockStory, "write_part", empty)
+    pid2 = _project(client, "another film")
+    job = client.post(f"/api/v1/projects/{pid2}/plan", json={"only": "lyrics"}, headers=auth()).json()
+    done = client.get(f"/api/v1/jobs/{job['id']}", headers=auth()).json()
+    assert len(calls) == 2 and done["status"] in ("failed", "needs_review")
+    assert "didn't contain the songs (lyrics)." in (done.get("error") or "")
