@@ -1,8 +1,10 @@
 """REST API (report section 28). Every route checks that the project belongs to the caller."""
 
 import json
+from typing import Literal
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Header, HTTPException, Response, UploadFile, status
+from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -586,3 +588,20 @@ async def transcribe(audio: UploadFile = File(...), language: str = Form("en"),
     except ProviderError as e:
         raise HTTPException(502, detail=f"Transcription failed: {e}")
     return Transcript(text=res.data, provider=res.provider)
+
+
+@router.get("/projects/{project_id}/script")
+def download_film_script(project_id: str, format: Literal["txt", "pdf"] = "txt", db: Session = Depends(get_db),
+                         user: CurrentUser = Depends(get_current_user)):
+    """The film's script — story, characters, screenplay, dialogue, scenes and songs — as a text file or a PDF.
+    Works for every film, a 1-minute short included."""
+    from app.services.short_script import download_headers, has_script, short_script_pdf, short_script_text
+    project = _own_project(db, project_id, user)
+    memory = project.memory or {}
+    if not has_script(memory):
+        raise HTTPException(409, detail="This film has no script yet — describe your idea to the AI Director first.")
+    title = project.title or memory.get("title") or "Untitled"
+    headers = download_headers(title, format)
+    if format == "pdf":
+        return Response(short_script_pdf(memory, title), media_type="application/pdf", headers=headers)
+    return PlainTextResponse(short_script_text(memory, title), headers=headers)

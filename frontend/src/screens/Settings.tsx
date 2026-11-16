@@ -1,20 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { AUTH_PROVIDER, DEMO_MODE, VOICES, deleteAccount, exportMyData, getHealth, getMe, previewVoice, savePreferences, signOut } from '../api'
-import { API_BASE } from '../api/client'
+import { AUTH_PROVIDER, VOICES, deleteAccount, getMe, previewVoice, savePreferences, signOut } from '../api'
 import { useStudio } from '../studio'
-import { DEFAULT_PREFERENCES, type Health, type Me, type Preferences } from '../types'
+import { DEFAULT_PREFERENCES, type Me, type Preferences } from '../types'
 import { FILM_LANGUAGES } from '../lib/languages'
 
 const LANGUAGES = FILM_LANGUAGES.map(l => ({ code: l.code, label: l.code === 'en' ? l.label : `${l.label} · ${l.native}` }))
-
-const PROVIDER_NAMES: Record<string, Record<string, string>> = {
-  story: { sarvam: 'Sarvam-105B', mock: 'Sample film (mock)' },
-  image: { openai: 'OpenAI GPT Image', mock: 'Placeholder frames (mock)' },
-  video: { seedance: 'Seedance · Atlas Cloud', mock: 'No video (mock)' },
-  tts: { sarvam: 'Sarvam Bulbul', mock: 'Test tone (mock)' },
-  stt: { sarvam: 'Sarvam Saaras', mock: 'Browser speech (mock server)' },
-}
 
 /** Storyboard looks (same presets as the Storyboard page) with a swatch of each. */
 const VISUAL_STYLES: { name: string; swatch: string }[] = [
@@ -51,6 +42,25 @@ function Section({ eyebrow, title, children }: { eyebrow: string; title: string;
   )
 }
 
+/** A section that isn't available yet: shown, but greyed out and can't be changed. */
+function Locked({ eyebrow, title, testId, children }: { eyebrow: string; title: string; testId: string; children: React.ReactNode }) {
+  return (
+    <section className="px-5 py-5 rounded-xl space-y-4 relative" style={{ backgroundColor: '#111113', border: '1px solid rgba(255,255,255,0.06)' }} data-testid={testId}>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[10px] font-semibold tracking-widest uppercase" style={{ color: '#52525b' }}>{eyebrow}</p>
+          <h3 className="text-lg font-light mt-1" style={{ fontFamily: 'Fraunces, Georgia, serif', color: '#a1a1aa' }}>{title}</h3>
+        </div>
+        <span className="flex items-center gap-1.5 text-[10px] font-semibold tracking-wider uppercase px-2.5 py-1 rounded-full flex-shrink-0" style={{ backgroundColor: 'rgba(113,113,122,0.15)', color: '#a1a1aa' }}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3 h-3" aria-hidden><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V7a4 4 0 018 0v4" /></svg>
+          Coming soon
+        </span>
+      </div>
+      <fieldset disabled aria-disabled="true" className="space-y-4 opacity-40 pointer-events-none select-none">{children}</fieldset>
+    </section>
+  )
+}
+
 function Chip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
     <button
@@ -72,7 +82,6 @@ export default function SettingsPage() {
   const { preferences, setPreferences, newFilm } = useStudio()
   const [me, setMe] = useState<Me | null>(null)
   const [form, setForm] = useState<Preferences>(preferences)
-  const [health, setHealth] = useState<Health | null | undefined>(undefined)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
   const [preview, setPreview] = useState<{ state: 'idle' | 'loading' | 'playing' } | { state: 'error'; text: string }>({ state: 'idle' })
@@ -86,7 +95,6 @@ export default function SettingsPage() {
 
   useEffect(() => {
     getMe().then(m => { setMe(m); setForm(m.preferences) }).catch(e => setMessage({ ok: false, text: e instanceof Error ? e.message : 'Could not load your account.' }))
-    getHealth().then(setHealth)
   }, [])
 
   const update = <K extends keyof Preferences>(key: K, value: Preferences[K]) => {
@@ -126,21 +134,6 @@ export default function SettingsPage() {
       await audio.play()
     } catch (err) {
       setPreview({ state: 'error', text: err instanceof Error ? err.message : 'Could not play the preview.' })
-    }
-  }
-
-  const downloadData = async () => {
-    setDataMessage(null)
-    try {
-      const url = URL.createObjectURL(await exportMyData())
-      const a = document.createElement('a')
-      a.href = url
-      a.download = 'cinema-ai-export.json'
-      a.click()
-      setTimeout(() => URL.revokeObjectURL(url), 1000)
-      setDataMessage({ ok: true, text: 'Your films and settings were downloaded.' })
-    } catch (err) {
-      setDataMessage({ ok: false, text: err instanceof Error ? err.message : 'Could not export your data.' })
     }
   }
 
@@ -237,7 +230,7 @@ export default function SettingsPage() {
             </div>
           </Section>
 
-          <Section eyebrow="Voice" title="Character voice">
+          <Locked eyebrow="Voice" title="Character voice" testId="settings-voice-locked">
             <div className="grid sm:grid-cols-2 gap-4">
               <label className="block">
                 <span className="block text-xs text-zinc-600 mb-2">Voice</span>
@@ -284,9 +277,9 @@ export default function SettingsPage() {
               <span className="text-[11px] text-zinc-700">Spoken in the story language above.</span>
               {preview.state === 'error' && <p role="alert" className="w-full text-xs text-red-300">{preview.text}</p>}
             </div>
-          </Section>
+          </Locked>
 
-          <Section eyebrow="Teaser · coming soon" title="Teaser defaults">
+          <Locked eyebrow="Teaser" title="Teaser defaults" testId="settings-teaser-locked">
             <div>
               <div className="flex items-baseline justify-between mb-2">
                 <label htmlFor="teaser-length" className="text-xs text-zinc-600">Teaser length</label>
@@ -321,7 +314,7 @@ export default function SettingsPage() {
                 <Chip active={form.quality === 'final'} onClick={() => update('quality', 'final')}>Final · full quality</Chip>
               </div>
             </div>
-          </Section>
+          </Locked>
 
           <div className="flex flex-wrap items-center gap-3" data-testid="settings-actions">
             <button type="submit" disabled={saving} className="px-5 py-2.5 rounded-lg text-xs font-semibold transition-all hover:opacity-90 disabled:opacity-60" style={{ backgroundColor: '#d4a84b', color: '#09090b' }}>
@@ -336,22 +329,15 @@ export default function SettingsPage() {
           </div>
         </form>
 
-        <Section eyebrow="Your data" title="Your films & account">
-          <div className="flex flex-wrap items-center gap-3">
-            <button type="button" onClick={() => void downloadData()} className="px-4 py-2 rounded-lg text-xs font-medium border transition-all hover:opacity-80" style={{ borderColor: 'rgba(255,255,255,0.1)', color: '#d4d4d8' }}>
-              Export all my films
-            </button>
-            <span className="text-[11px] text-zinc-700">One JSON file with your settings and every film's story, characters, script and dialogue.</span>
-          </div>
-
-          <div className="pt-4 border-t" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
+        <Section eyebrow="Your data" title="Your account">
+          <div>
             {!confirmDelete ? (
               <button type="button" onClick={() => setConfirmDelete(true)} className="px-4 py-2 rounded-lg text-xs font-medium border transition-all hover:bg-red-500/10" style={{ borderColor: 'rgba(239,68,68,0.3)', color: '#fca5a5' }}>
                 Delete my account
               </button>
             ) : (
               <div className="space-y-3 p-4 rounded-lg" style={{ backgroundColor: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.25)' }} data-testid="delete-confirm">
-                <p className="text-xs text-red-200">This permanently deletes all your films, characters, uploaded files and settings. It can't be undone. Export first if you want a copy.</p>
+                <p className="text-xs text-red-200">This permanently deletes all your films, characters, uploaded files and settings. It can't be undone. Download any scripts you want to keep first (Screenplay → PDF or TXT).</p>
                 <label className="block">
                   <span className="block text-xs text-zinc-500 mb-2">Type <b className="text-zinc-200">DELETE</b> to confirm</span>
                   <input
@@ -375,37 +361,6 @@ export default function SettingsPage() {
           {dataMessage && <p role={dataMessage.ok ? 'status' : 'alert'} className={`text-xs ${dataMessage.ok ? 'text-emerald-400' : 'text-red-300'}`}>{dataMessage.text}</p>}
         </Section>
 
-        <Section eyebrow="Studio connection" title={DEMO_MODE ? 'Demo mode' : health ? 'Connected' : health === null ? 'Backend unreachable' : 'Checking…'}>
-          {DEMO_MODE ? (
-            <p className="text-sm text-zinc-500">No backend is connected. Set <code className="text-zinc-300">VITE_API_URL</code> in <code className="text-zinc-300">frontend/.env</code> to use the live studio.</p>
-          ) : (
-            <>
-              <p className="text-xs text-zinc-600 break-all">{API_BASE} {health && `· API v${health.version}`}</p>
-              {health && (
-                <ul className="divide-y" style={{ borderColor: 'rgba(255,255,255,0.05)' }} data-testid="provider-list">
-                  {(['story', 'image', 'video', 'tts', 'stt'] as const).map(k => {
-                    const id = health.providers[k] ?? 'mock'
-                    const live = id !== 'mock'
-                    return (
-                      <li key={k} className="flex items-center justify-between py-2.5 text-sm" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
-                        <span className="text-zinc-500">{{ story: 'Story & screenplay', image: 'Images', video: 'Video', tts: 'Voice', stt: 'Voice input' }[k]}</span>
-                        <span className="flex items-center gap-2">
-                          <span className="text-zinc-300">{PROVIDER_NAMES[k][id] ?? id}</span>
-                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={live ? { backgroundColor: 'rgba(16,185,129,0.12)', color: '#10b981' } : { backgroundColor: 'rgba(113,113,122,0.15)', color: '#a1a1aa' }}>
-                            {live ? 'Live' : 'Mock'}
-                          </span>
-                        </span>
-                      </li>
-                    )
-                  })}
-                </ul>
-              )}
-              <p className="text-xs text-zinc-600">
-                <span className="text-zinc-400">Live</span> uses the real AI service. <span className="text-zinc-400">Mock</span> is a free stand-in for testing — add that provider's key in <code className="text-zinc-400">backend/.env</code> and restart the backend to make it live.
-              </p>
-            </>
-          )}
-        </Section>
       </div>
     </div>
   )
