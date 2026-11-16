@@ -15,15 +15,16 @@ export function saveBlob({ blob, filename }: { blob: Blob; filename: string }) {
  * "Download script: PDF · TXT". For the film shown in the sections (any length, a 1-minute short included),
  * or — with `full` — the full-length film's scene-by-scene screenplay.
  */
-export default function ScriptDownload({ projectId, full = false }: { projectId: string; full?: boolean }) {
+export default function ScriptDownload({ projectId, full = false, part }: { projectId: string; full?: boolean; part?: 'story' | 'screenplay' | 'lyrics' }) {
   const [busy, setBusy] = useState<'pdf' | 'txt' | null>(null)
   const [error, setError] = useState('')
-  const testId = full ? 'full-script-download' : 'script-download'
+  const testId = full ? 'full-script-download' : part ? `${part}-download` : 'script-download'
+  const label = full ? 'Download the full script' : part === 'lyrics' ? 'Download lyrics' : part === 'story' ? 'Download story' : part === 'screenplay' ? 'Download screenplay' : 'Download script'
 
   const get = (fmt: 'pdf' | 'txt') => {
     setBusy(fmt)
     setError('')
-    void (full ? downloadLongFilmScript(projectId, fmt) : downloadFilmScript(projectId, fmt))
+    void (full ? downloadLongFilmScript(projectId, fmt) : downloadFilmScript(projectId, fmt, part))
       .then(saveBlob)
       .catch(e => setError(e instanceof Error ? e.message : 'Download failed.'))
       .finally(() => setBusy(null))
@@ -35,7 +36,7 @@ export default function ScriptDownload({ projectId, full = false }: { projectId:
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-3.5 h-3.5" aria-hidden>
           <path d="M12 4v11m0 0l-4-4m4 4l4-4M5 19h14" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
-        {full ? 'Download the full script' : 'Download script'}
+        {label}
       </span>
       {(['pdf', 'txt'] as const).map(fmt => (
         <button

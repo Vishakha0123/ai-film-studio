@@ -36,6 +36,11 @@ class StoryProvider(ABC):
     async def translate_film(self, memory: dict, language: str) -> ProviderResult:
         """Return the same FilmProject dict with every text value in `language` (a code like "ta")."""
 
+    async def write_part(self, brief: dict, part: str) -> ProviderResult:
+        """Only one part of the creator's film: "story", "screenplay" (with dialogue) or "lyrics" (the songs).
+        Returns the FilmProject fields of that part (services.one_part.PART_FIELDS)."""
+        raise NotImplementedError
+
     # Long film (10 minutes – 2 hours): planned in steps because no model writes a feature film in one reply
     async def write_treatment(self, bible: dict, *, minutes: int, language: str) -> ProviderResult:
         """Return {"story", "acts", "subplots", "characters"}: the premise grown into a feature-length story and cast."""

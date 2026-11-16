@@ -128,7 +128,7 @@ export default function Screenplay() {
             </div>
           </div>
 
-          {project && editing === null && <div className="mb-5 -mt-2"><ScriptDownload projectId={project.id} /></div>}
+          {project && editing === null && <div className="mb-5 -mt-2"><ScriptDownload projectId={project.id} part={film.only === 'screenplay' ? 'screenplay' : undefined} /></div>}
 
           {selection && (
             <div className="mb-3 flex items-start gap-3 px-4 py-3 rounded-xl text-xs" style={{ backgroundColor: 'rgba(212,168,75,0.06)', border: '1px solid rgba(212,168,75,0.25)' }} data-testid="screenplay-selection">

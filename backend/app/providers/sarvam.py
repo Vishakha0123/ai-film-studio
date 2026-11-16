@@ -10,7 +10,7 @@ import json
 import httpx
 
 from app.config import get_settings
-from app.prompts import EDIT, FILM_OUTLINE, PLAN_FILM, SCENE_BREAKDOWN, FILM_TREATMENT, TRANSLATE_FILM, render
+from app.prompts import EDIT, FILM_OUTLINE, ONE_PART, PLAN_FILM, SCENE_BREAKDOWN, FILM_TREATMENT, TRANSLATE_FILM, render
 from app.providers._json import extract_json
 from app.providers.base import ProviderError, ProviderResult, STTProvider, StoryProvider, TTSProvider
 from app.services.languages import describe
@@ -89,6 +89,13 @@ class SarvamStory(StoryProvider):
         prompt = render(PLAN_FILM, brief=json.dumps(brief, ensure_ascii=False, indent=2),
                         shot_count=shot_count, teaser_seconds=seconds, scene_count=scene_count,
                         output_language=describe(brief.get("language") or "en"))
+        return await self._chat(prompt)
+
+    async def write_part(self, brief: dict, part: str) -> ProviderResult:
+        from app.services.one_part import FORMAT_NOTES, INSTRUCTIONS, PART_NAMES, SCHEMAS
+        prompt = render(ONE_PART, part_name=PART_NAMES[part], part_instructions=INSTRUCTIONS[part], schema=SCHEMAS[part],
+                        format_note=FORMAT_NOTES.get(part, ""), output_language=describe(brief.get("language") or "en"),
+                        brief=json.dumps(brief, ensure_ascii=False, indent=2))
         return await self._chat(prompt)
 
     async def edit(self, memory: dict, target: str, instruction: str, *, language: str = "en") -> ProviderResult:

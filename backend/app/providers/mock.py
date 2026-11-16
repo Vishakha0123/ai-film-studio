@@ -58,6 +58,19 @@ class MockStory(StoryProvider):
         _mock_families(film, str(brief.get("prompt", "")), brief.get("language") or "en")
         return ProviderResult(film, provider="mock", model="sample-film")
 
+    async def write_part(self, brief: dict, part: str) -> ProviderResult:
+        """Offline: the sample film's story, screenplay or songs (only that part)."""
+        from app.services.one_part import PART_FIELDS
+        film = (await self.plan_film(brief)).data
+        if part == "lyrics":
+            moments = ["Opening", "The first meeting", "Leaving home", "The climax", "The ending", "A memory", "The festival", "Farewell"]
+            songs = [film["lyrics"], *film["songs"]]
+            for song, moment in zip(songs, moments):
+                song["moment"] = moment
+                song.pop("scene", None)
+            film["lyrics"], film["songs"] = songs[0], songs[1:]
+        return ProviderResult({k: film[k] for k in PART_FIELDS[part] if k in film}, provider="mock", model="sample-film")
+
     async def translate_film(self, memory: dict, language: str) -> ProviderResult:
         # No translation without a model: keep the text and mark the title so the version is recognisable.
         from app.services.languages import native_name

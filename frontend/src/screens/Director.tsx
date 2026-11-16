@@ -14,7 +14,9 @@ import Storyboard from '../panels/Storyboard'
 import Audio from '../panels/Audio'
 import Music from '../panels/Music'
 import { useFilm, useStudio } from '../studio'
-import { DEMO_MODE, approveStep } from '../api'
+import { DEMO_MODE, approveStep, assertCompleted, getProject, planProject, waitForJob } from '../api'
+import { PART_NAME, PART_PANEL, type OnlyPart } from '../lib/onlyPart'
+import { directorTitle } from '../lib/directorTitle'
 import { isPanelLocked, isTeaserLocked } from '../features'
 import { ComingSoonButton } from '../components/LockIcon'
 
@@ -29,6 +31,13 @@ export const PANEL_TITLES: Record<Panel, string> = {
   storyboard: 'Storyboard',
   audio: 'Audio',
   music: 'Music',
+}
+
+/** The sections a one-part film shows (the creator asked only for its story, screenplay or songs). */
+export const ONLY_PANELS: Record<OnlyPart, Panel[]> = {
+  story: ['story'],
+  screenplay: ['screenplay', 'dialogue', 'characters'],
+  lyrics: ['lyrics'],
 }
 
 /** Panel the Director opens after each AI step (matches the Figma prototype flow). */
@@ -65,8 +74,11 @@ export default function Director({ navigate, panel, setPanel, progress, setProgr
     if (isWide()) { setDockOpen(false); writeDockPref(false) }
   }
   const film = useFilm()
-  const { project } = useStudio()
+  const { project, preferences } = useStudio()
   const routerNavigate = useNavigate()
+  const only = (!DEMO_MODE && project?.memory?.only) || ''
+  const hiddenByOnly = !!only && panel !== 'chat' && panel !== 'music' && !ONLY_PANELS[only].includes(panel)
+  const title = panel === 'chat' ? directorTitle(preferences.displayName) : PANEL_TITLES[panel]
   // Live mode with no planned film yet: panels explain how to start instead of showing the sample film.
   const needsFilm = !DEMO_MODE && !project?.memory && panel !== 'chat' && panel !== 'music'
 
@@ -135,7 +147,7 @@ export default function Director({ navigate, panel, setPanel, progress, setProgr
                 <path d="M3.75 6.75h16.5M3.75 12h16.5M3.75 17.25h16.5" strokeLinecap="round" />
               </svg>
             </button>
-            <h1 className="text-sm font-semibold truncate" style={{ color: '#d4d4d8' }} data-testid="panel-title">{PANEL_TITLES[panel]}</h1>
+            <h1 className="text-sm font-semibold truncate" style={{ color: '#d4d4d8' }} data-testid="panel-title">{title}</h1>
             {progress > 0 && (
               <span className="hidden sm:inline text-[10px] px-2 py-0.5 rounded-full font-medium whitespace-nowrap" style={{ backgroundColor: 'rgba(212,168,75,0.1)', color: '#d4a84b' }} data-testid="film-badge">
                 {film.title}
@@ -175,18 +187,19 @@ export default function Director({ navigate, panel, setPanel, progress, setProgr
           <div className={panel === 'chat' ? 'hidden' : 'flex-1 min-w-0 flex flex-col overflow-hidden'}>
               <div className="flex-1 overflow-hidden">
               {needsFilm && <EmptyPanel title={PANEL_TITLES[panel]} onStart={() => setPanel('chat')} onOpenProjects={() => routerNavigate('/projects')} />}
-              {!needsFilm && panel === 'story' && <Story />}
-              {!needsFilm && panel === 'characters' && <Characters />}
-              {!needsFilm && panel === 'screenplay' && <FullFilmGate kind="screenplay"><Screenplay /></FullFilmGate>}
-              {!needsFilm && panel === 'dialogue' && <FullFilmGate kind="dialogue"><Dialogue /></FullFilmGate>}
-              {!needsFilm && panel === 'lyrics' && <Lyrics />}
-              {!needsFilm && panel === 'scenes' && <FullFilmGate kind="scenes"><Scenes onGenerate={handleGenerate} /></FullFilmGate>}
-              {!needsFilm && panel === 'storyboard' && <FullFilmGate kind="storyboard"><Storyboard onGenerate={handleGenerate} /></FullFilmGate>}
-              {!needsFilm && panel === 'audio' && <Audio />}
+              {!needsFilm && hiddenByOnly && <OnlyPartPanel title={PANEL_TITLES[panel]} part={only as OnlyPart} onOpenPart={() => setPanel(PART_PANEL[only as OnlyPart])} />}
+              {!needsFilm && !hiddenByOnly && panel === 'story' && <Story />}
+              {!needsFilm && !hiddenByOnly && panel === 'characters' && <Characters />}
+              {!needsFilm && !hiddenByOnly && panel === 'screenplay' && <FullFilmGate kind="screenplay"><Screenplay /></FullFilmGate>}
+              {!needsFilm && !hiddenByOnly && panel === 'dialogue' && <FullFilmGate kind="dialogue"><Dialogue /></FullFilmGate>}
+              {!needsFilm && !hiddenByOnly && panel === 'lyrics' && <Lyrics />}
+              {!needsFilm && !hiddenByOnly && panel === 'scenes' && <FullFilmGate kind="scenes"><Scenes onGenerate={handleGenerate} /></FullFilmGate>}
+              {!needsFilm && !hiddenByOnly && panel === 'storyboard' && <FullFilmGate kind="storyboard"><Storyboard onGenerate={handleGenerate} /></FullFilmGate>}
+              {!needsFilm && !hiddenByOnly && panel === 'audio' && <Audio />}
               <div className={panel === 'music' ? 'h-full' : 'hidden'}><Music active={panel === 'music'} /></div>
             </div>
 
-            {!needsFilm && steps.includes(panel) && (
+            {!needsFilm && !only && steps.includes(panel) && (
               <ContinueBar
                 step={steps.indexOf(panel) + 1}
                 total={steps.length}
@@ -211,7 +224,7 @@ export default function Director({ navigate, panel, setPanel, progress, setProgr
             {panel !== 'chat' && (
               <div className="flex items-center justify-between gap-2 px-4 py-2.5 border-b flex-shrink-0" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
                 <span className="flex items-center gap-2 text-xs font-semibold" style={{ color: '#d4d4d8' }}>
-                  <span style={{ color: '#d4a84b' }}>◈</span> AI Director
+                  <span style={{ color: '#d4a84b' }}>◈</span> {directorTitle(preferences.displayName)}
                 </span>
                 <span className="flex items-center gap-1">
                   <button onClick={() => { setMobileChat(false); setPanel('chat') }} aria-label="Open full chat" title="Open full chat" className="p-1.5 rounded-md text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/50">
@@ -231,6 +244,7 @@ export default function Director({ navigate, panel, setPanel, progress, setProgr
                 onAdvance={advance}
                 onGenerate={handleGenerate}
                 onOpenPanel={p => { setMobileChat(false); setPanel(p) }}
+                onOnlyPart={part => { setProgress(PANEL_ORDER.length); setMobileChat(false); setPanel(PART_PANEL[part]) }}
                 genres={genres}
                 messages={messages}
                 setMessages={setMessages}
@@ -279,6 +293,47 @@ function EmptyPanel({ title, onStart, onOpenProjects }: { title: string; onStart
           <button onClick={onStart} className="px-4 py-2 rounded-lg text-xs font-semibold" style={{ backgroundColor: '#d4a84b', color: '#09090b' }}>Start in the AI Director</button>
           <button onClick={onOpenProjects} className="px-4 py-2 rounded-lg text-xs font-medium border" style={{ borderColor: 'rgba(255,255,255,0.1)', color: '#d4d4d8' }}>Open a project</button>
         </div>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * A section of a one-part film (the creator asked only for its story, screenplay or songs): nothing here yet —
+ * open the part that was written, or make the rest of the film around it.
+ */
+function OnlyPartPanel({ title, part, onOpenPart }: { title: string; part: OnlyPart; onOpenPart: () => void }) {
+  const { project, setProject } = useStudio()
+  const [busy, setBusy] = useState('')
+  const [error, setError] = useState('')
+  const makeRest = async () => {
+    if (!project) return
+    setBusy('Starting')
+    setError('')
+    try {
+      const job = await waitForJob(await planProject(project.id, undefined, { rest: true }), j => setBusy(j.stage || 'Writing the rest of the film'))
+      assertCompleted(job)
+      setProject(await getProject(project.id))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not make the rest of the film.')
+    } finally {
+      setBusy('')
+    }
+  }
+  return (
+    <div className="h-full flex items-center justify-center px-6" data-testid="panel-only-part">
+      <div className="max-w-md text-center animate-fade-up">
+        <p className="text-xs font-semibold tracking-widest uppercase mb-3" style={{ color: '#d4a84b' }}>{title}</p>
+        <h2 className="text-2xl font-light mb-3" style={{ fontFamily: 'Fraunces, Georgia, serif', color: '#f4f0ea' }}>Not part of this film yet</h2>
+        <p className="text-sm text-zinc-500 mb-6">You asked only for {PART_NAME[part]} of “{project?.title}”. Make the rest of the film — story, characters, screenplay, scenes and storyboard — around it, and this section fills in. What you have is kept.</p>
+        <div className="flex flex-wrap justify-center gap-2">
+          <button onClick={() => void makeRest()} disabled={!!busy} data-testid="make-rest" className="px-4 py-2 rounded-lg text-xs font-semibold disabled:opacity-60" style={{ backgroundColor: '#d4a84b', color: '#09090b' }}>
+            {busy ? 'Writing…' : 'Make the rest of the film'}
+          </button>
+          <button onClick={onOpenPart} disabled={!!busy} className="px-4 py-2 rounded-lg text-xs font-medium border" style={{ borderColor: 'rgba(255,255,255,0.1)', color: '#d4d4d8' }}>Open {PART_NAME[part]}</button>
+        </div>
+        {busy && <p className="text-xs mt-4" style={{ color: '#d4a84b' }} role="status" data-testid="make-rest-status">{busy}…</p>}
+        {error && <p className="text-xs mt-4 text-red-300" role="alert">{error}</p>}
       </div>
     </div>
   )

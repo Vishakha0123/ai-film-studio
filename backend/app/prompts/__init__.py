@@ -17,3 +17,4 @@ def render(name: str, **values: object) -> str:
     for key, value in values.items():
         text = text.replace("{" + key + "}", str(value))
     return text
+ONE_PART = "one_part.v1"              # only the story, only the screenplay (with dialogue) or only the songs

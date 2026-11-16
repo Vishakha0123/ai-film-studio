@@ -177,7 +177,7 @@ export default function Landing({ navigate, signedIn = false }: { navigate: NavF
 
       {/* Languages */}
       <section id="languages" className="scroll-mt-16 px-5 sm:px-8 lg:px-16 py-20 border-t border-zinc-900 text-center" data-testid="landing-languages">
-        <h2 className="text-3xl sm:text-4xl font-light mb-3" style={serif}>Made for India’s many voices</h2>
+        <h2 className="text-3xl sm:text-4xl font-light mb-3" style={serif}>Made for India’s many stories</h2>
         <p className="text-sm text-zinc-500 mb-8">Write in one language — or let each family speak its own.</p>
         <div className="flex flex-wrap justify-center gap-2.5 max-w-4xl mx-auto">
           {SITE_LANGUAGES.map(l => (

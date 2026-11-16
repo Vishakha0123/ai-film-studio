@@ -100,6 +100,8 @@ export interface Lyrics {
   /** Extra songs: the scene it plays in and who sings it */
   scene?: number
   singer?: string
+  /** Songs written on their own: where in the film it plays, in words ("Opening", "When Meera leaves home") */
+  moment?: string
 }
 
 export interface FilmProject {
@@ -121,6 +123,8 @@ export interface FilmProject {
   visualStyle?: string
   /** Sections the creator switched to another language than the film's, e.g. { lyrics: 'ta' } */
   sectionLanguages?: Partial<Record<string, string>>
+  /** Only one part was asked for (the creator already has the film): "story", "screenplay" or "lyrics" */
+  only?: 'story' | 'screenplay' | 'lyrics' | ''
 }
 
 export interface Asset {

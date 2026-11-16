@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { lengthLabel, nearestFilmLength, requestedMinutes } from '../lib/filmLength'
+import { ONLY_PARTS, PART_NAME, describesFilm, requestedPart, type OnlyPart } from '../lib/onlyPart'
 import { Elapsed, formatElapsed } from '../lib/useElapsed'
 import { isTeaserLocked } from '../features'
 import { ComingSoonButton } from '../components/LockIcon'
@@ -62,6 +63,8 @@ interface ChatProps {
   onAdvance: () => void
   onGenerate: () => void
   onOpenPanel?: (p: Panel) => void
+  /** Only one part was written (story, screenplay or lyrics): open its page */
+  onOnlyPart?: (part: OnlyPart) => void
   genres?: string[]
   messages: ChatMessage[]
   setMessages: (fn: (m: ChatMessage[]) => ChatMessage[]) => void
@@ -69,6 +72,20 @@ interface ChatProps {
   replyDelay?: number
   /** Shown as the side panel next to a section rather than as the full Director page */
   docked?: boolean
+}
+
+/** The reply when only one part of the creator's film was written. */
+function onlyPartReply(part: OnlyPart, f: FilmProject): string {
+  const where = 'You can edit it, change its language with 🌐, or download it as PDF or TXT.'
+  if (part === 'lyrics') {
+    const n = 1 + (f.songs?.length ?? 0)
+    const them = n === 1 ? where : 'You can edit them, change their language with 🌐, or download them as PDF or TXT.'
+    return `Here ${n === 1 ? 'is the song' : `are the ${n} songs`} for "${f.title}" — only the lyrics, nothing else. ${them}\n\nIf you'd like the whole film later, use "Make the rest of the film".`
+  }
+  if (part === 'screenplay') {
+    return `Here's the screenplay for "${f.title}" — ${f.characters.length} characters and ${f.dialogue?.length ?? 0} lines of dialogue. ${where}\n\nIf you'd like the whole film later, use "Make the rest of the film".`
+  }
+  return `Here's the story of "${f.title}".\n\n${f.logline}\n\n${where} If you'd like the whole film later, use "Make the rest of the film".`
 }
 
 /** Director replies for a live project, written from the generated film rather than the sample. */
@@ -112,7 +129,7 @@ export function initialMessages(genres: string[] = []): ChatMessage[] {
   return [{ ...WELCOME, content: `Let's make a new ${g} film. Describe your idea — a single sentence or a detailed treatment — or attach a script, story or lyrics. I'll handle the rest.\n\nWhat's your story?` }]
 }
 
-export default function Chat({ progress, onAdvance, onGenerate, onOpenPanel, genres, messages, setMessages, replyDelay = 1600, docked = false }: ChatProps) {
+export default function Chat({ progress, onAdvance, onGenerate, onOpenPanel, onOnlyPart, genres, messages, setMessages, replyDelay = 1600, docked = false }: ChatProps) {
   const [input, setInput] = useState('')
   const [isTyping, setIsTyping] = useState(false)
   const [status, setStatus] = useState('')
@@ -123,6 +140,10 @@ export default function Chat({ progress, onAdvance, onGenerate, onOpenPanel, gen
   const [newFilmLanguage, setNewFilmLanguage] = useState(preferences.language)
   useEffect(() => setNewFilmLanguage(preferences.language), [preferences.language])
   const filmExists = DEMO_MODE ? progress > 0 : !!project?.memory
+  // "What to make": the whole film, or only one part of a film the creator already has
+  const [makeWhat, setMakeWhat] = useState<OnlyPart | 'film'>('film')
+  // asked for one part but didn't describe the movie yet: the next message is the movie
+  const [pending, setPending] = useState<{ part: OnlyPart; text: string } | null>(null)
   const filmLanguage = !filmExists ? newFilmLanguage : DEMO_MODE ? 'en' : project?.language || 'en'
   const film = useFilm()
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -198,6 +219,24 @@ export default function Chat({ progress, onAdvance, onGenerate, onOpenPanel, gen
       return
     }
 
+    // Only one part (story, screenplay or songs) of a film the creator already has
+    const part: OnlyPart | null = !DEMO_MODE && progress === 0
+      ? pending?.part ?? (makeWhat !== 'film' ? makeWhat : requestedPart(text)) : null
+    if (part && !pending && !attached.length && !describesFilm(text)) {
+      setPending({ part, text })
+      timerRef.current = setTimeout(() => {
+        if (!alive.current) return
+        setMessages(m => [...m, {
+          id: `${Date.now()}-ask`, role: 'ai', durationMs: Date.now() - startedAt,
+          content: `Sure — I'll write only ${PART_NAME[part]}, nothing else. Tell me about your movie: who it's about and what happens, in a few lines — or attach your story or script (📎).${part === 'lyrics' ? ' Say how many songs you need, and where they come in the film if you know.' : ''}`,
+        }])
+        setIsTyping(false)
+      }, Math.min(replyDelay, 600))
+      return
+    }
+    const fullText = pending ? `${pending.text}\n\n${text}`.trim() : text
+    if (pending) setPending(null)
+
     // Live mode: the first idea creates the project, saves the brief and runs the plan job.
     let createdId: string | null = null
     const backendCall: Promise<FilmProject | null> =
@@ -209,9 +248,10 @@ export default function Chat({ progress, onAdvance, onGenerate, onOpenPanel, gen
             // Remember the film right away: a refresh while it's being written reopens it and waits.
             if (alive.current) setProject(created)
             await uploadAll(created.id)
-            const prompt = text || `Turn the attached ${attached.length === 1 ? 'file' : 'files'} into a teaser.`
+            const prompt = fullText || (part ? `Write only ${PART_NAME[part]} for the film in the attached ${attached.length === 1 ? 'file' : 'files'}.`
+              : `Turn the attached ${attached.length === 1 ? 'file' : 'files'} into a teaser.`)
             await saveBrief(created.id, { prompt, genres, language: newFilmLanguage, teaserSeconds: preferences.teaserSeconds, aspectRatio: preferences.aspectRatio })
-            const job = await waitForJob(await planProject(created.id, prompt), j => alive.current && setStatus(j.stage || 'Queued'))
+            const job = await waitForJob(await planProject(created.id, prompt, part ? { only: part } : {}), j => alive.current && setStatus(j.stage || 'Queued'))
             assertCompleted(job)
             const fresh = await getProject(created.id)
             if (alive.current) setProject(fresh)
@@ -228,6 +268,14 @@ export default function Chat({ progress, onAdvance, onGenerate, onOpenPanel, gen
     Promise.all([backendCall, minDelay])
       .then(([planned]) => {
         if (!alive.current) return
+        if (part && planned) {
+          setMessages(m => [...m, { id: (Date.now() + 1).toString(), role: 'ai', content: onlyPartReply(part, planned), card: part, durationMs: Date.now() - startedAt }])
+          setMakeWhat('film')
+          setIsTyping(false)
+          setStatus('')
+          onOnlyPart?.(part)
+          return
+        }
         const response = (DEMO_MODE ? demoResponse(progress) : liveResponse(progress, planned ?? film)) || {
           text: "I've noted that. What else would you like to adjust?",
           card: undefined,
@@ -494,6 +542,22 @@ export default function Chat({ progress, onAdvance, onGenerate, onOpenPanel, gen
           <p role="alert" className="text-xs text-red-300 mt-2 px-1">{notice ?? dictation.error}</p>
         )}
         <div className="flex items-center justify-between gap-3 mt-2 px-1">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 min-w-0">
+          {!filmExists && !DEMO_MODE && (
+            <label className="flex items-center gap-1.5 text-[11px] text-zinc-500">
+              <span className="whitespace-nowrap">Make</span>
+              <select
+                aria-label="What to make"
+                data-testid="make-what"
+                value={pending?.part ?? makeWhat}
+                onChange={e => { setMakeWhat(e.target.value as OnlyPart | 'film'); setPending(null) }}
+                disabled={isTyping}
+                className="bg-transparent text-zinc-300 rounded-md px-1 py-0.5 hover:bg-zinc-800/60 focus:outline-none focus:ring-1 focus:ring-zinc-600 disabled:opacity-50 cursor-pointer"
+              >
+                {ONLY_PARTS.map(o => <option key={o.part} value={o.part} style={{ backgroundColor: '#18181b' }}>{o.label}</option>)}
+              </select>
+            </label>
+          )}
           <label className="flex items-center gap-1.5 text-[11px] text-zinc-500 min-w-0" title="Write your idea in any language — the film is written in this one">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-3.5 h-3.5 flex-shrink-0" aria-hidden>
               <path d="M12 21a9 9 0 100-18 9 9 0 000 18zM3.6 9h16.8M3.6 15h16.8M12 3a14 14 0 010 18M12 3a14 14 0 000 18" strokeLinecap="round" />
@@ -512,6 +576,7 @@ export default function Chat({ progress, onAdvance, onGenerate, onOpenPanel, gen
               ))}
             </select>
           </label>
+          </div>
           <p className={`text-[10px] text-zinc-700 text-right ${docked ? 'hidden' : 'hidden md:block'}`}>Enter to send · Shift+Enter new line · Attach or drop files · Mic for voice</p>
         </div>
       </div>
@@ -537,9 +602,9 @@ function MessageCard({ card, movieMinutes, onGenerate, onOpenPanel }: { card: No
   const configs: Record<string, { label: string; color: string; desc: string }> = {
     story: { label: 'Story Generated', color: '#d4a84b', desc: `${f.title} · ${f.genre}` },
     characters: { label: 'Characters Created', color: '#8b7cf6', desc: `${f.characters.length} fully realized character profiles with portraits` },
-    screenplay: { label: 'Screenplay Written', color: '#06b6d4', desc: '12 pages · Proper screenplay format' },
+    screenplay: { label: 'Screenplay Written', color: '#06b6d4', desc: `${f.dialogue?.length ?? 0} lines of dialogue · Screenplay format` },
     dialogue: { label: 'Dialogue Refined', color: '#10b981', desc: 'Scene-by-scene dialogue with character voice' },
-    lyrics: { label: 'Lyrics Composed', color: '#f59e0b', desc: 'Verse · Chorus · Bridge · Emotionally precise' },
+    lyrics: { label: 'Lyrics Composed', color: '#f59e0b', desc: `${1 + (f.songs?.length ?? 0) > 1 ? `${1 + (f.songs?.length ?? 0)} songs · ` : ''}Verse · Chorus · Bridge` },
     scenes: { label: 'Scenes Broken Down', color: '#f97316', desc: `${f.scenes.length} scenes · ${secs}s total duration` },
     storyboard: { label: 'Storyboard Ready', color: '#ec4899', desc: `${f.shots.length} shots · Dark Cinema visual style` },
     generate: { label: 'Ready to Generate', color: '#d4a84b', desc: `All components complete · ${secs}s teaser` },
