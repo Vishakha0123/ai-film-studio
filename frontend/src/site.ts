@@ -7,7 +7,7 @@ export const SITE = {
   /** Placeholder until the domain is bought */
   email: 'contact@vrutsasolutions.com',
   /** Shown on the Privacy Policy and Terms of Service */
-  legalUpdated: '12 November 2026',
+  legalUpdated: '17 November 2026',
   year: 2026,
 }
 
