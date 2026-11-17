@@ -115,13 +115,11 @@ export function Privacy(props: Props) {
       <P>We do not sell your personal data, and we do not use your films for advertising.</P>
 
       <H2>3. AI services that process your content</H2>
-      <P>To write and create your films, the text and files needed for each step are sent to these providers, which process them on our behalf:</P>
+      <P>To write and create your films, the text and files needed for each step are sent to this provider, which processes them on our behalf:</P>
       <UL>
         <li><b>Sarvam AI</b> — writing the story, screenplay and dialogue, translation, voices and speech-to-text.</li>
-        <li><b>OpenAI</b> — images such as character portraits and storyboard frames (only when image generation is switched on).</li>
-        <li><b>Atlas Cloud (Seedance)</b> — video clips (only when video generation is switched on).</li>
       </UL>
-      <P>Each provider handles data under its own terms and privacy policy. We send only what each step needs.</P>
+      <P>It handles data under its own terms and privacy policy. We send only what each step needs. If we add another AI service, we will list it here first.</P>
 
       <H2>4. Where it’s stored</H2>
       <P>

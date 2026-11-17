@@ -101,3 +101,14 @@ describe('public pages', () => {
     expect(within(screen.getByTestId('public-nav')).getByTestId('landing-open-studio')).toBeInTheDocument()
   })
 })
+
+describe('privacy policy providers', () => {
+  it('lists only Sarvam AI — no image or video providers while those features are off', () => {
+    renderApp('/privacy')
+    const page = screen.getByTestId('page-privacy')
+    expect(page).toHaveTextContent('Sarvam AI')
+    expect(page).not.toHaveTextContent('OpenAI')
+    expect(page).not.toHaveTextContent('Atlas Cloud')
+    expect(page).not.toHaveTextContent('Seedance')
+  })
+})
